@@ -8,88 +8,119 @@
   <style>
     :root {
       --blue: #228be6; --red: #fa5252; --green: #2b8a3e; --yellow: #f08c00; --gray: #868e96;
-      --bg: #f6f6f7; --card-bg: rgba(255, 255, 255, 0.85); /* 카드 투명도 설정 */
-      --border: #e5e7eb; --thead: #f3f4f6;
+      --bg: #f8f9fa; 
+      --card-bg: rgba(255, 255, 255, 0.0); 
+      --border: rgba(0, 0, 0, 0.05); 
+      --thead: rgba(243, 244, 246, 0.0);
     }
     * { box-sizing: border-box; }
     body { 
       margin: 0; background: var(--bg); color: #111827;
       font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
       position: relative; min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    /* 배경 워터마크 로고 [bitchart 스타일] */
     .watermark {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 400px; max-width: 80vw; height: auto; opacity: 0.05; z-index: -1; pointer-events: none;
+      width: 500px; max-width: 80vw; height: auto; 
+      opacity: 0.12; 
+      z-index: -1; pointer-events: none;
       filter: grayscale(1);
     }
 
-    /* 상단 헤더 로고 스타일 */
-    header { padding: 30px 16px 10px; text-align: center; }
+    header { padding: 40px 16px 20px; text-align: center; position: relative; z-index: 10; }
     header .logo {
-      width: 180px; max-width: 70vw; height: auto; display: block; margin: 0 auto 10px;
-      filter: grayscale(1) saturate(0) brightness(.45) contrast(1.15); /* 로고 세련된 처리 */
+      width: 200px; max-width: 70vw; height: auto; display: block; margin: 0 auto 12px;
+      filter: grayscale(1) saturate(0) brightness(.4) contrast(1.1);
     }
-    header h2 { font-size: 1.5rem; margin: 0; color: #374151; letter-spacing: -0.5px; }
+    header h2 { font-size: 1.6rem; margin: 0; color: #1f2937; letter-spacing: -0.5px; font-weight: 800; }
 
-    .container { width: 100%; max-width: 1550px; margin: 0 auto; padding: 0 20px 40px; }
+    .container { width: 100%; max-width: 1550px; margin: 0 auto; padding: 0 20px 60px; position: relative; z-index: 5; }
     
-    /* 카드 디자인 (투명도 적용) */
     .card { 
-      background: var(--card-bg); backdrop-filter: blur(10px); /* 유리 느낌 효과 */
-      border-radius: 16px; padding: 25px; 
-      box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5);
-      margin-bottom: 20px; 
+      background: var(--card-bg); 
+      backdrop-filter: blur(1px); 
+      -webkit-backdrop-filter: blur(1px);
+      border-radius: 24px; padding: 30px; 
+      box-shadow: 0 8px 32px rgba(0,0,0,0.03); 
+      border: 1px solid rgba(255,255,255,0.3);
+      margin-bottom: 25px; 
     }
+
+    /* EMR 다운로드 가이드 스타일 */
+    .guide-bar {
+      display: flex; gap: 20px; justify-content: center; margin-bottom: 25px;
+      padding: 15px; background: rgba(255, 255, 255, 0.2); 
+      border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);
+      font-size: 0.85rem; line-height: 1.6; color: #4b5563;
+    }
+    .guide-item { flex: 1; text-align: left; max-width: 500px; }
+    .guide-item strong { color: var(--blue); font-weight: 800; display: block; margin-bottom: 4px; }
+
+    /* 총 합계 요약 대시보드 스타일 */
+    .dashboard {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;
+    }
+    .dash-box {
+      padding: 20px; border-radius: 16px; background: rgba(255,255,255,0.4); 
+      border: 1px solid rgba(255,255,255,0.5); text-align: center;
+    }
+    .dash-box h4 { margin: 0 0 10px; font-size: 0.9rem; color: #6b7280; }
+    .dash-val { font-size: 1.3rem; font-weight: 900; color: #1f2937; display: block; margin-bottom: 5px; }
+    .dash-sub { font-size: 0.8rem; color: #6b7280; }
+    .dash-sub b { color: var(--blue); }
+    .dash-sub.err b { color: var(--red); }
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .file-zone { border: 2px dashed #dee2e6; padding: 25px; border-radius: 12px; text-align: center; background: rgba(255,255,255,0.5); }
+    .file-zone { 
+      border: 2px dashed rgba(0,0,0,0.1); padding: 30px; border-radius: 18px; 
+      text-align: center; background: rgba(255,255,255,0.1); 
+    }
     
-    /* 미니 캘린더 스타일 */
-    .calendar-area { margin-top: 15px; display: none; animation: fadeIn 0.5s; }
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; max-width: 380px; margin-left: auto; margin-right: auto; }
-    .day-btn { padding: 10px 5px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-    .day-btn:hover { background: #e7f5ff; }
-    .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); box-shadow: 0 4px 12px rgba(34, 139, 230, 0.3); }
-    .day-btn.disabled { opacity: 0.3; cursor: not-allowed; border-style: dotted; }
+    .calendar-area { margin-top: 20px; display: none; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; max-width: 400px; margin: 15px auto 0; }
+    .day-btn { 
+      padding: 12px 5px; border: 1px solid rgba(0,0,0,0.05); background: rgba(255,255,255,0.6); 
+      border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; 
+    }
+    .day-btn:hover { background: var(--blue); color: white; transform: translateY(-2px); }
+    .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); box-shadow: 0 5px 15px rgba(34, 139, 230, 0.3); }
+    .day-btn.disabled { opacity: 0.2; cursor: not-allowed; }
 
-    /* 필터 스위치 */
-    .filter-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 15px; background: #e7f5ff; border-radius: 12px; }
-    .switch-container { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; color: var(--blue); }
-    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+    .filter-bar { 
+      display: flex; align-items: center; justify-content: space-between; 
+      margin-bottom: 15px; padding: 18px; 
+      background: rgba(231, 245, 255, 0.4); 
+      border-radius: 16px; border: 1px solid rgba(34, 139, 230, 0.1);
+    }
+    .switch-container { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; color: var(--blue); }
+    .switch { position: relative; display: inline-block; width: 48px; height: 24px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; inset: 0; background-color: #ced4da; transition: .4s; border-radius: 34px; }
-    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: #adb5bd; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
     input:checked + .slider { background-color: var(--red); }
-    input:checked + .slider:before { transform: translateX(22px); }
+    input:checked + .slider:before { transform: translateX(24px); }
 
-    .btn-run { width: 100%; padding: 20px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(34, 139, 230, 0.2); }
-    .btn-run:hover { background: #1c7ed6; transform: translateY(-1px); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: transparent; }
+    th { background: var(--thead); padding: 14px; border: 1px solid var(--border); color: #374151; font-weight: 700; }
+    td { padding: 12px; text-align: center; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.0); }
     
-    /* 테이블 투명도 및 스타일 */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: rgba(255,255,255,0.7); font-size: 0.88rem; }
-    th { background: var(--thead); padding: 12px; border: 1px solid var(--border); color: #4b5563; font-weight: 600; }
-    td { padding: 10px; text-align: center; border: 1px solid var(--border); }
-    
-    .row-err { background: rgba(255, 82, 82, 0.08); font-weight: bold; }
-    .row-misu { background: rgba(134, 142, 150, 0.05); color: var(--gray); }
-    .diff-text { color: var(--red); font-weight: bold; }
+    .row-err { background: rgba(250, 82, 82, 0.15) !important; font-weight: bold; }
+    .row-misu { background: rgba(134, 142, 150, 0.1) !important; color: var(--gray); }
+    .diff-text { color: var(--red); font-weight: 800; }
     .hidden { display: none; }
 
-    /* 결제 수단 뱃지 */
-    .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; display: inline-block; margin: 1px; }
-    .m1 { background: #ebfbee; color: #2b8a3e; border: 1px solid #b2f2bb; } 
-    .m2 { background: #fff9db; color: #f08c00; border: 1px solid #ffec99; } 
-    .m3 { background: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; } 
-    .m6 { background: #f3f0ff; color: #7048e8; border: 1px solid #d0bfff; } 
-    
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .badge { padding: 5px 10px; border-radius: 7px; font-size: 0.85rem; font-weight: 800; display: inline-block; margin: 1px; }
+    .m1 { background: rgba(235, 251, 238, 0.7); color: #2b8a3e; border: 1px solid #b2f2bb; } 
+    .m2 { background: rgba(255, 249, 219, 0.7); color: #f08c00; border: 1px solid #ffec99; } 
+    .m3 { background: rgba(255, 245, 245, 0.7); color: #e03131; border: 1px solid #ffc9c9; } 
+    .m6 { background: rgba(243, 240, 255, 0.7); color: #7048e8; border: 1px solid #d0bfff; } 
   </style>
 </head>
 <body>
 
-<img src=""jinsul-logo.png" class="watermark" alt="배경 워터마크" />
+<img src="jinsul-logo.png" class="watermark" alt="JINSUL WATERMARK" />
 
 <header>
   <img src="jinsul-logo.png" alt="JINSUL" class="logo" />
@@ -98,33 +129,64 @@
 
 <div class="container">
   <div class="card">
+    <div class="guide-bar">
+      <div class="guide-item">
+        <strong>🖥️ 비트컴퓨터</strong>
+        접수 ➡️ 일일집계 ➡️ 집계(클릭) ➡️ 엑셀(다운로드)
+      </div>
+      <div class="guide-item">
+        <strong>🖥️ 의사랑</strong>
+        원무과 외래 ➡️ 마감 ➡️ 일일마감 ➡️ 마감(클릭) ➡️ 엑셀출력(다운로드)
+      </div>
+    </div>
+
     <div class="grid">
       <div class="file-zone">
-        <strong>📄 1. 진설 일일 수납 대장 </strong>
-        <input type="file" id="fileA" style="margin-top:15px; width:100%;" />
+        <strong style="color:var(--blue); font-size: 1.1rem;">📄 1. 진설 일일 수납 대장</strong>
+        <input type="file" id="fileA" style="margin-top:20px; width:100%;" />
         <div id="calendarArea" class="calendar-area">
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
       </div>
       <div class="file-zone">
-        <strong>💻 2. 차트 일일 수납 엑셀</strong>
-        <input type="file" id="fileB" style="margin-top:15px; width:100%;" />
-        <div id="logB" style="font-size:0.85em; margin-top:15px; color:#6b7280; font-weight:500;">전산 파일을 업로드하세요.</div>
+        <strong style="color:var(--gray); font-size: 1.1rem;">💻 2. 차트 일일 수납 엑셀</strong>
+        <input type="file" id="fileB" style="margin-top:20px; width:100%;" />
+        <div id="logB" style="font-size:0.9rem; margin-top:20px; color:#6b7280; font-weight:600;">파일을 선택하면 자동으로 검수가 시작됩니다.</div>
       </div>
     </div>
-    <button class="btn-run" onclick="runCheck()">오늘의 검수 시작하기</button>
   </div>
 
   <div id="resCard" class="card" style="display:none;">
+    <div class="dashboard" id="dashBoard">
+      <div class="dash-box">
+        <h4>💵 현금+이체 합계</h4>
+        <span class="dash-val" id="sumCashLedger">0원</span>
+        <div class="dash-sub" id="sumCashProg">프로그램: 0원</div>
+        <div class="dash-sub" id="diffCash">차액: <b>0원</b></div>
+      </div>
+      <div class="dash-box">
+        <h4>💳 카드 수납 합계</h4>
+        <span class="dash-val" id="sumCardLedger">0원</span>
+        <div class="dash-sub" id="sumCardProg">프로그램: 0원</div>
+        <div class="dash-sub" id="diffCard">차액: <b>0원</b></div>
+      </div>
+      <div class="dash-box">
+        <h4>📊 총 수납액 합계</h4>
+        <span class="dash-val" id="sumTotLedger">0원</span>
+        <div class="dash-sub" id="sumTotProg">프로그램: 0원</div>
+        <div class="dash-sub" id="diffTot">차액: <b>0원</b></div>
+      </div>
+    </div>
+
     <div class="filter-bar">
       <label class="switch-container">
         <div class="switch">
           <input type="checkbox" id="errToggle" onchange="applyFilter()" />
           <span class="slider"></span>
         </div>
-        <span>불일치 명단만 보기</span>
+        <span>⚠️ 차액 및 누락 명단만 보기</span>
       </label>
-      <div id="summary" style="font-weight: 700; color: #374151;"></div>
+      <div id="summary" style="font-weight: 800; color: #1f2937;"></div>
     </div>
     <div style="overflow-x: auto;">
       <table>
@@ -135,7 +197,7 @@
             <th colspan="2">총액</th><th rowspan="2">검수결과</th><th rowspan="2">수단상세</th>
           </tr>
           <tr>
-            <th>수기</th><th>전산</th><th>수기</th><th>전산</th><th>수기</th><th>전산</th>
+            <th>수납대장</th><th>프로그램</th><th>수납대장</th><th>프로그램</th><th>수납대장</th><th>프로그램</th>
           </tr>
         </thead>
         <tbody id="resBody"></tbody>
@@ -147,11 +209,10 @@
 <script>
   let currentWbA = null, dbA = [], dbB = [], confA = null, confB = null;
   const methodNames = { 1: "현금", 2: "카드", 3: "미수", 4: "미수(현)", 5: "미수(카)", 6: "이체" };
-  
   const norm = (s) => String(s || "").trim().replace(/\s/g, "");
   const toN = (v) => Math.round(Number(String(v || 0).replace(/[^0-9.-]+/g, ""))) || 0;
   const normId = (id) => String(id || "").trim().replace(/^0+/, "");
-
+  
   const TAGS = {
     id: ['차트번호', '챠트번호', '등록번호'],
     name: ['성명', '수진자명', '수진자', '이름'],
@@ -178,19 +239,23 @@
     return null;
   }
 
+  function tryAutoRun() {
+    if (dbA.length > 0 && dbB.length > 0) runCheck();
+  }
+
   document.getElementById('fileA').onchange = function(e) {
     const reader = new FileReader();
     reader.onload = function(e) {
       const data = new Uint8Array(e.target.result);
       currentWbA = XLSX.read(data, { type: 'array' });
       renderCalendar();
+      tryAutoRun();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
   };
 
   function renderCalendar() {
-    const grid = document.getElementById('calendarGrid');
-    grid.innerHTML = "";
+    const grid = document.getElementById('calendarGrid'); grid.innerHTML = "";
     const today = new Date().getDate();
     const sheetList = currentWbA.SheetNames.map(n => norm(n));
     for (let i = 1; i <= 31; i++) {
@@ -203,6 +268,7 @@
         if (!exists) return;
         document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); loadSheetData(i.toString());
+        runCheck();
       };
       grid.appendChild(btn);
     }
@@ -225,19 +291,25 @@
       const res = getMap(raw, 'B');
       confB = { data: raw.slice(res ? res.index+1 : 0), map: res ? res.map : {} };
       dbB = confB.data;
-      document.getElementById('logB').innerText = res ? `✅ 전산 항목 로드 완료` : "❌ 전산 항목 인식 실패";
+      document.getElementById('logB').innerText = res ? `✅ 전산 데이터 로드 완료` : "❌ 전산 항목 인식 실패";
+      tryAutoRun();
     };
     r.readAsArrayBuffer(e.target.files[0]);
   };
 
   function runCheck() {
-    if (!dbA.length || !dbB.length) return alert("파일을 업로드하고 날짜를 선택해주세요.");
+    if (!dbA.length || !dbB.length) return;
     const body = document.getElementById('resBody'); body.innerHTML = "";
     const aggA = new Map(), aggB = new Map();
+    const allIds = new Set();
+
+    // 전역 합계 변수
+    let tAC=0, tAK=0, tAT=0, tBC=0, tBK=0, tBT=0;
 
     dbA.forEach(row => {
       const id = normId(row[confA.map.id]);
       if (!id || isNaN(id) || !row[confA.map.name]) return;
+      allIds.add(id);
       if(!aggA.has(id)) aggA.set(id, { name: row[confA.map.name], cash: 0, card: 0, total: 0, methods: new Set() });
       const ent = aggA.get(id);
       const amt = toN(row[confA.map.total]), met = parseInt(row[confA.map.method]);
@@ -247,7 +319,8 @@
 
     dbB.forEach(row => {
       const id = normId(row[confB.map.id]); if(!id) return;
-      if(!aggB.has(id)) aggB.set(id, { cash: 0, card: 0, total: 0 });
+      allIds.add(id);
+      if(!aggB.has(id)) aggB.set(id, { name: row[confB.map.name], cash: 0, card: 0, total: 0 });
       const ent = aggB.get(id), m = confB.map;
       ent.cash += (toN(row[m.cash]) + toN(row[m.acc]));
       ent.card += toN(row[m.card]);
@@ -255,35 +328,59 @@
     });
 
     let totalCnt = 0, errCnt = 0;
-    aggA.forEach((dataA, id) => {
+    Array.from(allIds).sort((a,b)=>a-b).forEach(id => {
       totalCnt++;
-      const dataB = aggB.get(id) || { cash: 0, card: 0, total: 0 };
-      const misuOnly = dataA.methods.size === 1 && dataA.methods.has(3);
-      const dTot = dataA.total - dataB.total, dCash = dataA.cash - dataB.cash, dCard = dataA.card - dataB.card;
-
+      const dataA = aggA.get(id); const dataB = aggB.get(id);
       let res = "정상", isErr = false;
-      if (!aggB.has(id) && !misuOnly) { res = "전산누락"; isErr = true; }
-      else if (dTot !== 0 && !misuOnly) { res = "총액오류"; isErr = true; }
-      else if ((Math.abs(dCash) > 50 || Math.abs(dCard) > 50) && !misuOnly) { res = "수단오류"; isErr = true; }
-      else if (misuOnly) res = "미수대기";
+      const misuOnly = dataA && dataA.methods.size === 1 && dataA.methods.has(3);
+
+      if (dataA && !dataB) { res = misuOnly ? "미수대기" : "수납 미처리"; isErr = !misuOnly; }
+      else if (!dataA && dataB) { res = "수납대장 미기재"; isErr = true; }
+      else if (dataA && dataB) {
+        const dTot = dataA.total - dataB.total;
+        const dCash = dataA.cash - dataB.cash;
+        const dCard = dataA.card - dataB.card;
+        if (dTot !== 0 && !misuOnly) { res = "총액오류"; isErr = true; }
+        else if ((Math.abs(dCash) > 50 || Math.abs(dCard) > 50) && !misuOnly) { res = "수단오류"; isErr = true; }
+        else if (misuOnly) res = "미수대기";
+      }
+
+      const aC = dataA ? dataA.cash : 0, aK = dataA ? dataA.card : 0, aT = dataA ? dataA.total : 0;
+      const bC = dataB ? dataB.cash : 0, bK = dataB ? dataB.card : 0, bT = dataB ? dataB.total : 0;
+      
+      // 미수가 아닌 경우에만 총액 합산
+      if(!misuOnly) { tAC+=aC; tAK+=aK; tAT+=aT; tBC+=bC; tBK+=bK; tBT+=bT; }
 
       if (isErr) errCnt++;
       const tr = document.createElement('tr');
       tr.dataset.error = isErr;
-      if (isErr) tr.className = "row-err"; else if (misuOnly) tr.className = "row-misu";
-
+      if (isErr) tr.className = "row-err"; else if (res === "미수대기") tr.className = "row-misu";
+      
       tr.innerHTML = `
-        <td>${id}</td><td>${dataA.name}</td>
-        <td class="${dCash!==0?'diff-text':''}">${dataA.cash.toLocaleString()}</td><td>${dataB.cash.toLocaleString()}</td>
-        <td class="${dCard!==0?'diff-text':''}">${dataA.card.toLocaleString()}</td><td>${dataB.card.toLocaleString()}</td>
-        <td class="${dTot!==0?'diff-text':''}">${dataA.total.toLocaleString()}</td><td>${dataB.total.toLocaleString()}</td>
-        <td style="color:${isErr?'red':(misuOnly?'var(--gray)':'var(--blue)')}"><b>${res}</b></td>
-        <td>${Array.from(dataA.methods).map(m => `<span class="badge m${m}">${methodNames[m]||m}</span>`).join(' ')}</td>
+        <td>${id}</td><td>${dataA?dataA.name:(dataB?dataB.name:'-')}</td>
+        <td class="${aC!==bC?'diff-text':''}">${aC.toLocaleString()}</td><td>${bC.toLocaleString()}</td>
+        <td class="${aK!==bK?'diff-text':''}">${aK.toLocaleString()}</td><td>${bK.toLocaleString()}</td>
+        <td class="${aT!==bT?'diff-text':''}">${aT.toLocaleString()}</td><td>${bT.toLocaleString()}</td>
+        <td style="color:${isErr?'red':(res==='미수대기'?'var(--gray)':'var(--blue)')}"><b>${res}</b></td>
+        <td>${dataA ? Array.from(dataA.methods).map(m => `<span class="badge m${m}">${methodNames[m]||m}</span>`).join(' ') : '<span class="badge" style="color:red">기록없음</span>'}</td>
       `;
       body.appendChild(tr);
     });
 
-    document.getElementById('summary').innerText = `총 ${totalCnt}건 대조 / 불일치 ${errCnt}건`;
+    // 대시보드 업데이트
+    document.getElementById('sumCashLedger').innerText = tAC.toLocaleString() + "원";
+    document.getElementById('sumCashProg').innerText = "프로그램: " + tBC.toLocaleString() + "원";
+    document.getElementById('diffCash').innerHTML = "차액: <b style='color:"+(tAC-tBC!==0?'red':'inherit')+"'>" + (tAC-tBC).toLocaleString() + "원</b>";
+
+    document.getElementById('sumCardLedger').innerText = tAK.toLocaleString() + "원";
+    document.getElementById('sumCardProg').innerText = "프로그램: " + tBK.toLocaleString() + "원";
+    document.getElementById('diffCard').innerHTML = "차액: <b style='color:"+(tAK-tBK!==0?'red':'inherit')+"'>" + (tAK-tBK).toLocaleString() + "원</b>";
+
+    document.getElementById('sumTotLedger').innerText = tAT.toLocaleString() + "원";
+    document.getElementById('sumTotProg').innerText = "프로그램: " + tBT.toLocaleString() + "원";
+    document.getElementById('diffTot').innerHTML = "차액: <b style='color:"+(tAT-tBT!==0?'red':'inherit')+"'>" + (tAT-tBT).toLocaleString() + "원</b>";
+
+    document.getElementById('summary').innerText = `총 ${totalCnt}건 대조 / 불일치 ${errCnt}건 발견`;
     document.getElementById('resCard').style.display = "block";
     applyFilter();
   }
