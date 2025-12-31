@@ -14,6 +14,7 @@
       margin: 0; background: #f8f9fa; color: #111827;
       font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
       position: relative; min-height: 100vh;
+      display: flex; flex-direction: column;
     }
     .watermark {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -22,7 +23,7 @@
     header { padding: 40px 16px 20px; text-align: center; position: relative; z-index: 10; }
     header .logo { width: 200px; filter: grayscale(1) brightness(.4); margin-bottom: 12px; }
 
-    .container { width: 100%; max-width: 1550px; margin: 0 auto; padding: 0 20px 60px; position: relative; z-index: 5; }
+    .container { width: 100%; max-width: 1550px; margin: 0 auto; padding: 0 20px 60px; position: relative; z-index: 5; flex: 1; }
     .card { 
       background: var(--card-bg); backdrop-filter: blur(1px); border-radius: 24px; padding: 30px; 
       border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 8px 32px rgba(0,0,0,0.03); margin-bottom: 25px; 
@@ -73,6 +74,16 @@
     .bg-blue { background: #e7f5ff; color: var(--blue); border: 1px solid #a5d8ff; }
     .bg-gray { background: #f1f3f5; color: var(--gray); border: 1px solid #dee2e6; }
     .hidden { display: none; }
+    .text-warning { color: var(--red); font-weight: 800; font-size: 0.75rem; display: block; margin-top: 4px; }
+
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--gray);
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
 
     .modal {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); 
@@ -93,7 +104,7 @@
 
 <div class="container">
   <div class="btn-group">
-    <button class="btn btn-example" onclick="toggleExample()">🖼️ 스샷 범위 예제 확인</button>
+    <button class="btn btn-example" onclick="toggleExample()">🖼️ 복사 범위 예제 확인</button>
   </div>
 
   <div class="card">
@@ -116,7 +127,7 @@
           아래 흰색 칸을 클릭(커서)하고 <b>Ctrl + V</b>를 눌러주세요.
         </p>
         <div class="paste-container">
-            <textarea id="pasteArea" class="paste-zone" placeholder="여기에 내용을 붙여넣으세요 (인식률 100%)..."></textarea>
+            <textarea id="pasteArea" class="paste-zone" placeholder="여기에 내용을 붙여넣으세요"></textarea>
         </div>
       </div>
     </div>
@@ -147,6 +158,10 @@
     </table>
   </div>
 </div>
+
+<footer>
+  © JINSUL · 경험과 가치를 현실화하는 컨설팅
+</footer>
 
 <div class="modal" id="exampleModal" onclick="toggleExample()">
   <div class="modal-content" onclick="event.stopPropagation()">
@@ -221,9 +236,16 @@
   const el = document.getElementById('dropExcel');
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
   el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
-  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleExcel(e.dataTransfer.files[0]); });
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleExcel(e.dataTransfer.files[0]);
+  });
 
-  // 3. 대조 엔진 (상속형 시간 분석 로직)
+  const timeToMin = (str) => {
+    const m = str.match(/(\d{1,2}):(\d{2})/);
+    return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null;
+  };
+
   function runMatching() {
     if (dbExcel.length === 0 || !spreadsheetText) return;
     const body = document.getElementById('resBody'); body.innerHTML = "";
@@ -231,37 +253,20 @@
     
     const lines = spreadsheetText.split('\n');
     let currentTime = "시간미상";
-    const patientMap = {}; // { chartId: assignedTime }
+    const patientMap = {}; 
 
-    // [핵심] 텍스트 전체를 훑으며 시간을 기억하고 환자에게 부여
     lines.forEach(line => {
-      // 시간 패턴 탐지 (예: 9:00, 10:30~11:00)
       const timeMatch = line.match(/(\d{1,2}:\d{2}(~\d{1,2}:\d{2})?)/);
-      if (timeMatch) {
-        currentTime = timeMatch[0];
-      }
-
-      // 차트번호 탐지
-      const idMatches = line.match(/\d{3,5}/g); // 3~5자리 숫자
-      if (idMatches) {
-        idMatches.forEach(id => {
-          // 중복 방지 (가장 먼저 발견된 시간 유지)
-          if (!patientMap[id]) patientMap[id] = currentTime;
-        });
-      }
+      if (timeMatch) currentTime = timeMatch[0];
+      const idMatches = line.match(/\d{3,5}/g);
+      if (idMatches) idMatches.forEach(id => { if (!patientMap[id]) patientMap[id] = currentTime; });
     });
 
     let errCnt = 0;
     dbExcel.forEach(item => {
       const assignedTime = patientMap[item.id];
       const isPresent = !!assignedTime;
-
       const isTarget = item.memo.includes("도수") || item.memo.includes("충격파");
-      
-      // 시간 일치 확인 (시간차 허용 로직 유지)
-      const emrHour = item.time.split(':')[0].replace(/^0/, ''); 
-      const sheetHour = isPresent ? assignedTime.split(':')[0] : "";
-      const isTimeMatch = isPresent && (emrHour === sheetHour);
 
       let res = "", status = "ok", rowClass = "";
       if (isPresent) {
@@ -271,12 +276,36 @@
         else { res = "진료 예약"; status = "other"; rowClass = "row-other"; }
       }
 
+      // 시간차 계산 및 '진료예약' 표시 로직
+      let isGapLarge = false;
+      let displaySheetTime = "";
+      
+      if (isPresent) {
+        displaySheetTime = assignedTime;
+        if (assignedTime !== "시간미상") {
+          const emrMin = timeToMin(item.time);
+          const sheetMin = timeToMin(assignedTime.split('~')[0]);
+          if (emrMin !== null && sheetMin !== null) {
+            if (Math.abs(emrMin - sheetMin) >= 60) isGapLarge = true;
+          }
+        }
+      } else if (res === "진료 예약") {
+        displaySheetTime = "진료예약";
+      } else {
+        displaySheetTime = "❌ 없음";
+      }
+
       const tr = document.createElement('tr');
       tr.className = rowClass; tr.dataset.error = (status === "err");
       tr.innerHTML = `
         <td>${item.id}</td><td>${item.name}</td>
         <td style="font-weight:700; color:var(--blue);">${item.time}</td>
-        <td>${isPresent ? assignedTime : '❌ 없음'}</td>
+        <td>
+          <span style="color:${isGapLarge ? 'var(--red)' : (displaySheetTime === '진료예약' ? 'var(--gray)' : 'inherit')}; font-weight:${isGapLarge ? '800' : 'normal'};">
+            ${displaySheetTime}
+          </span>
+          ${isGapLarge ? '<span class="text-warning">⚠️ 확인필요 (1시간↑ 차이)</span>' : ''}
+        </td>
         <td style="text-align:left; font-size:0.85rem;">${item.memo}</td>
         <td><span class="badge ${status==='ok'?'bg-blue':(status==='err'?'bg-red':'bg-gray')}">${res}</span></td>
       `;
