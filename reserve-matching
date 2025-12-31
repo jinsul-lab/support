@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>JINSUL-예약 대조 시스템</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    /* JINSUL 디자인 가이드라인 준수 */
+    :root {
+      --blue: #228be6; --red: #fa5252; --gray: #868e96;
+      --card-bg: rgba(255, 255, 255, 0.0); /* 표 및 카드 100% 투명도 유지 */
+      --border: rgba(0, 0, 0, 0.1);
+    }
+    body { 
+      margin: 0; background: #f8f9fa; color: #111827;
+      font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+      position: relative; min-height: 100vh;
+    }
+
+    /* 1. 워터마크 (그레이스케일 0.12 투명도) */
+    .watermark {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 500px; opacity: 0.12; z-index: -1; pointer-events: none;
+      filter: grayscale(1);
+    }
+
+    header { padding: 40px 16px 20px; text-align: center; }
+    /* 2. 상단 로고 (그레이스케일 필터 적용) */
+    header .logo {
+      width: 200px; height: auto; margin-bottom: 12px;
+      filter: grayscale(1) brightness(.4);
+    }
+
+    .container { width: 100%; max-width: 1550px; margin: 0 auto; padding: 0 20px 60px; }
+    
+    /* 3. Glassmorphism UI (Blur 1px) */
+    .card { 
+      background: var(--card-bg); 
+      backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px);
+      border-radius: 24px; padding: 30px; 
+      border: 1px solid rgba(255,255,255,0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.03);
+      margin-bottom: 25px; 
+    }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .file-zone { 
+      border: 2px dashed rgba(0,0,0,0.15); padding: 40px; border-radius: 20px; 
+      text-align: center; transition: 0.3s; cursor: pointer;
+    }
+    .file-zone:hover { border-color: var(--blue); background: rgba(34, 139, 230, 0.05); }
+
+    /* 표 투명도 100% 스타일 */
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th { background: rgba(0,0,0,0.03); padding: 14px; border: 1px solid var(--border); font-weight: 800; }
+    td { padding: 12px; border: 1px solid var(--border); text-align: center; background: transparent; }
+    
+    .status-ok { color: var(--blue); font-weight: bold; }
+    .status-err { color: var(--red); font-weight: bold; background: rgba(250, 82, 82, 0.1); }
+  </style>
+</head>
+<body>
+
+<img src="jinsul-logo.png" class="watermark" alt="JINSUL WATERMARK" />
+
+<header>
+  <img src="jinsul-logo.png" alt="JINSUL" class="logo" />
+  <h2>JINSUL-예약 대조 시스템 (Reserve Matching)</h2>
+</header>
+
+<div class="container">
+  <div class="card">
+    <div class="grid">
+      <div class="file-zone" id="dropA">
+        <strong>📅 1. 예약 장부 (엑셀/CSV)</strong>
+        <p>파일을 이 영역으로 드래그하세요</p>
+      </div>
+      <div class="file-zone" id="dropB">
+        <strong>💻 2. 전산 예약 리스트</strong>
+        <p>파일을 이 영역으로 드래그하세요</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <div id="summary" style="margin-bottom:15px; font-weight:800;"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>시간</th><th>환자명</th><th>예약항목</th><th>장부상태</th><th>전산상태</th><th>대조결과</th>
+        </tr>
+      </thead>
+      <tbody id="resBody">
+        </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // 여기에 이전에 개발한 JINSUL 엔진(normId, getMap 등)을 
+  // 예약 데이터에 맞게 변형하여 이식할 수 있습니다.
+</script>
+
+</body>
+</html>
