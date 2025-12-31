@@ -39,15 +39,18 @@
       text-align: center; background: rgba(255,255,255,0.1); transition: 0.3s; cursor: pointer;
     }
     .file-zone.drag-over { border-color: var(--blue); background: rgba(34, 139, 230, 0.08); }
-    .file-zone * { pointer-events: none; } 
+    
+    /* [수정] 텍스트 영역은 클릭이 되도록 설정을 분리함 */
+    .file-zone strong, .file-zone p, .file-zone span { pointer-events: none; }
 
-    /* 텍스트 입력창 스타일 */
+    .paste-container { margin-top: 15px; cursor: default; }
     .paste-zone {
-      width: 100%; height: 120px; border: 2px solid var(--blue); border-radius: 15px;
-      padding: 15px; font-size: 0.9rem; background: rgba(255,255,255,0.8);
+      width: 100%; height: 130px; border: 2px solid var(--blue); border-radius: 15px;
+      padding: 15px; font-size: 0.9rem; background: #ffffff;
       resize: none; outline: none; transition: 0.3s;
+      pointer-events: auto !important; /* 커서가 잡히도록 강제 설정 */
     }
-    .paste-zone:focus { box-shadow: 0 0 10px rgba(34, 139, 230, 0.3); }
+    .paste-zone:focus { border-color: #1c7ed6; box-shadow: 0 0 12px rgba(34, 139, 230, 0.2); }
 
     .filter-bar { 
       display: flex; align-items: center; justify-content: space-between; 
@@ -69,6 +72,7 @@
     .badge { padding: 5px 12px; border-radius: 6px; font-weight: 800; font-size: 0.8rem; }
     .bg-red { background: #fff5f5; color: var(--red); border: 1px solid #ffa8a8; }
     .bg-blue { background: #e7f5ff; color: var(--blue); border: 1px solid #a5d8ff; }
+    .bg-gray { background: #f1f3f5; color: var(--gray); border: 1px solid #dee2e6; }
     .hidden { display: none; }
   </style>
 </head>
@@ -86,7 +90,7 @@
     <div class="grid">
       <div class="file-zone" id="dropExcel" onclick="document.getElementById('inputExcel').click()">
         <strong>📅 1. 전산 예약 리스트 (Excel)</strong>
-        <p style="font-size:0.85rem; color:#4b5563; margin-top:10px;">
+        <p style="font-size:0.85rem; color:#4b5563; margin-top:10px; line-height:1.6;">
           비트 - 접수 ➡️ 예약관리 ➡️ 예약목록 엑셀 출력(다운)<br>
           의사랑 - 원무과 외래 ➡️ 예약 현황 ➡️ 전체 선택(진료실별 X) ➡️ 엑셀(다운)
         </p>
@@ -97,11 +101,13 @@
 
       <div class="file-zone" style="cursor: default;">
         <strong>📋 2. 스프레드시트 데이터 복사</strong>
-        <p style="font-size:0.85rem; color:#4b5563; margin-top:10px;">
+        <p style="font-size:0.85rem; color:#4b5563; margin-top:10px; line-height:1.6;">
           스프레드시트에서 내용을 마우스로 긁어 <b>Ctrl + C</b> 한 뒤,<br>
-          아래 칸을 클릭하고 <b>Ctrl + V</b>를 눌러주세요. (인식률 100%)
+          아래 흰색 칸을 클릭(커서)하고 <b>Ctrl + V</b>를 눌러주세요.
         </p>
-        <textarea id="pasteArea" class="paste-zone" placeholder="여기에 내용을 붙여넣으세요..."></textarea>
+        <div class="paste-container">
+            <textarea id="pasteArea" class="paste-zone" placeholder="여기에 내용을 붙여넣으세요 (인식률 100%)..."></textarea>
+        </div>
       </div>
     </div>
     <div style="display: flex;">
@@ -163,7 +169,7 @@
           const row = raw[i]; if(!row) continue;
           const tempMap = {};
           row.forEach((cell, idx) => {
-            const c = String(cell).trim().replace(/\s/g, "");
+            const c = String(cell || "").trim().replace(/\s/g, "");
             for(let k in tags) if(tags[k].includes(c)) tempMap[k] = idx;
           });
           if(tempMap.id !== undefined) { map = tempMap; startIdx = i+1; break; }
@@ -187,13 +193,13 @@
     reader.readAsArrayBuffer(file);
   };
 
-  // 2. 텍스트 붙여넣기 처리
+  // 2. 텍스트 붙여넣기 실시간 처리
   document.getElementById('pasteArea').oninput = (e) => {
     spreadsheetText = e.target.value;
     runMatching();
   };
 
-  // 드롭존 수동 바인딩
+  // 드롭존 직접 바인딩
   const el = document.getElementById('dropExcel');
   el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
   el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
@@ -202,22 +208,20 @@
     if (e.dataTransfer.files[0]) handleExcel(e.dataTransfer.files[0]);
   });
 
-  // 3. 대조 엔진 (텍스트 기반 차트번호 매칭)
+  // 3. 대조 엔진 (텍스트 매칭 방식)
   function runMatching() {
     if (dbExcel.length === 0 || !spreadsheetText) return;
     const body = document.getElementById('resBody'); body.innerHTML = "";
     document.getElementById('resCard').style.display = "block";
     
-    // 스프레드시트 텍스트에서 모든 숫자 추출
+    // 숫자만 추출한 뭉치 (차트번호 검색용)
     const sheetNums = spreadsheetText.match(/\d+/g) || [];
     let errCnt = 0;
 
     dbExcel.forEach(item => {
-      // 차트번호(ID)가 텍스트 뭉치에 있는지 확인
       const isPresent = sheetNums.includes(item.id);
       const isTarget = item.memo.includes("도수") || item.memo.includes("충격파");
       
-      // 예약 시간(숫자) 포함 여부 확인
       const cleanTime = item.time.replace(/[^0-9]/g, "");
       const isTimeMatch = cleanTime !== "" && sheetNums.includes(cleanTime);
 
