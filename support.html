@@ -71,7 +71,6 @@
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
 
-    /* [수정] 드롭존 디자인 강화 */
     .file-zone { 
       border: 2px dashed rgba(0,0,0,0.15); padding: 40px 20px; border-radius: 20px; 
       text-align: center; background: rgba(255,255,255,0.1); 
@@ -85,7 +84,7 @@
       transform: scale(1.01);
     }
     .file-zone strong { display: block; margin-bottom: 10px; font-size: 1.1rem; }
-    .file-zone p { font-size: 0.8rem; color: var(--gray); margin-top: 10px; }
+    .file-zone span { font-size: 0.85rem; color: #6b7280; }
     
     .calendar-area { margin-top: 20px; display: none; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; max-width: 400px; margin: 15px auto 0; }
@@ -140,11 +139,11 @@
   <div class="card">
     <div class="guide-bar">
       <div class="guide-item">
-        <strong>🖥️ 비트컴퓨터 </strong>
+        <strong>🖥️ 비트컴퓨터</strong>
         접수 → 일일집계 → 집계(클릭) → 엑셀(다운로드)
       </div>
       <div class="guide-item">
-        <strong>🖥️ 의사랑 </strong>
+        <strong>🏥 의사랑</strong>
         원무과 외래 → 마감 → 일일마감 → 마감(클릭) → 엑셀출력(다운로드)
       </div>
     </div>
@@ -233,41 +232,47 @@
     acc: ['계좌이체액', '계좌금액', '계좌']
   };
 
+  /* [수정] 포함 관계를 인식하도록 업그레이드된 로직 */
   function getMap(rows, side) {
     for (let i = 0; i < Math.min(rows.length, 50); i++) {
       const row = rows[i]; if (!row) continue;
       const map = {};
       row.forEach((cell, idx) => {
         const c = norm(cell);
-        for (let k in TAGS) { if (TAGS[k].includes(c)) map[k] = idx; }
+        if (!c) return;
+        
+        for (let k in TAGS) {
+          // 이름(중복X) 처럼 키워드를 '포함'하고 있는 경우 인식
+          if (TAGS[k].some(t => c.includes(t))) {
+            if (map[k] === undefined) map[k] = idx; 
+          }
+        }
+        
         if (side === 'A') {
+          // 수기 대장의 '금 액' 등 특수 케이스 대응
           if (String(cell).includes("금") && String(cell).includes("액") && idx < 10) map.total = idx;
           if (c.includes("수단(입력)")) map.method = idx;
         }
       });
+      // 차트번호(ID)만 찾으면 해당 행을 제목행으로 간주
       if (map.id !== undefined) return { index: i, map };
     }
     return null;
   }
 
-  // [기능 추가] 드래그 앤 드롭 설정 함수
   function setupDropZone(dropId, inputId, handler) {
     const zone = document.getElementById(dropId);
     const input = document.getElementById(inputId);
-
     zone.onclick = () => input.click();
     zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('drag-over'); };
     zone.ondragleave = () => zone.classList.remove('drag-over');
     zone.ondrop = (e) => {
-      e.preventDefault();
-      zone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) handler(file);
+      e.preventDefault(); zone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0]; if (file) handler(file);
     };
     input.onchange = (e) => { if (e.target.files[0]) handler(e.target.files[0]); };
   }
 
-  // 파일 A 처리
   const handleFileA = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -278,7 +283,6 @@
     reader.readAsArrayBuffer(file);
   };
 
-  // 파일 B 처리
   const handleFileB = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -293,7 +297,6 @@
     reader.readAsArrayBuffer(file);
   };
 
-  // 초기 셋업
   setupDropZone('dropA', 'fileA', handleFileA);
   setupDropZone('dropB', 'fileB', handleFileB);
 
@@ -308,7 +311,7 @@
       if (!exists) btn.classList.add('disabled');
       if (i === today && exists) { btn.classList.add('active'); loadSheetData(i.toString()); }
       btn.onclick = (e) => {
-        e.stopPropagation(); // 부모 클릭 이벤트 방지
+        e.stopPropagation();
         if (!exists) return;
         document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); loadSheetData(i.toString());
@@ -355,9 +358,7 @@
       ent.total += (toN(row[m.total]) || (ent.cash + ent.card));
     });
 
-    let totalCnt = 0, errCnt = 0;
     Array.from(allIds).sort((a,b)=>a-b).forEach(id => {
-      totalCnt++;
       const dataA = aggA.get(id); const dataB = aggB.get(id);
       let res = "정상", isErr = false;
       const misuOnly = dataA && dataA.methods.size === 1 && dataA.methods.has(3);
@@ -377,20 +378,17 @@
       const bC = dataB ? dataB.cash : 0, bK = dataB ? dataB.card : 0, bT = dataB ? dataB.total : 0;
       if(!misuOnly) { tAC+=aC; tAK+=aK; tAT+=aT; tBC+=bC; tBK+=bK; tBT+=bT; }
 
-      if (isErr) errCnt++;
-      const tr = document.createElement('tr');
-      tr.dataset.error = isErr;
-      if (isErr) tr.className = "row-err"; else if (res === "미수대기") tr.className = "row-misu";
-      
-      tr.innerHTML = `
-        <td>${id}</td><td>${dataA?dataA.name:(dataB?dataB.name:'-')}</td>
-        <td class="${aC!==bC?'diff-text':''}">${aC.toLocaleString()}</td><td>${bC.toLocaleString()}</td>
-        <td class="${aK!==bK?'diff-text':''}">${aK.toLocaleString()}</td><td>${bK.toLocaleString()}</td>
-        <td class="${aT!==bT?'diff-text':''}">${aT.toLocaleString()}</td><td>${bT.toLocaleString()}</td>
-        <td style="color:${isErr?'red':(res==='미수대기'?'var(--gray)':'var(--blue)')}"><b>${res}</b></td>
-        <td>${dataA ? Array.from(dataA.methods).map(m => `<span class="badge m${m}">${methodNames[m]||m}</span>`).join(' ') : '<span class="badge" style="color:red">기록없음</span>'}</td>
-      `;
-      body.appendChild(tr);
+      if (isErr) {
+        const tr = document.createElement('tr');
+        tr.dataset.error = "true"; tr.className = "row-err";
+        tr.innerHTML = `<td>${id}</td><td>${dataA?dataA.name:dataB.name}</td><td class="${aC!==bC?'diff-text':''}">${aC.toLocaleString()}</td><td>${bC.toLocaleString()}</td><td class="${aK!==bK?'diff-text':''}">${aK.toLocaleString()}</td><td>${bK.toLocaleString()}</td><td class="${aT!==bT?'diff-text':''}">${aT.toLocaleString()}</td><td>${bT.toLocaleString()}</td><td style="color:red"><b>${res}</b></td><td>${dataA?Array.from(dataA.methods).map(m=>`<span class="badge m${m}">${methodNames[m]}</span>`).join(' '):'<span class="badge" style="color:red">기록없음</span>'}</td>`;
+        body.appendChild(tr);
+      } else {
+        const tr = document.createElement('tr');
+        tr.dataset.error = "false"; if (res==="미수대기") tr.className = "row-misu";
+        tr.innerHTML = `<td>${id}</td><td>${dataA?dataA.name:dataB.name}</td><td>${aC.toLocaleString()}</td><td>${bC.toLocaleString()}</td><td>${aK.toLocaleString()}</td><td>${bK.toLocaleString()}</td><td>${aT.toLocaleString()}</td><td>${bT.toLocaleString()}</td><td style="color:${res==='미수대기'?'var(--gray)':'var(--blue)'}"><b>${res}</b></td><td>${dataA?Array.from(dataA.methods).map(m=>`<span class="badge m${m}">${methodNames[m]}</span>`).join(' '):''}</td>`;
+        body.appendChild(tr);
+      }
     });
 
     document.getElementById('sumCashLedger').innerText = tAC.toLocaleString() + "원";
@@ -403,7 +401,7 @@
     document.getElementById('sumTotProg').innerText = "프로그램: " + tBT.toLocaleString() + "원";
     document.getElementById('diffTot').innerHTML = "차액: <b style='color:"+(tAT-tBT!==0?'red':'inherit')+"'>" + (tAT-tBT).toLocaleString() + "원</b>";
 
-    document.getElementById('summary').innerText = `총 ${totalCnt}건 대조 / 불일치 ${errCnt}건 발견`;
+    document.getElementById('summary').innerText = `전체 ${allIds.size}건 검수 완료 / 불일치 건 집중 확인 바랍니다.`;
     document.getElementById('resCard').style.display = "block";
     applyFilter();
   }
