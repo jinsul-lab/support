@@ -1,15 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My Custom Map</title>
+    <title>Clean Data Map Tool</title>
     <meta name="viewport" content="initial-scale=1.0">
     <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
-        /* [디자인 성역] UI 배치 및 스타일 */
+        /* [디자인 성역] */
         html, body { height: 100%; margin: 0; padding: 0; font-family: 'Arial', sans-serif; }
-        #map { height: 100%; width: 100%; }
         
-        /* 로고/워터마크 영역 */
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 320px;
+        }
+        
+        #map { height: 100%; width: 100%; z-index: 1; }
+        
         #branding {
             position: absolute;
             bottom: 30px;
@@ -20,82 +34,204 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             z-index: 1000;
             font-size: 12px;
-            pointer-events: none; /* 클릭 방지 */
+            pointer-events: none;
         }
+
+        .status-msg { margin-top: 10px; font-size: 13px; color: #333; }
+        input[type="file"] { width: 100%; margin-bottom: 5px; }
+        .version-tag { position: absolute; top: 5px; left: 5px; font-size: 10px; color: #999; z-index: 2000; }
+        .log-box { max-height: 100px; overflow-y: auto; background: #f5f5f5; border: 1px solid #ddd; padding: 5px; margin-top: 5px; font-size: 11px; }
     </style>
 </head>
 <body>
+    <div class="version-tag">v0.0.0.7 (Header-Filter)</div>
+
+    <div id="controls">
+        <h3 style="margin:0 0 10px 0;">의료 데이터 지도 (필터링 적용)</h3>
+        <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" />
+        <div id="status" class="status-msg">파일을 선택하면 데이터 정제 후 지도를 그립니다.</div>
+        <div id="log" class="log-box" style="display:none;"></div>
+    </div>
+
     <div id="map"></div>
+    
     <div id="branding">
-        <strong>Map Data Visualizer</strong><br>
+        <strong>Clean Map Visualizer</strong><br>
         Designed by Architect
     </div>
 
     <script>
-        /* * [입구 전처리 함수 - Input Filter]
-         * 엑셀 데이터를 JSON으로 변환하여 아래 rawData 변수에 넣으십시오.
-         * 형식: { title: "장소명", lat: 위도, lng: 경도, desc: "설명" }
-         * * Tip: 주소를 위도/경도로 변환하는 것은 외부 무료 툴(예: Geocoding sites)을 
-         * 사용하여 변환 후 값을 넣는 것이 API 비용 절감 및 속도 면에서 가장 유리합니다.
-         */
-        
-        const inputData = [
-            // ▼ 데이터 입력 시작 (이곳에 데이터를 계속 추가하면 됩니다)
-            { title: "서울시청", lat: 37.5665, lng: 126.9780, desc: "서울특별시 중구 세종대로 110" },
-            { title: "강남역", lat: 37.4979, lng: 127.0276, desc: "서울 강남구 역삼동" },
-            { title: "부산역", lat: 35.1152, lng: 129.0422, desc: "부산 동구 중앙대로 206" },
-            // ▲ 데이터 입력 끝
-        ];
+        let map;
+        let geocoder;
+        let bounds;
+        let infoWindow;
+
+        document.getElementById('excelFile').addEventListener('change', handleFileSelect, false);
+
+        function handleFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+
+            const statusDiv = document.getElementById('status');
+            const logDiv = document.getElementById('log');
+            statusDiv.innerHTML = "헤더 스캔 및 데이터 정제 중...";
+            logDiv.style.display = 'block';
+            logDiv.innerHTML = "";
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // 1. 헤더 위치 찾기 (스캔)
+                const rawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                let headerRowIndex = -1;
+                
+                for (let i = 0; i < Math.min(rawData.length, 30); i++) {
+                    const row = rawData[i];
+                    if (!row) continue;
+                    const rowStr = row.join("").replace(/\s+/g, "");
+                    if (rowStr.includes("주소") || rowStr.includes("Address")) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+
+                if (headerRowIndex === -1) {
+                    statusDiv.innerHTML = "<span style='color:red;'>오류: '주소' 열을 찾을 수 없습니다.</span>";
+                    return;
+                }
+
+                logDiv.innerHTML += `<div>✅ ${headerRowIndex + 1}번째 줄에서 첫 헤더 발견</div>`;
+
+                // 2. 전체 데이터 파싱
+                const finalJson = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIndex});
+                
+                processDataAndMap(finalJson);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function findValueByFuzzyKey(rowObj, keywords) {
+            const keys = Object.keys(rowObj);
+            for (let target of keywords) {
+                for (let key of keys) {
+                    const cleanKey = key.replace(/\s+/g, '').toLowerCase(); 
+                    if (cleanKey.includes(target)) {
+                        return rowObj[key];
+                    }
+                }
+            }
+            return undefined;
+        }
 
         /* ==========================================================================================
            [코드 성역 - Core Logic] 
-           아래 함수는 절대 수정 금지. 오직 위쪽 inputData만 수정할 것.
            ========================================================================================== */
         
         function initMap() {
-            // 1. 지도 중심 잡기 (데이터의 첫 번째 좌표를 기준으로 설정)
-            const startCenter = inputData.length > 0 
-                ? { lat: inputData[0].lat, lng: inputData[0].lng } 
-                : { lat: 37.5665, lng: 126.9780 }; // 데이터 없으면 서울 기준
-
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 10,
-                center: startCenter,
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: { lat: 37.7381, lng: 127.0337 },
                 mapTypeControl: true,
                 streetViewControl: true,
                 fullscreenControl: true
             });
+            geocoder = new google.maps.Geocoder();
+            bounds = new google.maps.LatLngBounds();
+            infoWindow = new google.maps.InfoWindow();
+        }
 
-            // 2. 마커 및 인포윈도우 생성 루프
-            const infoWindow = new google.maps.InfoWindow();
+        function processDataAndMap(data) {
+            const statusDiv = document.getElementById('status');
+            const logDiv = document.getElementById('log');
+            
+            let successCount = 0;
+            let failCount = 0;
+            let skipCount = 0;
+            const totalCount = data.length; // 여기엔 중간 헤더들도 포함되어 있음
 
-            inputData.forEach((item) => {
-                // 데이터 유효성 검사 (위도/경도 누락 시 제외)
-                if (typeof item.lat !== 'number' || typeof item.lng !== 'number') return;
+            statusDiv.innerText = `총 ${totalCount}개 행 분석 시작...`;
 
-                const marker = new google.maps.Marker({
-                    position: { lat: item.lat, lng: item.lng },
-                    map: map,
-                    title: item.title
-                });
+            data.forEach((item, index) => {
+                const title = findValueByFuzzyKey(item, ['수진자', '이름', '성명', 'name', 'title']);
+                const address = findValueByFuzzyKey(item, ['주소', 'addr']);
+                const chartNo = findValueByFuzzyKey(item, ['차트', 'no']) || '';
+                const age = findValueByFuzzyKey(item, ['나이', 'age']) || '';
+                
+                // [핵심 로직 수정] 중간에 낀 헤더 제거 (Garbage Filter)
+                // 주소값이 없거나, 주소값이 문자열 "주소" 그 자체인 경우 건너뜀
+                if (!address) { failCount++; return; }
+                
+                // 주소 문자열 정제 (공백제거)
+                const cleanAddr = address.toString().replace(/\s+/g, '');
+                if (cleanAddr === '주소' || cleanAddr === 'Address' || cleanAddr === '주소(도로명)') {
+                    skipCount++;
+                    logDiv.innerHTML += `<div>🚫 ${index}행: 반복 헤더 제외됨</div>`;
+                    return; // 이것은 데이터가 아니라 제목줄이므로 스킵
+                }
+                
+                // 이름이 '수진자명'인 경우도 제외
+                if (title && title.toString().replace(/\s+/g, '') === '수진자명') {
+                     skipCount++; return; 
+                }
 
-                // 마커 클릭 이벤트
-                marker.addListener("click", () => {
-                    const contentString = `
-                        <div style="padding:5px; min-width:150px;">
-                            <h3 style="margin:0 0 5px 0;">${item.title}</h3>
-                            <p style="margin:0; font-size:13px; color:#555;">${item.desc}</p>
-                        </div>
-                    `;
-                    infoWindow.setContent(contentString);
-                    infoWindow.open(map, marker);
-                });
+                const desc = `차트: ${chartNo} / 나이: ${age}`;
+
+                setTimeout(() => {
+                    geocoder.geocode({ 'address': address }, function(results, status) {
+                        if (status === 'OK') {
+                            const location = results[0].geometry.location;
+                            
+                            const marker = new google.maps.Marker({
+                                map: map,
+                                position: location,
+                                title: title || '이름 없음'
+                            });
+
+                            marker.addListener("click", () => {
+                                const contentString = `
+                                    <div style="padding:5px; min-width:150px;">
+                                        <h3 style="margin:0 0 5px 0;">${title} <span style="font-size:12px; font-weight:normal;">(${age})</span></h3>
+                                        <p style="margin:0 0 5px 0; font-size:12px; color:blue;">${address}</p>
+                                        <p style="margin:0; font-size:12px; color:#555;">${desc}</p>
+                                    </div>
+                                `;
+                                infoWindow.setContent(contentString);
+                                infoWindow.open(map, marker);
+                            });
+
+                            bounds.extend(location);
+                            successCount++;
+                            
+                            // 진행률 업데이트
+                            if (successCount % 5 === 0) {
+                                statusDiv.innerHTML = `진행 중... (성공: ${successCount}건)`;
+                            }
+
+                            // [완료 로직]
+                            // 전체 루프가 끝났다고 해서 비동기가 끝난건 아니지만, 
+                            // 마지막 인덱스 즈음에 완료 메시지를 띄움
+                            if (index >= totalCount - 1) {
+                                setTimeout(() => {
+                                     if(successCount > 0) map.fitBounds(bounds); 
+                                     statusDiv.innerHTML = `<b style="color:blue">완료!</b><br>성공: ${successCount}건<br>제외된 헤더: ${skipCount}건<br>주소없음: ${failCount}건`;
+                                }, 1500);
+                            }
+
+                        } else {
+                            // console.log('Geocode failed: ' + status);
+                        }
+                    });
+                }, index * 200);
             });
         }
     </script>
 
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBr1IVVkOPxvnkZK2EqO8O6yF0C0Ttjok8&callback=initMap">
     </script>
 </body>
 </html>
