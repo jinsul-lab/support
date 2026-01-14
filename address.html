@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Custom Map</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+        /* [디자인 성역] UI 배치 및 스타일 */
+        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Arial', sans-serif; }
+        #map { height: 100%; width: 100%; }
+        
+        /* 로고/워터마크 영역 */
+        #branding {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 2px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+            font-size: 12px;
+            pointer-events: none; /* 클릭 방지 */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="branding">
+        <strong>Map Data Visualizer</strong><br>
+        Designed by Architect
+    </div>
+
+    <script>
+        /* * [입구 전처리 함수 - Input Filter]
+         * 엑셀 데이터를 JSON으로 변환하여 아래 rawData 변수에 넣으십시오.
+         * 형식: { title: "장소명", lat: 위도, lng: 경도, desc: "설명" }
+         * * Tip: 주소를 위도/경도로 변환하는 것은 외부 무료 툴(예: Geocoding sites)을 
+         * 사용하여 변환 후 값을 넣는 것이 API 비용 절감 및 속도 면에서 가장 유리합니다.
+         */
+        
+        const inputData = [
+            // ▼ 데이터 입력 시작 (이곳에 데이터를 계속 추가하면 됩니다)
+            { title: "서울시청", lat: 37.5665, lng: 126.9780, desc: "서울특별시 중구 세종대로 110" },
+            { title: "강남역", lat: 37.4979, lng: 127.0276, desc: "서울 강남구 역삼동" },
+            { title: "부산역", lat: 35.1152, lng: 129.0422, desc: "부산 동구 중앙대로 206" },
+            // ▲ 데이터 입력 끝
+        ];
+
+        /* ==========================================================================================
+           [코드 성역 - Core Logic] 
+           아래 함수는 절대 수정 금지. 오직 위쪽 inputData만 수정할 것.
+           ========================================================================================== */
+        
+        function initMap() {
+            // 1. 지도 중심 잡기 (데이터의 첫 번째 좌표를 기준으로 설정)
+            const startCenter = inputData.length > 0 
+                ? { lat: inputData[0].lat, lng: inputData[0].lng } 
+                : { lat: 37.5665, lng: 126.9780 }; // 데이터 없으면 서울 기준
+
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 10,
+                center: startCenter,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true
+            });
+
+            // 2. 마커 및 인포윈도우 생성 루프
+            const infoWindow = new google.maps.InfoWindow();
+
+            inputData.forEach((item) => {
+                // 데이터 유효성 검사 (위도/경도 누락 시 제외)
+                if (typeof item.lat !== 'number' || typeof item.lng !== 'number') return;
+
+                const marker = new google.maps.Marker({
+                    position: { lat: item.lat, lng: item.lng },
+                    map: map,
+                    title: item.title
+                });
+
+                // 마커 클릭 이벤트
+                marker.addListener("click", () => {
+                    const contentString = `
+                        <div style="padding:5px; min-width:150px;">
+                            <h3 style="margin:0 0 5px 0;">${item.title}</h3>
+                            <p style="margin:0; font-size:13px; color:#555;">${item.desc}</p>
+                        </div>
+                    `;
+                    infoWindow.setContent(contentString);
+                    infoWindow.open(map, marker);
+                });
+            });
+        }
+    </script>
+
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
+    </script>
+</body>
+</html>
