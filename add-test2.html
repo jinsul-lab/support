@@ -618,7 +618,7 @@ const state={
       }
 
       if(!radiusCircle){
-        radiusCircle = new kakao.maps.Circle({
+        radiusCircle = new kakao.maps.Circle({ strokeStyle:'dash', strokeColor:'#2563eb', fillOpacity:0.05,
           center: radiusCenterLatLng,
           radius: radiusMeters,
           strokeWeight: 2,
@@ -902,7 +902,7 @@ function mergePatientData(rows, headers){
   function buildInfoHTML(rec){
     const name = rec.title ? `<div style="font-weight:1000;font-size:14px;">${rec.title} <span style="font-size:11px;font-weight:700;color:#6b7280;">(${rec.age ?? ""})</span></div>` : "";
     const addr = rec.address ? `<div style="color:#2563eb;margin-top:4px;">${rec.address}</div>` : "";
-    const desc = `<div style="color:#555;margin-top:4px;">방문: <b style="color:#db4040">${rec.visits}회</b> / 차트: ${rec.chartNo ?? ""}</div>`;
+    const desc = `<div style="color:#555;margin-top:4px;">방문: <b style="color:#db4040">${rec.visits}회</b> (${visitStage(rec.visits)}단계) / 차트: ${rec.chartNo ?? ""}</div>`;
     return `<div class="iwBox">${name}${addr}${desc}</div>`;
   }
 
@@ -941,6 +941,7 @@ function mergePatientData(rows, headers){
   }
 
   function getPrimaryType(rec){
+
     if(rec.types.d90) return "90일초";
     if(rec.types.new) return "신환";
     return "재진";
@@ -1215,7 +1216,7 @@ function ensureCharts(){
     const filtered=[];
     for(const rec of patientRecords){
       if(!rec.latlng) continue;
-      const enabled = state.visit_stage ? (visitStage(rec.visits) >= state.visit_stage) : ((rec.types.new && state.patient_new)) || (rec.types.d90 && state.patient_90) || (rec.types.ret && state.patient_return);
+      const enabled = (rec.types.new && state.patient_new) || (rec.types.d90 && state.patient_90) || (rec.types.ret && state.patient_return);
       if(!enabled) continue;
 
       if(state.radius_enabled && radiusCenterLatLng){
