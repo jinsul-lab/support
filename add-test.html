@@ -239,8 +239,8 @@
       </div>
 
       
-      <div class="section">
-        <div class="sectionTitle"><h3>환자 통계</h3><span class="pill">표/그래프</span></div>
+      <div class="section" id="statsSection">
+        <div class="sectionTitle"><h3>환자 통계</h3><span class="pill">표/그래프</span><button id="btnOpenStatsModal" title="통계 팝업 열기" class="btn" style="margin-left:auto;padding:6px 10px;font-size:12px;line-height:1;border-radius:10px;">팝업 보기</button></div>
         <div class="subNote" id="statScopeNote">기준: 전체(표시 필터 적용)</div>
 
         <div style="margin-top:10px;font-weight:1000;font-size:12px;">행정동 × 환자유형(유니크)</div>
@@ -1530,6 +1530,40 @@ function closeRoadviewModal() {
   document.getElementById('roadviewModal').style.display = 'none';
 }
 
+
+// ===== Stats Modal Wiring =====
+(function(){
+  const openBtn = document.getElementById('btnOpenStatsModal');
+  const modal = document.getElementById('statsModal');
+  const closeBtn = document.getElementById('btnCloseStatsModal');
+  const modalBody = document.getElementById('statsModalBody');
+  const statsSection = document.getElementById('statsSection');
+
+  function openStatsModal(){
+    try{
+      if(statsSection && modalBody && !modalBody.contains(statsSection)){
+        modalBody.appendChild(statsSection);
+      }
+      modal.style.display = 'flex';
+      // ensure charts resize properly
+      setTimeout(()=>{ try{ chartAgeVisits?.resize(); }catch(e){} }, 50);
+    }catch(e){ console.warn(e); }
+  }
+  function closeStatsModal(){
+    try{
+      modal.style.display = 'none';
+    }catch(e){ console.warn(e); }
+  }
+  if(openBtn) openBtn.addEventListener('click', (e)=>{ e.preventDefault(); openStatsModal(); });
+  if(closeBtn) closeBtn.addEventListener('click', (e)=>{ e.preventDefault(); closeStatsModal(); });
+  if(modal) modal.addEventListener('click', (e)=>{ if(e.target && e.target.id==='statsModal') closeStatsModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal && modal.style.display==='flex') closeStatsModal(); });
+
+  window.openStatsModal = openStatsModal;
+  window.closeStatsModal = closeStatsModal;
+})();
+
+
 document.getElementById('btnRoadviewExpand')?.addEventListener('click', openRoadviewModal);
 document.getElementById('btnCloseRoadviewModal')?.addEventListener('click', closeRoadviewModal);
 document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e.target.id === 'roadviewModal') closeRoadviewModal(); });
@@ -1547,6 +1581,20 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
     </div>
   </div>
 </div>
+
+
+<div class="modalOverlay" id="statsModal" style="display:none;">
+  <div class="modalCard" style="width:min(980px, 96vw); height:min(86vh, 900px);">
+    <div class="modalHeader">
+      <div class="modalTitle">환자 통계</div>
+      <button class="modalClose" id="btnCloseStatsModal" aria-label="닫기">×</button>
+    </div>
+    <div class="modalBody" style="overflow:auto;">
+      <div id="statsModalBody"></div>
+    </div>
+  </div>
+</div>
+
 
 </body>
 </html>
