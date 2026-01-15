@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v0.0.5.1)</title>
+  <title>JINSUL-주소 분석 시스템 (v0.0.5.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -177,7 +177,40 @@
     .chartWrap canvas{width:100% !important;height:180px !important}
     .subNote{color:var(--gray);font-size:11px;line-height:1.35;margin-top:6px}
 
-  </style>
+  
+    /* --- Hotfix v0.0.5.2 --- */
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:999px;background:#f3f6ff;border:1px solid #d9e3ff;font-size:12px;font-weight:900;color:#2a3b6b}
+    .chip input{width:14px;height:14px}
+    .roiList{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding-right:4px}
+    .roiItem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px;border-radius:14px;border:1px solid #e7ecff;background:#fff;cursor:pointer}
+    .roiItem.active{outline:2px solid rgba(46,93,255,.25)}
+    .roiLeft{display:flex;align-items:center;gap:10px;min-width:0}
+    .roiDot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+    .roiName{font-weight:1000;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .roiMeta{font-size:11px;color:#556;white-space:nowrap}
+    .roiRight{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+    .roiToggle{display:flex;align-items:center;gap:6px;font-size:11px;color:#334}
+    .roiSelector{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .roiSelItem{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:999px;border:1px solid #e7ecff;background:#fff;font-weight:900;font-size:12px}
+    .roiSelItem .roiDot{width:8px;height:8px}
+    .modalOverlay{position:fixed;inset:0;background:rgba(10,12,18,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999}
+    .modal{width:min(1200px, 98vw);height:min(840px, 92vh);background:#fff;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+    .modalHeader{padding:14px 16px;border-bottom:1px solid #eef1ff;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .modalTitle{font-size:16px;font-weight:1100}
+    .modalSub{font-size:12px;color:#667}
+    .modalBody{padding:14px 16px;overflow:auto}
+    .modalRow{display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-bottom:12px}
+    @media (max-width: 980px){.modalRow{grid-template-columns:1fr}}
+    .card{border:1px solid #eef1ff;border-radius:18px;padding:12px;background:#fff}
+    .cardTitle{font-weight:1100;font-size:13px}
+    .infoWin{max-width:360px;max-height:180px;overflow:auto;word-break:break-word;line-height:1.35}
+
+/* === PATCH v0.0.5.2 (stable-map anchor from v0.0.4.5) === */
+.tableWrap{ max-height: 280px; overflow:auto; }
+.modalBody{ overflow:auto; }
+.miniTable td, .miniTable th{ word-break: break-word; white-space: normal; }
+
+</style>
 </head>
 
 <body>
@@ -189,7 +222,7 @@
         <div class="brandLogo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAEBCAYAAABWhfMqAAAACXBIWXMAAAsTAAALEwEAmpwYAAANA2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNi4wLWMwMDYgNzkuZGFiYWNiYiwgMjAyMS8wNC8xNC0wMDozOTo0NCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bXA6Q3JlYXRvclRvb2w9IkFkb2JlIFBob3Rvc2hvcCAyMi40IChXaW5kb3dzKSIgeG1wOkNyZWF0ZURhdGU9IjIwMjEtMDctMjdUMTc6MTM6MjMrMDk6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjEtMDctMjdUMTc6MTM6NTUrMDk6MDAiIHhtcDpNb2RpZnlEYXRlPSIyMDIxLTA3LTI3VDE3OjEzOjU1KzA5OjAwIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmVmMGI2YjE0LTQ1NTMtYTE0NC05N2U3LTkyNjBjOWFhNWMyZiIgeG1wTU06RG9jdW1lbnRJRD0iYWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjUzNDAwOWJkLTI4YjItMzE0NC05NzkwLWVmY2QwYTUwZDdjNiIgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOjI0NGY3ZjBkLWVjYTMtZWE0YS05MDgwLTkwMzQwZjkzN2NhOCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSI+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MjQ0ZjdmMGQtZWNhMy1lYTRhLTkwODAtOTAzNDBmOTM3Y2E4IiBzdEV2dDp3aGVuPSIyMDIxLTA3LTI3VDE3OjEzOjIzKzA5OjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgMjIuNCAoV2luZG93cykiLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjJmZmZiM2RkLTMxZDEtNmY0NC1iNzgxLWVlZDQ1MTI0MDNjMCIgc3RFdnQ6d2hlbj0iMjAyMS0wNy0yN1QxNzoxMzo1NSswOTowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDIyLjQgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjb252ZXJ0ZWQiIHN0RXZ0OnBhcmFtZXRlcnM9ImZyb20gYXBwbGljYXRpb24vdm5kLmFkb2JlLnBob3Rvc2hvcCB0byBpbWFnZS9wbmciLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImRlcml2ZWQiIHN0RXZ0OnBhcmFtZXRlcnM9ImNvbnZlcnRlZCBmcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDplZjBiNmIxNC00NTUzLWExNDQtOTdlNy05MjYwYzlhYTVjMmYiIHN0RXZ0OndoZW49IjIwMjEtMDctMjdUMTc6MTM6NTUrMDk6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCAyMi40IChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPHhtcE1NOkluZ3JlZGllbnRzPiA8cmRmOkJhZz4gPHJkZjpsaSBzdFJlZjpsaW5rRm9ybT0iUmVmZXJlbmNlU3RyZWFtIiBzdFJlZjpmaWxlUGF0aD0iY2xvdWQtYXNzZXQ6Ly9jYy1hcGktc3RvcmFnZS5hZG9iZS5pby9hc3NldHMvYWRvYmUtbGlicmFyaWVzLzhlNzUxYjkxLWJkZmItNDQxMS1hNzRjLTAzNGQ2Yjg4MDdmZTtub2RlPTA2YjMwODk2LTExNjYtNDBiMi04NmNiLTMwNDJhMTQxNzM3NiIgc3RSZWY6RG9jdW1lbnRJRD0idXVpZDo5MDdkZTRhNS0yZjk2LTQzMGEtODk1My0wNzdkMGMyMTY2MTYiLz4gPHJkZjpsaSBzdFJlZjpsaW5rRm9ybT0iUmVmZXJlbmNlU3RyZWFtIiBzdFJlZjpmaWxlUGF0aD0iY2xvdWQtYXNzZXQ6Ly9jYy1hcGktc3RvcmFnZS5hZG9iZS5pby9hc3NldHMvYWRvYmUtbGlicmFyaWVzLzhlNzUxYjkxLWJkZmItNDQxMS1hNzRjLTAzNGQ2Yjg4MDdmZTtub2RlPTc2NjQ3N2UwLTE1ZTktNGU1Yi04ZDQ0LTYxZDY5NWFjMDdmNiIgc3RSZWY6RG9jdW1lbnRJRD0idXVpZDo3NmUyOWZlMS1jNTgyLTQzOGItYTE1Yy1kNWE5NzA4MDU0ZDQiLz4gPHJkZjpsaSBzdFJlZjpsaW5rRm9ybT0iUmVmZXJlbmNlU3RyZWFtIiBzdFJlZjpmaWxlUGF0aD0iY2xvdWQtYXNzZXQ6Ly9jYy1hcGktc3RvcmFnZS5hZG9iZS5pby9hc3NldHMvYWRvYmUtbGlicmFyaWVzLzhlNzUxYjkxLWJkZmItNDQxMS1hNzRjLTAzNGQ2Yjg4MDdmZTtub2RlPWVkODMxZmYwLTUyYWEtNGJmYy05MTNjLTkwZTBiY2MzOWM1ZSIgc3RSZWY6RG9jdW1lbnRJRD0idXVpZDphMWFkMDI4Ny0zMzU3LTRjMWYtYjBlYy0zODdlNmIwZTY4MGEiLz4gPHJkZjpsaSBzdFJlZjpsaW5rRm9ybT0iUmVmZXJlbmNlU3RyZWFtIiBzdFJlZjpmaWxlUGF0aD0iY2xvdWQtYXNzZXQ6Ly9jYy1hcGktc3RvcmFnZS5hZG9iZS5pby9hc3NldHMvYWRvYmUtbGlicmFyaWVzLzhlNzUxYjkxLWJkZmItNDQxMS1hNzRjLTAzNGQ2Yjg4MDdmZTtub2RlPTEwNDI4MWYyLTU5MzctNDk2Yi04MmIyLTYwZDU4MGYxNjBmYSIgc3RSZWY6RG9jdW1lbnRJRD0idXVpZDpmMjFlOWY5Yi0yNTM2LTQ1ZmEtODIwOS02NGYwNDg3YTg4ZTEiLz4gPC9yZGY6QmFnPiA8L3htcE1NOkluZ3JlZGllbnRzPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDoyZmZmYjNkZC0zMWQxLTZmNDQtYjc4MS1lZWQ0NTEyNDAzYzAiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MjQ0ZjdmMGQtZWNhMy1lYTRhLTkwODAtOTAzNDBmOTM3Y2E4IiBzdFJlZjpvcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MjQ0ZjdmMGQtZWNhMy1lYTRhLTkwODAtOTAzNDBmOTM3Y2E4Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+7DsH1wAAOvdJREFUeJztnXeYJEX5xz8HNDkcQTISlSAZ4cgI3ZIREKhGgoACkhSQLAqICUUBEQmCgqIHXQiCRKGb8ONAJJ4gScko6Qh3cEdquPv9UTVsz+z0hJ4OM7vv53n22Znumqqa3Zn+dtWbxsyYMQNBEARB6JaZqp6AIAiCMJiIgAiCIAiZEAERBEEQMjFLs4Njxowpex7CKCQO3VmBscB8wDzAHPZndszNzayJ5h8AM4D3Ej9TgbeAKY4XxaVNPAfi0J0F897HAnNj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" alt="JINSUL"/></div>
         <div class="brandText">
           <div class="brandTitle">JINSUL-주소 분석 시스템</div>
-          <div class="brandSub">v0.0.5.1</div>
+          <div class="brandSub">v0.0.5.2</div>
         </div>
       </div>
       <button id="btnCollapse" class="iconBtn" title="패널 접기">☰</button>
@@ -219,59 +252,47 @@
         <div class="statGrid">
           <div class="stat"><div id="lblPatientsUnique" class="k">화면 내 유니크</div><div id="statPatientsUnique" class="v">0</div></div>
           <div class="stat"><div id="lblPatientsVisits" class="k">화면 내 방문합</div><div id="statPatientsVisits" class="v">0</div></div>
-
-        <div class="section" style="margin-top:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div style="font-weight:1000;font-size:12px;">월 선택</div>
-            <div style="display:flex;gap:6px;">
-              <button class="btnSm" id="btnMonthAll" type="button">전체</button>
-              <button class="btnSm" id="btnMonthNone" type="button">해제</button>
-            </div>
-          </div>
-          <input id="monthSearch" type="text" placeholder="예: 2025-08" style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:12px;outline:none;">
-          <div id="monthList" style="margin-top:6px;max-height:140px;overflow:auto;border:1px solid #eee;border-radius:12px;padding:8px;background:#fafafa;"></div>
-          <div id="monthSelectedHint" style="margin-top:6px;font-size:12px;opacity:.75;">전체(월 필터 없음)</div>
-        </div>
-
         </div>
       </div>
 
       
+      
       <div class="section">
-        <div class="sectionTitle"><h3>환자 통계</h3><span class="pill">표/그래프</span></div>
-        <div class="subNote" id="statScopeNote">기준: 전체(표시 필터 적용)</div>
+        <div class="sectionTitle"><h3>상권(ROI)</h3><span class="pill">반경 비교</span></div>
+        <div class="subNote">지도 클릭으로 중심을 찍고 반경을 저장하세요. 여러 개를 저장해 비교할 수 있습니다.</div>
 
-        <div style="margin-top:10px;font-weight:1000;font-size:12px;">행정동 × 환자유형(유니크)</div>
-        <div class="tableWrap" style="margin-top:8px;">
-          <table class="miniTable">
-            <thead>
-              <tr>
-                <th>행정동</th><th>신환</th><th>90일초</th><th>재진</th><th>합계</th>
-              </tr>
-            </thead>
-            <tbody id="tblDongType"></tbody>
-          </table>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" id="btnAddRoi">＋ 상권 추가</button>
+          <button class="btn ghost" id="btnClearRoiSel">선택 해제</button>
         </div>
 
-        <div style="margin-top:14px;font-weight:1000;font-size:12px;">연령별(유니크)</div>
-        <div class="chartWrap" style="margin-top:8px;"><canvas id="chartAge"></canvas></div>
-        <div class="tableWrap" style="margin-top:8px;">
-          <table class="miniTable">
-            <thead>
-              <tr>
-                <th>연령대</th><th>유니크</th><th>내원합</th>
-              </tr>
-            </thead>
-            <tbody id="tblAge"></tbody>
-          </table>
+        <div id="roiList" class="roiList" style="margin-top:10px;"></div>
+
+        <div id="roiEditor" class="roiEditor" style="display:none; margin-top:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="font-weight:900;">선택된 상권</div>
+            <button class="btn danger" id="btnDeleteRoi" style="padding:6px 10px;">삭제</button>
+          </div>
+          <div style="margin-top:8px;">
+            <div class="subNote">반경(m)</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="range" id="roiRadiusRange" min="100" max="3000" step="50" value="500" style="flex:1;">
+              <input type="number" id="roiRadiusInput" min="50" max="50000" step="50" value="500" style="width:90px;">
+            </div>
+          </div>
         </div>
-
-        <div style="margin-top:14px;font-weight:1000;font-size:12px;">연령 × 방문횟수 분포</div>
-        <div class="chartWrap" style="margin-top:8px;"><canvas id="chartAgeVisits"></canvas></div>
-
-        <div style="margin-top:14px;font-weight:1000;font-size:12px;">행정동별(유니크)</div>
-        <div class="chartWrap" style="margin-top:8px;"><canvas id="chartDong"></canvas></div>
       </div>
+<div class="section">
+        <div class="sectionTitle"><h3>통계</h3><span class="pill">팝업</span></div>
+        <div class="subNote">지도 필터/토글/반경 상태에 따라 실시간으로 계산됩니다.</div>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" id="btnOpenStats">환자 통계 보기</button>
+          <label class="chip"><input type="checkbox" id="chkApplyRadiusToMap">반경을 지도/통계에 적용</label>
+          <label class="chip"><input type="checkbox" id="chkStatsBasisVisits">통계 기준: 방문(내원) 합</label>
+        </div>
+      </div>
+
+      
 
       <div class="section">
         <div class="sectionTitle"><h3>반경 필터</h3><span class="pill">ON/OFF</span></div>
@@ -400,8 +421,9 @@ const state={
     }
 
     if(name==="radius_enabled"){
-      updateRadiusUI();
-      renderRadius();
+      // legacy toggle: map to ROI-apply checkbox
+      const chk = document.getElementById("chkApplyRadiusToMap");
+      if(chk) chk.checked = !!state.radius_enabled;
       applyPatientVisibility();
       updatePatientStats();
     }
@@ -427,122 +449,7 @@ const state={
       return;
     }
 
-    
-  // ===== Month UI wiring =====
-  function renderMonthList(){
-    const list = document.getElementById('monthList');
-    const hint = document.getElementById('monthSelectedHint');
-    if(!list || !hint) return;
-
-    const q = (monthSearchQuery || "").trim();
-    const months = allMonths || [];
-    list.innerHTML = "";
-
-    const shown = months.filter(mk => !q || mk.includes(q));
-    if(!shown.length){
-      list.innerHTML = '<div style="font-size:12px;opacity:.7;padding:6px;">표시할 월이 없습니다.</div>';
-    } else {
-      for(const mk of shown){
-        const checked = (selectedMonths && selectedMonths.size>0) ? selectedMonths.has(mk) : true; // empty => all
-        const row = document.createElement('label');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '8px';
-        row.style.padding = '4px 6px';
-        row.style.fontSize = '12px';
-        row.style.cursor = 'pointer';
-        row.innerHTML = `<input type="checkbox" ${checked ? "checked":""} data-mk="${mk}" /> <span>${mk}</span>`;
-        list.appendChild(row);
-      }
-    }
-
-    const selectedCount = (selectedMonths && selectedMonths.size>0) ? selectedMonths.size : months.length;
-    hint.textContent = (months.length===0) ? "데이터 없음" : ((selectedMonths && selectedMonths.size===0) ? `전체(${months.length}개월)` : `선택 ${selectedCount}개 / 전체 ${months.length}개`);
-  }
-
-  function setMonthSelectionAll(){
-    selectedMonths = new Set(); // empty => all
-    renderMonthList();
-    applyPatientVisibility();
-    updatePatientStats();
-  }
-
-  function setMonthSelectionNone(){
-    selectedMonths = new Set(); // none selected (special): use sentinel with impossible value and size>0 but empty selection
-    // We'll represent none by a Set with size>0? No. Use a separate flag:
-    selectedMonths = new Set(["__NONE__"]);
-    renderMonthList();
-    applyPatientVisibility();
-    updatePatientStats();
-  }
-
-  function normalizeNoneSelection(){
-    // if selectedMonths contains only __NONE__, treat as none (no months).
-    if(selectedMonths && selectedMonths.size===1 && selectedMonths.has("__NONE__")) return true;
-    return false;
-  }
-
-  // override isMonthSelected to support NONE
-  const _origIsMonthSelected = isMonthSelected;
-  isMonthSelected = function(mk){
-    if(normalizeNoneSelection()) return false;
-    if(!selectedMonths || selectedMonths.size===0) return true;
-    return selectedMonths.has(mk);
-  };
-
-  function bindMonthUI(){
-    const list = document.getElementById('monthList');
-    const btnAll = document.getElementById('btnMonthAll');
-    const btnNone = document.getElementById('btnMonthNone');
-    const search = document.getElementById('monthSearch');
-
-    if(btnAll) btnAll.addEventListener('click', ()=>setMonthSelectionAll());
-    if(btnNone) btnNone.addEventListener('click', ()=>{
-      // none: clear all by making selectedMonths contain nothing but not "all" => use __NONE__
-      selectedMonths = new Set(["__NONE__"]);
-      renderMonthList();
-      applyPatientVisibility();
-      updatePatientStats();
-    });
-    if(search) search.addEventListener('input', (e)=>{
-      monthSearchQuery = e.target.value || "";
-      renderMonthList();
-    });
-
-    if(list){
-      list.addEventListener('change', (e)=>{
-        const t = e.target;
-        if(!(t instanceof HTMLInputElement)) return;
-        const mk = t.getAttribute('data-mk');
-        if(!mk) return;
-
-        // if currently ALL(empty set), expand to explicit full set first
-        if(!selectedMonths || selectedMonths.size===0){
-          selectedMonths = new Set(allMonths || []);
-        }
-        // remove NONE sentinel if present
-        if(selectedMonths.has("__NONE__")) selectedMonths.delete("__NONE__");
-
-        if(t.checked) selectedMonths.add(mk);
-        else selectedMonths.delete(mk);
-
-        // if user ended up selecting all months, compress to ALL(empty) for simplicity
-        if((allMonths||[]).length && selectedMonths.size === (allMonths||[]).length){
-          selectedMonths = new Set(); // all
-        }
-        // if user selected none, set NONE sentinel
-        if(selectedMonths.size===0){
-          selectedMonths = new Set(["__NONE__"]);
-        }
-
-        renderMonthList();
-        applyPatientVisibility();
-        updatePatientStats();
-      });
-    }
-  }
-
-kakao.maps.load(()=>{
+    kakao.maps.load(()=>{
       debug("kakao.maps.load: OK");
       map = new kakao.maps.Map(document.getElementById("map"), {
         center: new kakao.maps.LatLng(37.5665,126.9780),
@@ -635,54 +542,20 @@ kakao.maps.load(()=>{
   let patientRecords=[];
 
   
-  // ===== Month filter (v0.0.5.1) =====
-  let allMonths = [];               // ['YYYY-MM', ...] sorted
-  let selectedMonths = new Set();   // empty => 전체
-  let monthSearchQuery = "";
+  // ===== ROI / Multi-radius =====
+  let roiObjects = [];            // {id, center, radius, circle, label, color, active, includedPatients, stats}
+  let roiPickMode = false;
+  let roiSelectedId = null;
+  let roiDefaultRadius = 500;
+  const roiPalette = ["#2E5DFF","#FF7A00","#16A34A","#9333EA","#0EA5E9"];
 
-  function monthKeyFromDate(d){
-    if(!(d instanceof Date) || isNaN(d)) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    return `${y}-${m}`;
-  }
-
-  function sortMonthKeys(arr){
-    return Array.from(new Set(arr.filter(Boolean))).sort();
-  }
-
-  function isMonthSelected(mk){
-    if(!selectedMonths || selectedMonths.size===0) return true; // empty => all
-    return selectedMonths.has(mk);
-  }
-
-
-  function computePatientInRange(rec){
-    // returns null if no visits in selected months
-    const hist = Array.isArray(rec.visitHistory) ? rec.visitHistory : [];
-    if(!hist.length){
-      // no date info: treat as included (legacy) when no month filter, else excluded
-      if(selectedMonths && selectedMonths.size>0) return null;
-      return { type: (rec.types && (rec._range && rec._range.type==='new')) ? "new" : (rec.types && (rec._range && rec._range.type==='d90') ? "d90" : "ret"), visits: rec.visits||1, hist: [] };
+  function formatMeters(m){
+    if(m>=1000){
+      const km = Math.round((m/1000)*10)/10;
+      return `${km}km`;
     }
-    const inMonth = hist.filter(vh=>isMonthSelected(vh.month));
-    if(!inMonth.length) return null;
-    // type by earliest visit in range (avoid double counting)
-    const t = inMonth[0].type || "ret";
-    return { type: t, visits: inMonth.length, hist: inMonth };
+    return `${Math.round(m)}m`;
   }
-
-  function typeKeyToLabel(t){
-    if(t==="new") return "신환";
-    if(t==="d90") return "90일초";
-    return "재진";
-  }
-// ===== Radius filter =====
-  let radiusCenterLatLng = null;
-  let radiusCircle = null;
-  let radiusCenterMarker = null;
-  let radiusPickMode = false;
-  let radiusMeters = 1000;
 
   function haversineMeters(a,b){
     const toRad=(d)=>d*Math.PI/180;
@@ -694,727 +567,110 @@ kakao.maps.load(()=>{
     return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));
   }
 
-  function isInsideRadius(latlng){
-    if(!state.radius_enabled) return true;
-    if(!radiusCenterLatLng) return true; // 중심 미지정이면 필터 미적용
-    return haversineMeters(radiusCenterLatLng, latlng) <= radiusMeters;
-  }
+  function makeRoiId(){ return `roi-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 
-  function updateRadiusUI(){
-    const lbl=$("#radiusLabel");
-    if(lbl) lbl.textContent = `${radiusMeters}m`;
-    const scope=$("#statScopeNote");
-    if(scope){
-      if(state.radius_enabled && radiusCenterLatLng) scope.textContent = `기준: 반경 ${radiusMeters}m (표시 필터 적용)`;
-      else if(state.radius_enabled && !radiusCenterLatLng) scope.textContent = `기준: 반경 (중심 미지정)`;
-      else scope.textContent = `기준: 전체(표시 필터 적용)`;
-    }
-    const k1=$("#lblPatientsUnique"), k2=$("#lblPatientsVisits");
-    if(k1 && k2){
-      if(state.radius_enabled) { k1.textContent="반경 내 유니크"; k2.textContent="반경 내 방문합"; }
-      else { k1.textContent="화면 내 유니크"; k2.textContent="화면 내 방문합"; }
-    }
-  }
+  function getRoiById(id){ return roiObjects.find(r=>r.id===id); }
 
-  function renderRadius(){
-    if(!map) return;
-    if(!state.radius_enabled){
-      if(radiusCircle){ radiusCircle.setMap(null); radiusCircle=null; }
-      if(radiusCenterMarker){ radiusCenterMarker.setMap(null); radiusCenterMarker=null; }
-      updateRadiusUI();
-      return;
-    }
-    if(radiusCenterLatLng){
-      if(!radiusCenterMarker){
-        radiusCenterMarker = new kakao.maps.Marker({
-          position: radiusCenterLatLng,
-          map,
-          draggable: true
-        });
-        kakao.maps.event.addListener(radiusCenterMarker,"dragend",()=>{
-          radiusCenterLatLng = radiusCenterMarker.getPosition();
-          renderRadius();
-          applyPatientVisibility();
-          updatePatientStats();
-        });
-      } else {
-        radiusCenterMarker.setPosition(radiusCenterLatLng);
-        radiusCenterMarker.setMap(map);
-      }
+  function createRoiAt(latlng, radiusMeters=roiDefaultRadius){
+    const id = makeRoiId();
+    const color = roiPalette[roiObjects.length % roiPalette.length];
 
-      if(!radiusCircle){
-        radiusCircle = new kakao.maps.Circle({
-          center: radiusCenterLatLng,
-          radius: radiusMeters,
-          strokeWeight: 2,
-          strokeOpacity: 0.8,
-          fillOpacity: 0.12
-        });
-      }
-      radiusCircle.setOptions({center: radiusCenterLatLng, radius: radiusMeters});
-      radiusCircle.setMap(map);
-    } else {
-      if(radiusCircle){ radiusCircle.setMap(null); radiusCircle=null; }
-      if(radiusCenterMarker){ radiusCenterMarker.setMap(null); radiusCenterMarker=null; }
-    }
-    updateRadiusUI();
-  }
-
-  function normalizeStr(s){ return String(s??"").trim().replace(/\s+/g," "); }
-
-  function findValueByFuzzyKey(rowObj, keywords){
-    const keys = Object.keys(rowObj);
-    for(const target of keywords){
-      for(const key of keys){
-        const cleanKey = String(key).replace(/\s+/g,'').toLowerCase();
-        if(cleanKey.includes(String(target).toLowerCase())) return rowObj[key];
-      }
-    }
-    return undefined;
-  }
-
-  function classifyRow(headers,row){
-    const truthy=(x)=>{
-      const s=normalizeStr(x).toLowerCase();
-      return s==="1"||s==="y"||s==="yes"||s==="true"||s==="t"||s==="o"||s==="○";
-    };
-    const hNew = headers.find(h=>["신환","신규","초진"].some(k=>String(h).includes(k)));
-    const h90  = headers.find(h=>["90일초","90초","90초진"].some(k=>String(h).includes(k)));
-    const hRet = headers.find(h=>["재진"].some(k=>String(h).includes(k)));
-
-    const isNewHeader = hNew ? truthy(row[hNew]) : null;
-    const is90Header  = h90  ? truthy(row[h90])  : null;
-    const isRetHeader = hRet ? truthy(row[hRet]) : null;
-
-    const typeField = headers.find(h=>["구분","유형","분류","타입","type"].some(k=>String(h).toLowerCase().includes(k)));
-    const v = normalizeStr(typeField ? row[typeField] : "");
-
-    const is90Val = (v.includes("90") && (v.includes("초")||v.includes("초진"))) || v==="90일초" || v==="90초";
-    const isNewVal = v.includes("신환")||v.includes("신규")||v.includes("초진");
-    const isRetVal = v.includes("재진")||v.includes("재방문")||v.includes("기존");
-
-    const is90 = (is90Header ?? is90Val);
-    const isNew = (isNewHeader ?? isNewVal);
-    const isRet = (isRetHeader ?? isRetVal);
-
-    return { isNew, is90, isRet };
-  }
-
-
-  // ===== Age helpers (기준일=내원일) =====
-  function parseVisitDate(raw){
-    if(raw==null || raw==="") return null;
-    // Excel serial number
-    if(typeof raw==="number" && isFinite(raw)){
-      // Excel epoch 1899-12-30
-      const ms = (raw - 25569) * 86400 * 1000;
-      const d = new Date(ms);
-      if(!isNaN(d.getTime())) return d;
-    }
-    if(raw instanceof Date && !isNaN(raw.getTime())) return raw;
-
-    const s = String(raw).trim();
-    if(!s) return null;
-
-    // yyyymmdd
-    if(/^\d{8}$/.test(s)){
-      const y=Number(s.slice(0,4)), m=Number(s.slice(4,6)), d=Number(s.slice(6,8));
-      const dt=new Date(y,m-1,d);
-      if(!isNaN(dt.getTime())) return dt;
-    }
-
-    // yyyy-mm-dd / yyyy.mm.dd / yyyy/mm/dd
-    let m = s.match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
-    if(m){
-      const y=Number(m[1]), mo=Number(m[2]), d=Number(m[3]);
-      const dt=new Date(y,mo-1,d);
-      if(!isNaN(dt.getTime())) return dt;
-    }
-
-    // yy-mm-dd (assume 20xx if <= currentYY else 19xx)
-    m = s.match(/^(\d{2})\D(\d{1,2})\D(\d{1,2})/);
-    if(m){
-      const yy=Number(m[1]), mo=Number(m[2]), d=Number(m[3]);
-      const nowYY = new Date().getFullYear()%100;
-      const century = (yy<=nowYY ? 2000 : 1900);
-      const dt=new Date(century+yy,mo-1,d);
-      if(!isNaN(dt.getTime())) return dt;
-    }
-
-    // fallback: Date.parse
-    const dt=new Date(s);
-    if(!isNaN(dt.getTime())) return dt;
-    return null;
-  }
-
-  function computeAgeFromBirth(birthDate, refDate){
-    if(!(birthDate instanceof Date) || isNaN(birthDate.getTime())) return null;
-    if(!(refDate instanceof Date) || isNaN(refDate.getTime())) refDate = new Date();
-    let age = refDate.getFullYear() - birthDate.getFullYear();
-    const m = refDate.getMonth() - birthDate.getMonth();
-    if(m < 0 || (m===0 && refDate.getDate() < birthDate.getDate())) age--;
-    if(!isFinite(age) || age<0 || age>130) return null;
-    return age;
-  }
-
-  function birthFromRRN(rrnRaw){
-    if(rrnRaw==null) return null;
-    const s = String(rrnRaw).replace(/\D/g,"");
-    if(s.length!==13) return null;
-    const yy=Number(s.slice(0,2));
-    const mm=Number(s.slice(2,4));
-    const dd=Number(s.slice(4,6));
-    const c = s[6];
-    let century = null;
-    if(c==="1"||c==="2"||c==="5"||c==="6") century=1900;
-    else if(c==="3"||c==="4"||c==="7"||c==="8") century=2000;
-    else if(c==="9"||c==="0") century=1800;
-    if(century==null) return null;
-    const y = century + yy;
-    const dt = new Date(y, mm-1, dd);
-    if(isNaN(dt.getTime())) return null;
-    // validate
-    if(dt.getFullYear()!==y || dt.getMonth()!==mm-1 || dt.getDate()!==dd) return null;
-    return dt;
-  }
-
-  function computeAgeFromRow(rowObj, refDate){
-    // 1) explicit age
-    const ageRaw = findValueByFuzzyKey(rowObj, ['나이','age']);
-    const ageNum = Number(String(ageRaw??"").replace(/[^0-9.]/g,""));
-    if(isFinite(ageNum) && ageNum>0 && ageNum<130) return Math.floor(ageNum);
-
-    // 2) birth date / birth year
-    const birthRaw = findValueByFuzzyKey(rowObj, ['생년월일','출생일','birth','dob','생년','출생년도','생년(4)']);
-    if(birthRaw!=null && birthRaw!==""){
-      let bd = null;
-      if(typeof birthRaw==="number" && isFinite(birthRaw)){
-        // if looks like YYYY
-        if(birthRaw>=1800 && birthRaw<=2100){
-          bd = new Date(Number(birthRaw),0,1);
-        } else {
-          bd = parseVisitDate(birthRaw);
-        }
-      } else {
-        const s = String(birthRaw).trim();
-        if(/^\d{4}$/.test(s)) bd = new Date(Number(s),0,1);
-        else bd = parseVisitDate(s);
-      }
-      const a = computeAgeFromBirth(bd, refDate);
-      if(a!=null) return a;
-    }
-
-    // 3) resident registration number
-    const rrn = findValueByFuzzyKey(rowObj, ['주민등록번호','주민번호','주민등록','주민']);
-    const bd = birthFromRRN(rrn);
-    const a = computeAgeFromBirth(bd, refDate);
-    if(a!=null) return a;
-
-    return null;
-  }
-
-  function mergePatientData(rows, headers){
-    const patientMap = new Map();
-
-    rows.forEach(item=>{
-      const title = findValueByFuzzyKey(item, ['수진자','이름','성명','환자명','name']);
-      const address = findValueByFuzzyKey(item, ['주소','addr','address','도로명','지번']);
-      const chartNo = findValueByFuzzyKey(item, ['차트','환자번호','no','id','등록번호']);
-      const visitDate = parseVisitDate(findValueByFuzzyKey(item, ['내원일','방문일','진료일','접수일','date','visit']));
-      const age = computeAgeFromRow(item, visitDate);
-
-      if(!address) return;
-      const cleanAddr = String(address).replace(/\s+/g,'');
-      if(cleanAddr==='주소' || cleanAddr==='Address') return;
-      if(title && String(title).replace(/\s+/g,'')==='수진자명') return;
-
-      const key = chartNo ? `ID:${chartNo}` : `K:${title||""}|${cleanAddr}`;
-      const cls = classifyRow(headers, item);
-
-      if(patientMap.has(key)){
-        const rec = patientMap.get(key);
-        rec.visits += 1;
-        if(visitDate) { (rec._visitDates ||= []).push(visitDate); }
-        if((rec.age==null || rec.age==="" || rec.age===undefined) && age!=null) rec.age = age;
-        if(cls.is90) (rec._range && rec._range.type==='d90') = true;
-        else if(cls.isNew) (rec._range && rec._range.type==='new') = true;
-        else if(cls.isRet) (rec._range && rec._range.type==='ret') = true;
-        else (rec._range && rec._range.type==='ret') = true;
-      } else {
-        patientMap.set(key, {
-          key,
-          title: title,
-          address: address,
-          chartNo: chartNo,
-          age: age,
-          visits: 1,
-          _visitDates: (visitDate ? [visitDate] : []),
-          visitHistory: [],
-
-          types: (function(){
-            const t = { new:false, d90:false, ret:false };
-            if(cls.is90) t.d90 = true;
-            else if(cls.isNew) t.new = true;
-            else if(cls.isRet) t.ret = true;
-            else t.ret = true; // 기본값: 재진
-            return t;
-          })(),
-          marker: null,
-          infowindow: null,
-          latlng: null,
-          dong: ""
-        });
-      }
+    const circle = new kakao.maps.Circle({
+      center: latlng,
+      radius: radiusMeters,
+      strokeWeight: 3,
+      strokeColor: color,
+      strokeOpacity: 0.9,
+      fillColor: color,
+      fillOpacity: 0.14
     });
+    circle.setMap(map);
 
-    
-    // ---- derive visitHistory + type by chronology (신환=최초 1회, 이후 재진/90일초진) ----
-    const monthsAcc = [];
-    for(const rec of patientMap.values()){
-      const dates = Array.isArray(rec._visitDates) ? rec._visitDates.filter(d=>d instanceof Date && !isNaN(d)) : [];
-      dates.sort((a,b)=>a-b);
-      rec.visitHistory = dates.map(d=>({ date:d, month:monthKeyFromDate(d), type:"" }));
-      for(const vh of rec.visitHistory){ if(vh.month) monthsAcc.push(vh.month); }
-      // assign type
-      if(rec.visitHistory.length){
-        rec.visitHistory[0].type = "new";
-        for(let i=1;i<rec.visitHistory.length;i++){
-          const prev = rec.visitHistory[i-1].date;
-          const cur = rec.visitHistory[i].date;
-          const diffDays = Math.floor((cur - prev) / (1000*60*60*24));
-          rec.visitHistory[i].type = (diffDays > 90) ? "d90" : "ret";
-        }
-      }
-      // compatibility fields
-      rec.visits = rec.visitHistory.length || rec.visits || 0;
-      const t = { new:false, d90:false, ret:false };
-      for(const vh of rec.visitHistory){
-        if(vh.type==="new") t.new = true;
-        else if(vh.type==="d90") t.d90 = true;
-        else if(vh.type==="ret") t.ret = true;
-      }
-      // if no dates, fall back to previous classifier flags
-      if(!rec.visitHistory.length){
-        // leave existing rec.types as-is
-      } else {
-        rec.types = t;
-      }
-      rec.firstVisitDate = rec.visitHistory.length ? rec.visitHistory[0].date : null;
-      rec.lastVisitDate  = rec.visitHistory.length ? rec.visitHistory[rec.visitHistory.length-1].date : null;
-    }
-
-    // update month universe (global)
-    if(monthsAcc.length){
-      allMonths = sortMonthKeys((allMonths||[]).concat(monthsAcc));
-      // default: 전체(빈 set) 유지. 사용자 선택이 이미 있으면 유지.
-      if(!selectedMonths || selectedMonths.size===0){
-        // keep empty meaning all
-      }
-    }
-return Array.from(patientMap.values());
-  }
-
-  function buildInfoHTML(rec){
-    const name = rec.title ? `<div style="font-weight:1000;font-size:14px;">${rec.title} <span style="font-size:11px;font-weight:700;color:#6b7280;">(${rec.age ?? ""})</span></div>` : "";
-    const addr = rec.address ? `<div style="color:#2563eb;margin-top:4px;">${rec.address}</div>` : "";
-    const desc = `<div style="color:#555;margin-top:4px;">방문: <b style="color:#db4040">${rec.visits}회</b> / 차트: ${rec.chartNo ?? ""}</div>`;
-    return `<div style="padding:8px 10px;min-width:170px;font-size:12px;line-height:1.35;">${name}${addr}${desc}</div>`;
-  }
-
-  function clearPatients(){
-    patientRecords.forEach(r=>r.marker && r.marker.setMap(null));
-    patientRecords=[];
-    boundsPatients = new kakao.maps.LatLngBounds();
-    updatePatientStats();
-    debug("patients: cleared");
-  }
-
-  $("#btnClearPatients").addEventListener("click", ()=>{
-    if(!map){ toast("지도 준비 전"); return; }
-    clearPatients();
-    toast("환자 초기화");
-  });
-
-  $("#btnFitPatients").addEventListener("click", ()=>{
-    if(!map){ toast("지도 준비 전"); return; }
-    if(!patientRecords.length){ toast("환자 마커가 없습니다."); return; }
-    map.setBounds(boundsPatients);
-  });
-
-  function applyPatientVisibility(){
-    for(const rec of patientRecords){
-      const show = (((rec._range && rec._range.type==='new') && state.patient_new) || ((rec._range && rec._range.type==='d90') && state.patient_90) || ((rec._range && rec._range.type==='ret') && state.patient_return)) && (!rec.latlng || isInsideRadius(rec.latlng));
-      rec.marker.setMap(show ? map : null);
-    }
-  }
-
-  
-  function getPrimaryType(rec){
-    if(rec._range && rec._range.type==='d90') return "90일초";
-    if(rec._range && rec._range.type==='new') return "신환";
-    return "재진";
-  }
-
-  function extractDong(address){
-    const s=normalizeStr(address);
-    // prefer 읍/면/동 (last match)
-    const re=/([가-힣0-9]+(?:동|읍|면))\b/g;
-    const ms=[...s.matchAll(re)];
-    if(!ms.length) return "";
-    return ms[ms.length-1][1];
-  }
-
-  function ageBucket(age){
-    const n = Number(age);
-    if(!Number.isFinite(n) || n<=0) return "미상";
-    const b = Math.min(90, Math.floor(n/10)*10);
-    if(b>=90) return "90+";
-    return `${b}~${b+9}`;
-  }
-
-  // Charts
-  let chartDong=null, chartAge=null, chartAgeVisits=null;
-
-  function ensureCharts(){
-    if(!window.Chart) return;
-    const ctxDong = document.getElementById("chartDong");
-    const ctxAge = document.getElementById("chartAge");
-    const ctxAgeV = document.getElementById("chartAgeVisits");
-    if(ctxDong && !chartDong){
-      chartDong = new Chart(ctxDong, { type:"bar", data:{labels:[], datasets:[{label:"유니크", data:[]}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:0, autoSkip:true}}, y:{beginAtZero:true}} }});
-    }
-    if(ctxAge && !chartAge){
-      chartAge = new Chart(ctxAge, { type:"bar", data:{labels:[], datasets:[{label:"유니크", data:[]}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:0, autoSkip:true}}, y:{beginAtZero:true}} }});
-    }
-    if(ctxAgeV && !chartAgeVisits){
-      chartAgeVisits = new Chart(ctxAgeV, { type:"bubble", data:{datasets:[{label:"분포", data:[]}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:(c)=>`연령 ${c.raw.x}, 방문 ${c.raw.y}, ${c.raw.v}명`}}}, scales:{x:{title:{display:true,text:"연령대(10년 단위, 대표값)"}, ticks:{stepSize:10}}, y:{title:{display:true,text:"방문횟수"}, ticks:{stepSize:1, precision:0}} } }});
-    }
-  }
-
-  function updatePatientStats(){
-    if(!map || !patientRecords) return;
-    ensureCharts();
-    updateRadiusUI();
-
-    const b = map.getBounds();
-    let unique=0, visits=0;
-
-    // filtered records
-    const filtered=[];
-    for(const rec of patientRecords){
-      if(!rec.latlng) continue;
-      const enabled = ((rec._range && rec._range.type==='new') && state.patient_new) || ((rec._range && rec._range.type==='d90') && state.patient_90) || ((rec._range && rec._range.type==='ret') && state.patient_return);
-      if(!enabled) continue;
-
-      if(state.radius_enabled && radiusCenterLatLng){
-        if(!isInsideRadius(rec.latlng)) continue;
-      } else {
-        if(!b.contain(rec.latlng)) continue;
-      }
-      const pr = computePatientInRange(rec);
-      if(!pr) continue;
-      // apply patient type toggles (based on type of first visit within selected range)
-      if(pr.type==='new' && !state.patient_new) continue;
-      if(pr.type==='d90' && !state.patient_90) continue;
-      if(pr.type==='ret' && !state.patient_return) continue;
-
-      // attach for later use
-      rec._range = pr;
-      filtered.push(rec);
-      unique += 1;
-      visits += pr.visits;
-    }
-
-    $("#statPatientsUnique").textContent = String(unique);
-    $("#statPatientsVisits").textContent = String(visits);
-
-    // ---- Tables + Charts ----
-    // Dong x Type
-    const dongType = new Map(); // dong -> {신환,90일초,재진,total}
-    const dongUnique = new Map(); // dong -> total unique
-    const ageAgg = new Map(); // bucket -> {unique, visits}
-
-    // age x visits distribution (bubble)
-    const dist = new Map(); // key ageBucket|visBucket -> count
-    const visitBucket=(v)=> v>=5?5:v; // 5 means 5+
-
-    for(const rec of filtered){
-      const dong = rec.dong || extractDong(rec.address||"") || "미상";
-      const type = getPrimaryType(rec);
-
-      if(!dongType.has(dong)) dongType.set(dong, { "신환":0,"90일초":0,"재진":0,total:0 });
-      const dt = dongType.get(dong);
-      dt[type] += 1;
-      dt.total += 1;
-
-      dongUnique.set(dong, (dongUnique.get(dong)||0) + 1);
-
-      const ab = ageBucket(rec.age);
-      if(!ageAgg.has(ab)) ageAgg.set(ab, {unique:0, visits:0});
-      const aa = ageAgg.get(ab);
-      aa.unique += 1;
-      aa.visits += rec.visits;
-
-      const vb = visitBucket(rec.visits);
-      const key = `${ab}|${vb}`;
-      dist.set(key, (dist.get(key)||0)+1);
-    }
-
-    // Render tblDongType
-    const tbl=$("#tblDongType");
-    if(tbl){
-      const rows=[...dongType.entries()].sort((a,b)=>b[1].total - a[1].total).slice(0,200);
-      tbl.innerHTML = rows.map(([dong,v])=>`<tr><td>${dong}</td><td>${v["신환"]}</td><td>${v["90일초"]}</td><td>${v["재진"]}</td><td><b>${v.total}</b></td></tr>`).join("");
-    }
-
-    // Render tblAge
-    const tblA=$("#tblAge");
-    if(tblA){
-      const order=["미상",...Array.from({length:9},(_,i)=>`${i*10}~${i*10+9}`),"90+"];
-      const rows=order.filter(k=>ageAgg.has(k)).map(k=>[k,ageAgg.get(k)]);
-      tblA.innerHTML = rows.map(([k,v])=>`<tr><td>${k}</td><td>${v.unique}</td><td>${v.visits}</td></tr>`).join("");
-    }
-
-    // Charts: Dong (top 15), Age, Bubble
-    if(chartDong){
-      const top=[...dongUnique.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
-      chartDong.data.labels = top.map(x=>x[0]);
-      chartDong.data.datasets[0].data = top.map(x=>x[1]);
-      chartDong.update();
-    }
-    if(chartAge){
-      const order=["미상",...Array.from({length:9},(_,i)=>`${i*10}~${i*10+9}`),"90+"];
-      const labels=[], data=[];
-      for(const k of order){
-        if(ageAgg.has(k)){
-          labels.push(k);
-          data.push(ageAgg.get(k).unique);
-        }
-      }
-      chartAge.data.labels = labels;
-      chartAge.data.datasets[0].data = data;
-      chartAge.update();
-    }
-    if(chartAgeVisits){
-      const points=[];
-      const bucketMid=(ab)=>{
-        if(ab==="미상") return -10;
-        if(ab==="90+") return 90;
-        const n=parseInt(ab.split("~")[0],10);
-        return n;
-      };
-      for(const [key,count] of dist.entries()){
-        const [ab,vbStr]=key.split("|");
-        const vb = Number(vbStr);
-        const x = bucketMid(ab);
-        const y = vb;
-        points.push({x,y,r:Math.max(3, Math.min(18, Math.sqrt(count)*4)), v:count});
-      }
-      chartAgeVisits.data.datasets[0].data = points;
-      chartAgeVisits.update();
-    }
-  }
-
-
-  
-  function normalizeAddress(addr){
-    let s=normalizeStr(addr);
-    s = s.replace(/\([^\)]*\)/g," ").replace(/\s+/g," ").trim();
-    return s;
-  }
-
-  function geocodeAddress(addr, cb){
-    const clean = normalizeAddress(addr);
-    geocoder.addressSearch(clean, function(result, status){
-      if(status === kakao.maps.services.Status.OK && result && result.length) {
-        const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-        cb(coords, {mode:"address"});
-      } else {
-        // fallback: 행정동 중심(동 이름 → 주민센터 검색)
-        const dong = extractDong(clean);
-        if(!dong || !places){ cb(null, {mode:"fail"}); return; }
-        places.keywordSearch(`${dong} 주민센터`, (data, st)=>{
-          if(st===kakao.maps.services.Status.OK && data && data.length){
-            const p=data[0];
-            const coords=new kakao.maps.LatLng(parseFloat(p.y), parseFloat(p.x));
-            cb(coords, {mode:"dongCenter", dong});
-          } else {
-            cb(null, {mode:"fail"});
-          }
-        });
-      }
+    const label = new kakao.maps.CustomOverlay({
+      position: latlng,
+      yAnchor: 1.6,
+      content: `<div class="roiLabel" style="background:${color};">${formatMeters(radiusMeters)}</div>`
     });
+    label.setMap(map);
+
+    const roi = { id, center: latlng, radius: radiusMeters, circle, label, color, active:true, includedPatients:[], stats:null };
+    roiObjects.push(roi);
+
+    // interactions
+    kakao.maps.event.addListener(circle, "click", ()=>selectRoi(id));
+    kakao.maps.event.addListener(label, "click", ()=>selectRoi(id));
+
+    selectRoi(id);
+    recomputeAllRoiStats();
+    renderRoiList();
+    renderStatsIfOpen();
   }
 
-
-  function processDataAndMap(uniquePatients){
-    if(!map || !geocoder){
-      toast("지도 초기화가 아직입니다. 잠시 후 다시 시도.");
-      debug("processDataAndMap: map/geocoder not ready");
-      return;
-    }
-
-    clearPatients();
-    const total = uniquePatients.length;
-    debug(`patients: unique=${total} (start geocode)`);
-
-    let success = 0;
-    let fail = 0;
-
-    uniquePatients.forEach((item, index)=>{
-      setTimeout(()=>{
-        geocodeAddress(item.address, (coords,meta)=>{
-          if(!coords) {
-            fail += 1;
-            if((success+fail) % 20 === 0) debug(`geocode progress: ok=${success} fail=${fail}`);
-            if(index === total-1) finalize();
-            return;
-          }
-
-          const marker = new kakao.maps.Marker({ map: map, position: coords, title: item.title || "" });
-          const infowindow = new kakao.maps.InfoWindow({ content: buildInfoHTML(item), removable: true });
-          kakao.maps.event.addListener(marker, 'click', function(){ infowindow.open(map, marker); });
-
-          item.marker = marker;
-          item.infowindow = infowindow;
-          item.latlng = coords;
-          item.dong = (meta && meta.dong) ? meta.dong : extractDong(item.address||"");
-
-          patientRecords.push(item);
-          boundsPatients.extend(coords);
-
-          success += 1;
-          if(success % 10 === 0) toast(`진행 중… 성공 ${success} / 실패 ${fail}`);
-
-          if(index === total-1) finalize();
-        });
-      }, index * 120);
-    });
-
-    function finalize(){
-      setTimeout(()=>{
-        applyPatientVisibility();
-        updatePatientStats();
-        if(success > 0) map.setBounds(boundsPatients);
-        toast(`완료: 표시 ${success} / 실패 ${fail}`);
-        debug(`patients: done ok=${success} fail=${fail}`);
-      }, 900);
-    }
+  function setRoiRadius(id, meters){
+    const roi=getRoiById(id); if(!roi) return;
+    roi.radius = meters;
+    roi.circle.setRadius(meters);
+    roi.label.setContent(`<div class="roiLabel" style="background:${roi.color};">${formatMeters(meters)}</div>`);
+    recomputeAllRoiStats();
+    renderRoiList();
+    renderStatsIfOpen();
+    applyPatientVisibility();
   }
 
-  // ===== File parsing: header row scan like add-kakao =====
-  function readAsArrayBuffer(file){
-    return new Promise((resolve,reject)=>{
-      const fr=new FileReader();
-      fr.onload=()=>resolve(fr.result);
-      fr.onerror=reject;
-      fr.readAsArrayBuffer(file);
-    });
+  function selectRoi(id){
+    roiSelectedId = id;
+    // show editor
+    const ed = $("#roiEditor");
+    if(!id){ ed.style.display="none"; renderRoiList(); return; }
+    ed.style.display="block";
+    const roi=getRoiById(id); if(!roi) return;
+    $("#roiRadiusRange").value = roi.radius;
+    $("#roiRadiusInput").value = roi.radius;
+    renderRoiList();
   }
 
-  function decodeCsvSmart(arrayBuffer){
-    const bytes=new Uint8Array(arrayBuffer);
-    if(bytes.length >= 2) {
-      if(bytes[0]===0xFF && bytes[1]===0xFE) return new TextDecoder("utf-16le").decode(bytes);
-      if(bytes[0]===0xFE && bytes[1]===0xFF) return new TextDecoder("utf-16be").decode(bytes);
-      if(bytes.length >= 3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) return new TextDecoder("utf-8").decode(bytes);
-    }
-    let zeros=0;
-    for(let i=0;i<Math.min(bytes.length, 2000);i++) if(bytes[i]===0) zeros++;
-    if(zeros > 200) {
-      try { return new TextDecoder("utf-16le").decode(bytes); } catch(e){}
-    }
-    try {
-      const t=new TextDecoder("utf-8",{fatal:false}).decode(bytes);
-      if(!t.includes(" ")) return t;
-      throw new Error("utf8 replacement");
-    } catch(e) {
-      const unicodeArr=Encoding.convert(bytes,{to:"UNICODE",from:"EUC-KR",type:"array"});
-      return Encoding.codeToString(unicodeArr);
-    }
+  function deleteSelectedRoi(){
+    const id=roiSelectedId; if(!id) return;
+    const idx=roiObjects.findIndex(r=>r.id===id);
+    if(idx<0) return;
+    const roi=roiObjects[idx];
+    roi.circle.setMap(null);
+    roi.label.setMap(null);
+    roiObjects.splice(idx,1);
+    roiSelectedId = roiObjects.length ? roiObjects[roiObjects.length-1].id : null;
+    if(roiSelectedId) selectRoi(roiSelectedId); else selectRoi(null);
+    recomputeAllRoiStats();
+    renderRoiList();
+    renderStatsIfOpen();
+    applyPatientVisibility();
   }
 
-  async function parseWorkbookFromFile(file){
-    const name=(file.name||"").toLowerCase();
-    const ab=await readAsArrayBuffer(file);
-
-    if(name.endsWith(".csv")) {
-      const csvText=decodeCsvSmart(ab);
-      return XLSX.read(csvText, { type:"string" });
+  function isInsideAnyActiveRoi(latlng){
+    if(!latlng) return true;
+    const actives = roiObjects.filter(r=>r.active);
+    if(actives.length===0) return true;
+    for(const roi of actives){
+      const d=haversineMeters(latlng, roi.center);
+      if(d <= roi.radius) return true;
     }
-    return XLSX.read(ab, { type:"array" });
+    return false;
   }
 
-  function findHeaderRowIndex(raw2d){
-    let headerRowIndex = -1;
-    for(let i=0;i<Math.min(raw2d.length, 30);i++) {
-      const row = raw2d[i] || [];
-      const rowStr = row.join("").replace(/\s+/g,"");
-      if(rowStr.includes("주소") || rowStr.toLowerCase().includes("address")) {
-        headerRowIndex = i; break;
+  function recomputeAllRoiStats(){
+    // compute includedPatients & stats for each ROI based on current patientRecords and type toggles (but NOT applyRadiusToMap toggle)
+    for(const roi of roiObjects){
+      const included = [];
+      for(const rec of patientRecords){
+        if(!rec.latlng) continue;
+        const d=haversineMeters(rec.latlng, roi.center);
+        if(d <= roi.radius) included.push(rec);
       }
+      roi.includedPatients = included;
+      roi.stats = computeStatsFromRecords(included);
     }
-    return headerRowIndex;
   }
 
-  async function parseRowsWithDetectedHeader(file){
-    const wb=await parseWorkbookFromFile(file);
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const raw2d = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-    const headerRowIndex = findHeaderRowIndex(raw2d);
 
-    debug(`file: ${file.name}`);
-    debug(`headerRowIndex: ${headerRowIndex}`);
-
-    if(headerRowIndex === -1) throw new Error("주소 헤더를 찾지 못함");
-
-    const jsonRows = XLSX.utils.sheet_to_json(ws, { range: headerRowIndex, defval: "" });
-    const headers = Object.keys(jsonRows[0] || {});
-
-    debug(`headers: ${headers.slice(0, 12).join(", ")}${headers.length>12?" ...":""}`);
-    debug(`rows: ${jsonRows.length}`);
-
-    return { jsonRows, headers };
-  }
-
-  const fileInput = $("#fileInput");
-  fileInput.addEventListener("change", async (e)=>{
-    const file = e.target.files && e.target.files[0];
-    if(!file) return;
-    try {
-      toast("파일 분석 중…");
-      const parsed = await parseRowsWithDetectedHeader(file);
-      const unique = mergePatientData(parsed.jsonRows, parsed.headers);
-      debug(`unique after merge: ${unique.length}`);
-      toast(`통합: ${unique.length}명 (지오코딩 시작)`);
-      processDataAndMap(unique);
-    } catch(err) {
-      console.error(err);
-      toast("파싱 실패: '주소' 헤더/인코딩 확인");
-      debug(`ERROR: ${err.message}`);
-    }
-  });
-
-  const uploadBox=$("#uploadBox");
-  ["dragenter","dragover"].forEach(ev=>uploadBox.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); uploadBox.style.background="rgba(34,139,230,.10)"; }));
-  ["dragleave","drop"].forEach(ev=>uploadBox.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); uploadBox.style.background="rgba(34,139,230,.06)"; }));
-  uploadBox.addEventListener("drop", async (e)=>{
-    const file=e.dataTransfer.files && e.dataTransfer.files[0];
-    if(!file) return;
-    fileInput.value="";
-    try {
-      toast("파일 분석 중…");
-      const parsed = await parseRowsWithDetectedHeader(file);
-      const unique = mergePatientData(parsed.jsonRows, parsed.headers);
-      debug(`unique after merge: ${unique.length}`);
-      toast(`통합: ${unique.length}명 (지오코딩 시작)`);
-      processDataAndMap(unique);
-    } catch(err) {
-      console.error(err);
-      toast("파싱 실패: '주소' 헤더/인코딩 확인");
-      debug(`ERROR: ${err.message}`);
-    }
-  });
 
   // ===== Targets =====
   const targetMarkers={ senior:[], welfare:[], ortho:[] };
@@ -1436,8 +692,12 @@ return Array.from(patientMap.values());
 
   function addPlaceMarker(kind, place){
     const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
-    const marker=new kakao.maps.Marker({ position:pos, map });
-    const iw=new kakao.maps.InfoWindow({
+    const imgSrc = (kind==="ortho") ? "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%20%20%3Cpath%20d%3D%22M32%202c10.5%200%2019%208.5%2019%2019%200%2014.7-19%2041-19%2041S13%2035.7%2013%2021C13%2010.5%2021.5%202%2032%202z%22%20fill%3D%22%23e03131%22/%3E%0A%20%20%3Cpath%20d%3D%22M28%2016h8v8h8v8h-8v8h-8v-8h-8v-8h8z%22%20fill%3D%22%23fff%22/%3E%0A%3C/svg%3E" : (kind==="senior") ? "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%20%20%3Cpath%20d%3D%22M32%202c10.5%200%2019%208.5%2019%2019%200%2014.7-19%2041-19%2041S13%2035.7%2013%2021C13%2010.5%2021.5%202%2032%202z%22%20fill%3D%22%232f9e44%22/%3E%0A%20%20%3Cpath%20d%3D%22M20%2030l12-10%2012%2010v16H20V30z%22%20fill%3D%22%23fff%22/%3E%0A%20%20%3Cpath%20d%3D%22M28%2046V34h8v12%22%20fill%3D%22%232f9e44%22/%3E%0A%3C/svg%3E" : "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%20%20%3Cpath%20d%3D%22M32%202c10.5%200%2019%208.5%2019%2019%200%2014.7-19%2041-19%2041S13%2035.7%2013%2021C13%2010.5%2021.5%202%2032%202z%22%20fill%3D%22%232f9e44%22/%3E%0A%20%20%3Cpath%20d%3D%22M32%2044s-10-6.2-10-13.2C22%2026.4%2025%2024%2028.5%2024c2%200%203.6%201%204.5%202.4.9-1.4%202.5-2.4%204.5-2.4C41%2024%2044%2026.4%2044%2030.8%2044%2037.8%2032%2044%2032%2044z%22%20fill%3D%22%23fff%22/%3E%0A%3C/svg%3E";
+    const imgSize = new kakao.maps.Size(36, 36);
+    const imgOpt  = { offset: new kakao.maps.Point(18, 36) };
+    const markerImage = new kakao.maps.MarkerImage(imgSrc, imgSize, imgOpt);
+    const marker=new kakao.maps.Marker({ position:pos, map, image: markerImage, zIndex: 4 });
+const iw=new kakao.maps.InfoWindow({
       content:`<div style="padding:8px 10px;font-size:12px;line-height:1.35;max-width:260px;">
         <b>${place.place_name}</b><br/>
         <span style="color:#666;">${place.road_address_name || place.address_name || ""}</span>
@@ -1737,6 +997,361 @@ document.getElementById('btnRoadviewExpand')?.addEventListener('click', openRoad
 document.getElementById('btnCloseRoadviewModal')?.addEventListener('click', closeRoadviewModal);
 document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e.target.id === 'roadviewModal') closeRoadviewModal(); });
 
+
+// ===== Stats / UI wiring (v0.0.5.2) =====
+let chartRoiPatients=null, chartRoiAvg=null, chartDong=null, chartAge=null, chartAgeV=null;
+
+function typeKey(rec){
+  if(rec.types && rec.types.d90) return "90일초";
+  if(rec.types && rec.types.new) return "신환";
+  return "재진";
+}
+function ageGroup(rec){
+  const a = Number(rec.age);
+  if(!isFinite(a) || a<0) return "미상";
+  const g = Math.floor(a/10)*10;
+  return `${g}대`;
+}
+
+function computeStatsFromRecords(records){
+  const unique = records.length;
+  let visits = 0;
+  const byTypeUnique = {"신환":0,"90일초":0,"재진":0};
+  const byTypeVisits = {"신환":0,"90일초":0,"재진":0};
+  const byAgeUnique = {};
+  const byAgeVisits = {};
+  const byDongTypeUnique = {}; // dong -> type -> count
+  const byDongTypeVisits = {};
+  for(const rec of records){
+    const v = Number(rec.visitCount||1) || 1;
+    visits += v;
+    const t = typeKey(rec);
+    byTypeUnique[t] = (byTypeUnique[t]||0)+1;
+    byTypeVisits[t] = (byTypeVisits[t]||0)+v;
+
+    const ag = ageGroup(rec);
+    byAgeUnique[ag] = (byAgeUnique[ag]||0)+1;
+    byAgeVisits[ag] = (byAgeVisits[ag]||0)+v;
+
+    const dong = rec.adminDong || rec.dong || "미상";
+    if(!byDongTypeUnique[dong]) byDongTypeUnique[dong]={"신환":0,"90일초":0,"재진":0};
+    if(!byDongTypeVisits[dong]) byDongTypeVisits[dong]={"신환":0,"90일초":0,"재진":0};
+    byDongTypeUnique[dong][t]+=1;
+    byDongTypeVisits[dong][t]+=v;
+  }
+  const avg = unique ? (visits/unique) : 0;
+  return {unique, visits, avg, byTypeUnique, byTypeVisits, byAgeUnique, byAgeVisits, byDongTypeUnique, byDongTypeVisits};
+}
+
+function getVisiblePatientRecords(){
+  const applyRadius = $("#chkApplyRadiusToMap") ? $("#chkApplyRadiusToMap").checked : false;
+  const out=[];
+  for(const rec of patientRecords){
+    const showType =
+      (rec.types.new && state.patient_new) ||
+      (rec.types.d90 && state.patient_d90) ||
+      (rec.types.return && state.patient_return);
+    if(!showType) continue;
+    if(applyRadius && !isInsideAnyActiveRoi(rec.latlng)) continue;
+    out.push(rec);
+  }
+  return out;
+}
+
+function updateHeaderStats(){
+  const recs = getVisiblePatientRecords();
+  const st = computeStatsFromRecords(recs);
+  $("#statPatientsUnique").textContent = String(st.unique);
+  $("#statPatientsVisits").textContent = String(st.visits);
+}
+
+function renderRoiList(){
+  const wrap = $("#roiList");
+  if(!wrap) return;
+  wrap.innerHTML="";
+  if(roiObjects.length===0){
+    wrap.innerHTML = `<div class="subNote">저장된 상권이 없습니다. ＋ 상권 추가로 만들어보세요.</div>`;
+    $("#roiEditor").style.display="none";
+    return;
+  }
+  for(const roi of roiObjects){
+    const div=document.createElement("div");
+    div.className="roiItem" + (roi.id===roiSelectedId ? " active":"");
+    div.onclick=()=>selectRoi(roi.id);
+    div.innerHTML = `
+      <div class="roiLeft">
+        <div class="roiDot" style="background:${roi.color}"></div>
+        <div style="min-width:0;">
+          <div class="roiName">${formatMeters(roi.radius)} 반경</div>
+          <div class="roiMeta">${roi.center ? (roi.center.getLat().toFixed(5)+", "+roi.center.getLng().toFixed(5)) : ""}</div>
+        </div>
+      </div>
+      <div class="roiRight">
+        <label class="roiToggle">
+          <input type="checkbox" ${roi.active ? "checked":""} data-roi-toggle="${roi.id}">
+          적용
+        </label>
+      </div>
+    `;
+    wrap.appendChild(div);
+  }
+  wrap.querySelectorAll("input[data-roi-toggle]").forEach(inp=>{
+    inp.addEventListener("change",(e)=>{
+      const id=e.target.getAttribute("data-roi-toggle");
+      const roi=getRoiById(id); if(!roi) return;
+      roi.active = e.target.checked;
+      renderStatsIfOpen();
+      applyPatientVisibility();
+    });
+  });
+}
+
+function openStatsModal(){
+  const modal=$("#statsModal");
+  modal.style.display="flex";
+  renderStatsModal();
+}
+function closeStatsModal(){
+  const modal=$("#statsModal");
+  modal.style.display="none";
+}
+function renderStatsIfOpen(){
+  const modal=$("#statsModal");
+  if(modal && modal.style.display!=="none") renderStatsModal();
+}
+
+function getSelectedRoiIdsForStats(){
+  const selWrap=$("#statsRoiSelector");
+  if(!selWrap) return [];
+  const ids=[];
+  selWrap.querySelectorAll("input[data-roi-sel]").forEach(inp=>{
+    if(inp.checked) ids.push(inp.getAttribute("data-roi-sel"));
+  });
+  return ids;
+}
+
+function renderStatsModal(){
+  try{
+    const basisVisits = $("#chkStatsBasisVisits")?.checked || false;
+    $("#statsModalSub").textContent = basisVisits ? "기준: 방문(내원) 합" : "기준: 유니크(사람)";
+    // build ROI selector chips
+    const selWrap=$("#statsRoiSelector");
+    selWrap.innerHTML="";
+    const rois = roiObjects.slice();
+    if(rois.length===0){
+      selWrap.innerHTML = `<div class="subNote">저장된 상권이 없습니다. (전체 기준으로 표시)</div>`;
+    }else{
+      for(const roi of rois){
+        const el=document.createElement("label");
+        el.className="roiSelItem";
+        el.innerHTML = `<input type="checkbox" data-roi-sel="${roi.id}" checked>
+                        <span class="roiDot" style="background:${roi.color}"></span>
+                        ${formatMeters(roi.radius)}`;
+        selWrap.appendChild(el);
+      }
+      selWrap.querySelectorAll("input[data-roi-sel]").forEach(inp=>{
+        inp.addEventListener("change", ()=>renderStatsModal());
+      });
+    }
+
+    const selectedIds = rois.length ? getSelectedRoiIdsForStats() : [];
+    // For each ROI selected, compute stats on records filtered by type toggles (NOT radius apply checkbox here)
+    const rows=[];
+    const labels=[];
+    const patientsVals=[];
+    const avgVals=[];
+    const colors=[];
+    const compareBody=$("#tblRoiCompare tbody");
+    compareBody.innerHTML="";
+
+    const effectiveRois = (rois.length===0) ? [] : rois.filter(r=>selectedIds.includes(r.id));
+    if(effectiveRois.length===0 && rois.length>0){
+      // none selected -> treat as 전체
+      effectiveRois.push(...rois);
+    }
+
+    if(rois.length===0){
+      const recs=getVisiblePatientRecords(); // respects applyRadiusToMap
+      const st=computeStatsFromRecords(recs);
+      addCompareRow("전체", "#64748b", st);
+    }else{
+      for(const roi of effectiveRois){
+        const recs = roi.includedPatients.filter(rec=>{
+          const showType =
+            (rec.types.new && state.patient_new) ||
+            (rec.types.d90 && state.patient_d90) ||
+            (rec.types.return && state.patient_return);
+          return showType;
+        });
+        const st=computeStatsFromRecords(recs);
+        addCompareRow(formatMeters(roi.radius), roi.color, st);
+      }
+    }
+
+    function addCompareRow(name, color, st){
+      const tr=document.createElement("tr");
+      tr.innerHTML = `
+        <td><span style="display:inline-flex;align-items:center;gap:6px;"><span class="roiDot" style="background:${color};width:8px;height:8px;"></span>${name}</span></td>
+        <td>${st.unique}</td>
+        <td>${st.visits}</td>
+        <td>${(Math.round(st.avg*10)/10).toFixed(1)}</td>
+        <td>${basisVisits ? st.byTypeVisits["신환"] : st.byTypeUnique["신환"]}</td>
+        <td>${basisVisits ? st.byTypeVisits["90일초"] : st.byTypeUnique["90일초"]}</td>
+        <td>${basisVisits ? st.byTypeVisits["재진"] : st.byTypeUnique["재진"]}</td>
+      `;
+      compareBody.appendChild(tr);
+
+      labels.push(name);
+      patientsVals.push(st.unique);
+      avgVals.push(Math.round(st.avg*100)/100);
+      colors.push(color);
+
+      // merge for dong/age charts (union across selected)
+      rows.push(...(basisVisits ? explodeVisits(st, name) : explodeUnique(st, name)));
+    }
+
+    function explodeUnique(st, tag){ return []; } // placeholder for future multi-ROI merge logic
+    function explodeVisits(st, tag){ return []; }
+
+    // ROI charts
+    if($("#chartRoiPatients")){
+      if(chartRoiPatients) chartRoiPatients.destroy();
+      chartRoiPatients = new Chart($("#chartRoiPatients"), {
+        type:"bar",
+        data:{ labels, datasets:[{ label:"환자(유니크)", data:patientsVals, backgroundColor: colors }] },
+        options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+      });
+    }
+    if($("#chartRoiAvgVisits")){
+      if(chartRoiAvg) chartRoiAvg.destroy();
+      chartRoiAvg = new Chart($("#chartRoiAvgVisits"), {
+        type:"line",
+        data:{ labels, datasets:[{ label:"평균 방문횟수", data:avgVals, borderColor:"#111827", pointBackgroundColor: colors, tension:0.25 }] },
+        options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+      });
+    }
+
+    // Build combined records for dong/age stats (union of selected ROI areas; if none -> visible)
+    let baseRecords=[];
+    if(rois.length===0){
+      baseRecords = getVisiblePatientRecords();
+      $("#statScopeNote").textContent = "기준: 전체(토글/반경 적용)";
+    }else{
+      const set=new Set();
+      for(const roi of effectiveRois){
+        for(const rec of roi.includedPatients){
+          // union by patient id (unique person)
+          set.add(rec.id);
+        }
+      }
+      // map back
+      const idToRec=new Map(patientRecords.map(r=>[r.id,r]));
+      baseRecords = Array.from(set).map(id=>idToRec.get(id)).filter(Boolean).filter(rec=>{
+        const showType =
+          (rec.types.new && state.patient_new) ||
+          (rec.types.d90 && state.patient_d90) ||
+          (rec.types.return && state.patient_return);
+        return showType;
+      });
+      $("#statScopeNote").textContent = "기준: 선택된 상권(들) + 토글";
+    }
+
+    const stAll = computeStatsFromRecords(baseRecords);
+
+    // Dong table + chart
+    const dongRows = Object.entries(basisVisits ? stAll.byDongTypeVisits : stAll.byDongTypeUnique)
+      .map(([dong,obj])=>({dong, ...obj, total: (obj["신환"]||0)+(obj["90일초"]||0)+(obj["재진"]||0)}))
+      .sort((a,b)=>b.total-a.total)
+      .slice(0, 20);
+
+    const tbody=$("#tblDongType tbody"); tbody.innerHTML="";
+    for(const r of dongRows){
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${r.dong}</td><td>${r["신환"]||0}</td><td>${r["90일초"]||0}</td><td>${r["재진"]||0}</td><td>${r.total}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    if($("#chartDong")){
+      if(chartDong) chartDong.destroy();
+      chartDong = new Chart($("#chartDong"),{
+        type:"bar",
+        data:{
+          labels:dongRows.map(r=>r.dong),
+          datasets:[{label:"합계", data:dongRows.map(r=>r.total), backgroundColor: dongRows.map((_,i)=>roiPalette[i%roiPalette.length])}]
+        },
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    // Age charts
+    const ageKeys = ["0대","10대","20대","30대","40대","50대","60대","70대","80대","90대","미상"]
+      .filter(k=>stAll.byAgeUnique[k]!=null || stAll.byAgeVisits[k]!=null);
+    const ageVals = ageKeys.map(k=>basisVisits ? (stAll.byAgeVisits[k]||0) : (stAll.byAgeUnique[k]||0));
+    const ageVisitVals = ageKeys.map(k=>stAll.byAgeVisits[k]||0);
+
+    if($("#chartAge")){
+      if(chartAge) chartAge.destroy();
+      chartAge = new Chart($("#chartAge"),{
+        type:"bar",
+        data:{labels:ageKeys, datasets:[{label:(basisVisits?"연령대별 내원합":"연령대별 환자수"), data:ageVals, backgroundColor: ageKeys.map((_,i)=>roiPalette[i%roiPalette.length])}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    }
+    if($("#chartAgeVisits")){
+      if(chartAgeV) chartAgeV.destroy();
+      chartAgeV = new Chart($("#chartAgeVisits"),{
+        type:"line",
+        data:{labels:ageKeys, datasets:[{label:"연령대별 내원합", data:ageVisitVals, borderColor:"#111827", pointBackgroundColor: ageKeys.map((_,i)=>roiPalette[i%roiPalette.length]), tension:0.25}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+  }catch(err){
+    console.error(err);
+    toast("통계 렌더링 중 오류가 발생했습니다. 콘솔을 확인해주세요.");
+  }
+}
+
+function updatePatientStats(){
+  // called by existing flows
+  updateHeaderStats();
+  recomputeAllRoiStats();
+  renderStatsIfOpen();
+}
+
+// wire UI
+document.getElementById("btnAddRoi")?.addEventListener("click", ()=>{
+  roiPickMode = true;
+  toast("지도에서 상권 중심을 클릭하세요");
+});
+document.getElementById("btnClearRoiSel")?.addEventListener("click", ()=>selectRoi(null));
+document.getElementById("btnDeleteRoi")?.addEventListener("click", deleteSelectedRoi);
+
+document.getElementById("roiRadiusRange")?.addEventListener("input", (e)=>{
+  if(!roiSelectedId) return;
+  const v = Number(e.target.value)||roiDefaultRadius;
+  document.getElementById("roiRadiusInput").value = v;
+  setRoiRadius(roiSelectedId, v);
+});
+document.getElementById("roiRadiusInput")?.addEventListener("change", (e)=>{
+  if(!roiSelectedId) return;
+  const v = Math.max(50, Number(e.target.value)||roiDefaultRadius);
+  document.getElementById("roiRadiusRange").value = Math.min(3000, v);
+  setRoiRadius(roiSelectedId, v);
+});
+
+document.getElementById("btnOpenStats")?.addEventListener("click", openStatsModal);
+document.getElementById("btnStatsClose")?.addEventListener("click", closeStatsModal);
+document.getElementById("statsModal")?.addEventListener("click", (e)=>{ if(e.target.id==="statsModal") closeStatsModal(); });
+
+document.getElementById("chkApplyRadiusToMap")?.addEventListener("change", ()=>{
+  applyPatientVisibility();
+  updatePatientStats();
+});
+document.getElementById("chkStatsBasisVisits")?.addEventListener("change", ()=>renderStatsIfOpen());
+
+// initial render
+setTimeout(()=>{ renderRoiList(); updateHeaderStats(); }, 0);
 </script>
 
 <div class="modalOverlay" id="roadviewModal" style="display:none;">
@@ -1750,6 +1365,84 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
     </div>
   </div>
 </div>
+
+
+  <!-- Stats Modal -->
+  <div id="statsModal" class="modalOverlay" style="display:none;">
+    <div class="modal">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle">환자 통계 (반경/토글 적용)</div>
+          <div class="modalSub" id="statsModalSub">기준: 유니크(사람)</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn ghost" id="btnStatsClose">닫기</button>
+        </div>
+      </div>
+
+      <div class="modalBody">
+        <div class="modalRow">
+          <div class="card">
+            <div class="cardTitle">비교 대상(상권)</div>
+            <div id="statsRoiSelector" class="roiSelector"></div>
+            <div class="subNote" style="margin-top:6px;">체크된 상권들을 비교합니다. (없으면 전체 기준)</div>
+          </div>
+          <div class="card">
+            <div class="cardTitle">요약 비교표</div>
+            <div class="tableWrap">
+              <table class="miniTable" id="tblRoiCompare">
+                <thead><tr>
+                  <th>상권</th><th>환자(유니크)</th><th>내원합</th><th>평균내원</th>
+                  <th>신환</th><th>90일초</th><th>재진</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="modalRow">
+          <div class="card">
+            <div class="cardTitle">반경별 환자 수</div>
+            <canvas id="chartRoiPatients" height="130"></canvas>
+          </div>
+          <div class="card">
+            <div class="cardTitle">반경별 평균 방문횟수</div>
+            <canvas id="chartRoiAvgVisits" height="130"></canvas>
+          </div>
+        </div>
+
+        <div class="modalRow">
+          <div class="card">
+            <div class="cardTitle">행정동 × 환자유형</div>
+            <div class="subNote" id="statScopeNote">기준: 선택된 상권(들) / 토글 적용</div>
+            <div class="tableWrap" style="margin-top:8px;">
+              <table class="miniTable" id="tblDongType">
+                <thead>
+                  <tr><th>행정동</th><th>신환</th><th>90일초</th><th>재진</th><th>합계</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div style="margin-top:10px;">
+              <canvas id="chartDong" height="120"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">연령대</div>
+            <div style="margin-top:6px;">
+              <canvas id="chartAge" height="120"></canvas>
+            </div>
+            <div style="margin-top:10px;">
+              <canvas id="chartAgeVisits" height="120"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>
