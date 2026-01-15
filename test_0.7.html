@@ -826,7 +826,6 @@ const state={
     radiusCircle.setMap(showBaseRadius ? map : null);
   }
 
-  }
 
   function setRadiusMeters(m){
     radiusMeters = Math.max(0, Math.floor(m||0));
@@ -1315,7 +1314,7 @@ function processDataAndMap(uniquePatients){
     }
     try {
       const t=new TextDecoder("utf-8",{fatal:false}).decode(bytes);
-      if(!t.includes("�")) return t;
+      if(!t.includes(" ")) return t;
       throw new Error("utf8 replacement");
     } catch(e) {
       const unicodeArr=Encoding.convert(bytes,{to:"UNICODE",from:"EUC-KR",type:"array"});
@@ -1486,8 +1485,7 @@ async function parseWorkbookFromFile(file){
     });
   }
 
-);
-  
+
   async function keywordSearchAllTiled(keyword, bounds){
     // Kakao Places keywordSearch는 넓은 범위에서 최대 45개로 잘릴 수 있어, 줌아웃 시 bounds를 타일로 쪼개서 병합
     const level = map ? map.getLevel() : 5;
@@ -1524,8 +1522,6 @@ async function parseWorkbookFromFile(file){
     }
     return out;
   }
-
-}
 
   async function searchTargetsInView(){
     if(!map || !places){ toast("지도 준비 전"); debug("targets: map/places not ready"); return; }
