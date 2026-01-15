@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v0.0.6.0)</title>
+  <title>JINSUL-주소 분석 시스템 (v0.0.7.1)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -32,7 +32,8 @@
       transform:translateX(0);transition:transform 180ms ease;
       display:flex;flex-direction:column;position:relative;overflow:hidden;
     }
-    .sidebar.collapsed{transform:translateX(-360px)}
+    .sidebar.collapsed{width:0!important;min-width:0!important;padding:0!important;border:0!important;overflow:hidden!important;transform:translateX(-100%)}
+    .sidebar.collapsed .sidebarHeader,.sidebar.collapsed .sidebarBody{display:none!important}
 
     .sidebarWatermark{
       position:absolute;top:12px;right:54px;width:220px;height:auto;
@@ -472,7 +473,7 @@ const state={
 
       kakao.maps.event.addListener(map,"idle", ()=>{
         // keep circle centered on map center
-        if(radiusCircle){ radiusCircle.setPosition(map.getCenter()); }
+        if(showBaseRadius && radiusCircle){ radiusCircle.setPosition(map.getCenter()); }
         recalcInRadiusAndRefresh();
       });
 
@@ -523,23 +524,31 @@ const state={
 
 
   function parseVisitDate(v){
-    if(!v) return null;
+    if(v==null) return null;
+    // Excel may give numbers, numeric strings, or date strings.
     const s = String(v).trim();
     if(!s) return null;
-    // yyyymmdd
+
+    // yyyymmdd or yyyy-mm-dd / yyyy.m.d
     const m1 = s.match(/^(\d{4})[.\-/ ]?(\d{1,2})[.\-/ ]?(\d{1,2})/);
     if(m1){
       const y=+m1[1], mo=+m1[2], d=+m1[3];
       const dt=new Date(y, mo-1, d);
       if(!isNaN(dt.getTime())) return dt;
     }
-    // excel serial? (number or numeric string)
-    const n = (typeof v==="number") ? v : (/^\d{5}$/.test(s) ? Number(s) : NaN);
+
+    // Excel serial date (1900 system) - accept int/float and numeric strings (5~6 digits)
+    let n = NaN;
+    if(typeof v === "number"){
+      n = v;
+    } else if(/^\d{5,6}(?:\.\d+)?$/.test(s)){
+      n = Number(s);
+    }
     if(!isNaN(n) && n>20000 && n<80000){
-      // Excel serial date (1900 system)
       const dt = new Date(Math.round((n-25569)*86400*1000));
       if(!isNaN(dt.getTime())) return dt;
     }
+
     const dt2 = new Date(s);
     if(!isNaN(dt2.getTime())) return dt2;
     return null;
@@ -609,9 +618,10 @@ const state={
     return {lat: cur.sumLat/cur.n, lng: cur.sumLng/cur.n};
   }
 
-  // 반경
+  // 반경 (기본 원은 숨김: 전체 통계 기본)
   let radiusCircle=null;
   let radiusMeters=1500;
+  let showBaseRadius=false; // 기본 원 노출 여부
 
   function ensureRadiusCircle(){
     if(!map) return;
@@ -626,8 +636,11 @@ const state={
         fillColor: '#2563eb',
         fillOpacity: 0.08
       });
-      radiusCircle.setMap(map);
     }
+    // 기본 원은 기본적으로 지도에 올리지 않음
+    radiusCircle.setMap(showBaseRadius ? map : null);
+  }
+
   }
 
   function setRadiusMeters(m){
@@ -761,7 +774,9 @@ const state={
         v.type=t;
       });
       rec.visits = rec.visitsArr.length;
-      const latest = useArr.slice().sort((a,b)=>(a.date?b.date-a.date:0))[0] || null;
+      const latest = (useArr.some(v=>v.date instanceof Date && !isNaN(v.date.getTime())))
+        ? useArr.slice().filter(v=>v.date instanceof Date && !isNaN(v.date.getTime())).sort((a,b)=>b.date-a.date)[0]
+        : (useArr[useArr.length-1] || null);
       rec.latestVisit = latest?.date || null;
       rec.latestType = latest?.type || "신환";
       rec.types = {new: rec.latestType==="신환", d90: rec.latestType==="90일초", ret: rec.latestType==="재진"};
@@ -1115,7 +1130,7 @@ function processDataAndMap(uniquePatients){
     }
     try {
       const t=new TextDecoder("utf-8",{fatal:false}).decode(bytes);
-      if(!t.includes("�")) return t;
+      if(!t.includes(" ")) return t;
       throw new Error("utf8 replacement");
     } catch(e) {
       const unicodeArr=Encoding.convert(bytes,{to:"UNICODE",from:"EUC-KR",type:"array"});
@@ -1284,6 +1299,9 @@ async function parseWorkbookFromFile(file){
       };
       places.keywordSearch(keyword, cb, options);
     });
+  }
+
+);
   
   async function keywordSearchAllTiled(keyword, bounds){
     // Kakao Places keywordSearch는 넓은 범위에서 최대 45개로 잘릴 수 있어, 줌아웃 시 bounds를 타일로 쪼개서 병합
@@ -1700,7 +1718,7 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
     if(roi){
       return {center: new kakao.maps.LatLng(roi.center.lat, roi.center.lng), radius: roi.radius};
     }
-    return {center: map.getCenter(), radius: radiusMeters};
+    return {center: map.getCenter(), radius: 0};
   }
 
   // ROI drawing: click center -> move preview -> click to finish
@@ -1793,7 +1811,20 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
     }
   }
 
-  function openStatsModal(){
+  let _statsPrevActiveId=null;
+  let _statsWasAll=false;
+  function openStatsModal(mode){
+    mode = mode || "ROI";
+    _statsWasAll = (mode==="ALL");
+    // mode==="ALL": 전체 통계(반경/ROI 무시) - 임시로 active ROI 해제
+    if(mode==="ALL"){
+      _statsWasAll=true;
+      _statsPrevActiveId = roiState?.activeId ?? null;
+      roiState.activeId = null;
+      // 전체는 inRadius=true로 계산되게
+      recalcInRadiusAndRefresh();
+    }
+
     const m = statsModal();
     if(!m) return;
     captureOriginalNodes();
@@ -1807,7 +1838,7 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
 
     // update subtitle and summary
     const roi = getActiveRoi();
-    $("#statsModalSubtitle").textContent = roi ? `${roi.name} · ${roi.radius.toLocaleString()}m` : `지도 중심 · ${radiusMeters.toLocaleString()}m`;
+    $("#statsModalSubtitle").textContent = roi ? `${roi.name} · ${roi.radius.toLocaleString()}m` : `전체 데이터`;
     const included = getIncludedPatients();
     $("#sumUnique").textContent = String(included.length);
     // visits sum
@@ -1828,6 +1859,13 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
     // restore nodes back
     for(const id of Object.keys(statsMounts)){
       restoreNode(id);
+    }
+    // restore ROI selection if we opened ALL stats
+    if(_statsWasAll){
+      roiState.activeId = _statsPrevActiveId;
+      _statsWasAll = false;
+      _statsPrevActiveId = null;
+      recalcInRadiusAndRefresh();
     }
   }
 
@@ -2010,7 +2048,7 @@ document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e
       updateCompareTab();
     });
 
-    $("#btnOpenStatsModal")?.addEventListener("click", openStatsModal);
+    $("#btnOpenStatsModal")?.addEventListener("click", ()=>openStatsModal("ALL"));
     $("#btnStatsExport")?.addEventListener("click", exportIncludedToCsv);
     $("#btnCloseStatsModal")?.addEventListener("click", closeStatsModal);
     $("#statsModal")?.addEventListener("click", (e)=>{
