@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>JINSUL-주소 분석 시스템 (v0.0.7.3.1.2_MarkerColor)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* === UI/UX 성역 (수정 금지) === */
+    :root {
+      --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --gray:#868e96;
+      --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040;
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
+    .app{height:100%;width:100%;display:flex}
+    
+    /* 사이드바 스타일 */
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;position:relative;}
+    .sidebarHeader{padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:space-between;}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brandLogo{width:38px;height:38px;border-radius:10px;background:#eee;overflow:hidden;border:1px solid var(--border);}
+    .brandLogo img{width:100%;height:100%;object-fit:cover}
+    .brandTitle{font-weight:900;font-size:14px;}
+    .brandSub{font-size:11px;color:var(--gray);}
+    
+    .sidebarBody{padding:14px;overflow:auto;flex:1;}
+    .section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,.04);}
+    .section h3{margin:0 0 10px 0;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
+    
+    .uploadBox{border:2px dashed var(--blue);background:rgba(34,139,230,.05);border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;}
+    .uploadBox:hover{background:rgba(34,139,230,.1);}
+    
+    .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+    .stat{background:#f8f9fa;padding:10px;border-radius:12px;border:1px solid var(--border);}
+    .stat .k{font-size:11px;color:var(--gray);font-weight:700;}
+    .stat .v{font-size:16px;font-weight:900;color:var(--text);margin-top:4px;}
+
+    /* 맵 영역 */
+    .mapArea{flex:1;position:relative;background:#eee;}
+    #map{width:100%;height:100%;}
+    
+    /* 저작권 워터마크 (절대 삭제 금지) */
+    .copyright{position:absolute;bottom:5px;right:5px;font-size:10px;color:rgba(0,0,0,0.3);z-index:10;pointer-events:none;}
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebarHeader">
+      <div class="brand">
+        <div class="brandLogo"><img src="https://via.placeholder.com/50" alt="Logo"></div>
+        <div class="brandText">
+          <div class="brandTitle">주소 분석 시스템</div>
+          <div class="brandSub">V0.0.7.3.1.2 MarkerColor</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebarBody">
+      <div class="section">
+        <h3>데이터 업로드 <span style="font-size:10px;color:var(--blue);background:rgba(34,139,230,.1);padding:2px 6px;border-radius:99px;">Excel</span></h3>
+        <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" style="display:none" onchange="handleFile(this)">
+        <div class="uploadBox" onclick="document.getElementById('excelFile').click()">
+          <div style="font-size:24px;">📂</div>
+          <div style="font-size:12px;font-weight:700;margin-top:5px;color:var(--blue);">엑셀 파일 선택</div>
+          <div style="font-size:10px;color:var(--gray);margin-top:2px;">(주소 & 내원횟수 포함)</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>분석 현황</h3>
+        <div class="statGrid">
+          <div class="stat"><div class="k">총 데이터</div><div class="v" id="stat-total">0</div></div>
+          <div class="stat"><div class="k">성공(좌표)</div><div class="v" id="stat-success">0</div></div>
+          <div class="stat"><div class="k">신환(1회)</div><div class="v" id="stat-new">0</div></div>
+          <div class="stat"><div class="k">재진(2회+)</div><div class="v" id="stat-old">0</div></div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>범례 (내원 횟수)</h3>
+        <div style="font-size:11px; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#e03131;border-radius:50%;"></span> 1회 (신환)</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#f76707;border-radius:50%;"></span> 2회</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#fcc419;border-radius:50%;"></span> 3회</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#339af0;border-radius:50%;"></span> 4회</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:#2f9e44;border-radius:50%;"></span> 5회 이상 (▲)</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="copyright">Designed by JINSUL Architect</div>
+  </aside>
+
+  <div class="mapArea">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+/**
+ * [핵심 로직] 사용자 정의 마커 시스템
+ * - 데이터 입구: handleFile -> readExcel
+ * - 마커 생성: drawMarkers -> createMarkerContent
+ */
+
+var map, geocoder;
+var mapContainer = document.getElementById('map');
+var mapOption = { center: new kakao.maps.LatLng(37.566826, 126.9786567), level: 7 };
+
+// 지도 초기화
+map = new kakao.maps.Map(mapContainer, mapOption);
+geocoder = new kakao.maps.services.Geocoder();
+var clusterer = new kakao.maps.MarkerClusterer({
+    map: map, 
+    averageCenter: true, 
+    minLevel: 6
+});
+
+// ============================================================
+// [1] 입구 전처리 (Input Filter): 내원 횟수 자동 탐색
+// ============================================================
+function getVisitCount(row) {
+    // 1순위: 명확한 컬럼명 후보
+    var candidates = ['총내원일수', '내원일수', '내원횟수', '방문횟수', '방문수', 'COUNT', 'CNT'];
+    
+    // row의 키값들을 순회하며 후보군과 매칭
+    for(var key in row) {
+        // 공백 제거 및 정규화하여 비교
+        var cleanKey = key.replace(/\s+/g, '');
+        if (candidates.includes(cleanKey) || key.includes('내원') || key.includes('방문')) {
+             var val = parseInt(row[key]);
+             if (!isNaN(val)) return val;
+        }
+    }
+    return 1; // 값을 못 찾거나 없으면 기본 1회(신환) 처리
+}
+
+// [2] 마커 디자인 생성 함수 (HTML 반환)
+function createMarkerContent(cnt) {
+    var bg = '#868e96'; // 기본값
+    var text = cnt;
+    
+    // 횟수별 색상 로직 적용
+    if (cnt === 1) {
+        bg = '#e03131'; // 빨강
+    } else if (cnt === 2) {
+        bg = '#f76707'; // 주황
+    } else if (cnt === 3) {
+        bg = '#fcc419'; // 노랑
+    } else if (cnt === 4) {
+        bg = '#339af0'; // 파랑
+    } else if (cnt >= 5) {
+        bg = '#2f9e44'; // 초록
+        text = '5▲';    // 표기 변경
+    }
+
+    // 커스텀 오버레이 HTML (원형 마커)
+    return '<div style="background:' + bg + '; width:26px; height:26px; border-radius:50%; border:2px solid #fff; box-shadow:0 3px 6px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:900;">' + text + '</div>';
+}
+
+// ============================================================
+// [3] 파일 처리 및 지도 렌더링
+// ============================================================
+function handleFile(input) {
+    var file = input.files[0];
+    if(!file) return;
+    
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var data = e.target.result;
+        var workbook = XLSX.read(data, {type: 'binary'});
+        var sheetName = workbook.SheetNames[0];
+        var rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        
+        processData(rows);
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function processData(rows) {
+    // 통계 초기화
+    var stats = { total: rows.length, success: 0, newP: 0, oldP: 0 };
+    clusterer.clear(); // 기존 마커 삭제
+
+    for(var i=0; i<rows.length; i++) {
+        var row = rows[i];
+        
+        // 주소 찾기 (주소 컬럼 자동 탐색)
+        var addr = row['주소'] || row['addr'] || row['address'] || Object.values(row).find(v => typeof v === 'string' && (v.includes('시') || v.includes('도')));
+        
+        if(addr) {
+            // 비동기 주소 변환 (Kakao API)
+            await new Promise(resolve => {
+                geocoder.addressSearch(addr, function(result, status) {
+                    if (status === kakao.maps.services.Status.OK) {
+                        var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+                        
+                        // 내원 횟수 확인
+                        var cnt = getVisitCount(row);
+                        
+                        // 통계 집계
+                        stats.success++;
+                        if(cnt === 1) stats.newP++; else stats.oldP++;
+
+                        // 커스텀 오버레이 생성
+                        var content = createMarkerContent(cnt);
+                        var customOverlay = new kakao.maps.CustomOverlay({
+                            position: coords,
+                            content: content,
+                            yAnchor: 1 
+                        });
+                        
+                        // 클러스터러에 추가하기 위해 Invisible Marker로 변환하거나, 
+                        // 여기서는 CustomOverlay를 직접 지도에 올리는 방식을 사용
+                        customOverlay.setMap(map);
+                        
+                        // 중심 이동 (첫 데이터 기준)
+                        if(stats.success === 1) map.setCenter(coords);
+                    }
+                    resolve();
+                });
+            });
+        }
+        
+        // 진행상황 업데이트 (UI 반응성 위해 약간의 지연 필요 시 사용)
+        document.getElementById('stat-total').innerText = stats.total;
+        document.getElementById('stat-success').innerText = stats.success;
+        document.getElementById('stat-new').innerText = stats.newP;
+        document.getElementById('stat-old').innerText = stats.oldP;
+    }
+}
+
+</script>
+</body>
+</html>
