@@ -48,7 +48,34 @@
         Designed by Architect
     </div>
 
-   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services"></script>
+<div id="status"></div>
+<script>
+(function(){
+  const s = document.createElement('script');
+  s.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=네JS키&libraries=services&autoload=false";
+  s.onload = () => {
+    if (!window.kakao) {
+      document.getElementById("status").textContent = "SDK는 로드됐지만 kakao 전역이 없습니다(차단/비정상 응답).";
+      return;
+    }
+    kakao.maps.load(() => initMap());
+  };
+  s.onerror = () => {
+    document.getElementById("status").textContent = "Kakao SDK 네트워크 로드 실패(차단/도메인/네트워크).";
+  };
+  document.head.appendChild(s);
+})();
+</script>
+
+
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
+<script>
+  kakao.maps.load(() => {
+    initMap();
+  });
+</script>
+
+
 
     <script>
         let map;
@@ -93,7 +120,7 @@
                 const uniquePatients = mergePatientData(finalJson);
                 
                 // 지도 초기화 및 마커 표시 시작
-                initMap();
+
                 processDataAndMap(uniquePatients);
             };
             reader.readAsArrayBuffer(file);
