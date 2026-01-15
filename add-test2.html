@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v0.0.7.3)</title>
+  <title>JINSUL-주소 분석 시스템 (v0.0.7.4)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -618,7 +618,7 @@ const state={
       }
 
       if(!radiusCircle){
-        radiusCircle = new kakao.maps.Circle({ strokeStyle:'dash', strokeColor:'#2563eb', fillOpacity:0.05,
+        radiusCircle = new kakao.maps.Circle({
           center: radiusCenterLatLng,
           radius: radiusMeters,
           strokeWeight: 2,
@@ -840,24 +840,45 @@ function mergePatientData(rows, headers){
         rec._hasTypeSignal = rec._hasTypeSignal || hasTypeSignal;
         if(mKey){ rec.monthCounts[mKey] = (rec.monthCounts[mKey]||0)+1; }
         if(mKey){
+          if(cls.is90) rec.monthType[mKey] = (rec.monthType[mKey]||{new:false,d90:false,ret:false});
+          if(cls.isNew) rec.monthType[mKey] = (rec.monthType[mKey]||{new:false,d90:false,ret:false});
+          if(cls.isRet) rec.monthType[mKey] = (rec.monthType[mKey]||{new:false,d90:false,ret:false});
+          const mt = (rec.monthType[mKey]||{new:false,d90:false,ret:false});
+          if(cls.is90) mt.d90 = true; else if(cls.isNew) mt.new = true; else mt.ret = true;
+          rec.monthType[mKey] = mt;
+        }
+
+        if((rec.age==null || rec.age==="" || rec.age===undefined) && age!=null) rec.age = age;
+        if(cls.is90) rec.types.d90 = true;
+        else if(cls.isNew) rec.types.new = true;
+        else if(cls.isRet) rec.types.ret = true;
+        else rec.types.ret = true;
+      } else {
+        patientMap.set(key, {
+          key,
+          title: title,
+          address: address,
+          chartNo: chartNo,
+          age: age,
+          visits: 1,
+          monthCounts: (mKey ? {[mKey]:1} : {}),
+          monthType: (mKey ? {[mKey]:(function(){ const mt={new:false,d90:false,ret:false}; if(cls.is90) mt.d90=true; else if(cls.isNew) mt.new=true; else mt.ret=true; return mt; })()} : {}),
           
-            types: (function(){
-              let isNew=false, is90=false, isRet=false;
-              let hasTypeSignal=false;
-              if(typeHeader){
-                const v = String(row[typeHeader] ?? "").trim();
-                hasTypeSignal = true;
-                if(v==="1"||v==="Y"||v==="신규"||v==="신환"||v==="초진") isNew=true;
-                else if(v==="90일초"||v==="90") is90=true;
-                else isRet=true;
-              }else{
-                if(!patientMap.has(key)) isNew=true;
-                else isRet=true;
-              }
-              const t={new:isNew,d90:is90,ret:isRet||(!isNew&&!is90)};
-              t._hasTypeSignal = hasTypeSignal;
-              return t;
-            })(),
+types:(function(){
+  let isNew=false,is90=false,isRet=false;
+  let hasTypeSignal=false;
+  if(typeHeader){
+    const v=String(row[typeHeader]??"").trim();
+    hasTypeSignal=true;
+    if(v==="1"||v==="Y"||v==="신규"||v==="신환"||v==="초진") isNew=true;
+    else if(v==="90일초"||v==="90") is90=true;
+    else isRet=true;
+  }else{
+    if(!patientMap.has(key)) isNew=true;
+    else isRet=true;
+  }
+  return {new:isNew,d90:is90,ret:isRet||(!isNew&&!is90)};
+})(),
 
           marker: null,
           infowindow: null,
