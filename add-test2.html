@@ -934,6 +934,12 @@ function mergePatientData(rows, headers){
   }
 
   
+  
+  function visitStage(v){
+    if(v>=5) return 5;
+    return Math.max(1, Math.floor(v));
+  }
+
   function getPrimaryType(rec){
     if(rec.types.d90) return "90일초";
     if(rec.types.new) return "신환";
@@ -1209,7 +1215,7 @@ function ensureCharts(){
     const filtered=[];
     for(const rec of patientRecords){
       if(!rec.latlng) continue;
-      const enabled = (rec.types.new && state.patient_new) || (rec.types.d90 && state.patient_90) || (rec.types.ret && state.patient_return);
+      const enabled = state.visit_stage ? (visitStage(rec.visits) >= state.visit_stage) : ((rec.types.new && state.patient_new)) || (rec.types.d90 && state.patient_90) || (rec.types.ret && state.patient_return);
       if(!enabled) continue;
 
       if(state.radius_enabled && radiusCenterLatLng){
