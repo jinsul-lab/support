@@ -1582,8 +1582,17 @@ function openRoadviewModal() {
 }
 
 function closeRoadviewModal() {
-  document.getEleme
-  <!-- Stats Modal -->
+  const modal = document.getElementById('roadviewModal');
+  if (modal) modal.style.display = 'none';
+}
+
+document.getElementById('btnRoadviewExpand')?.addEventListener('click', openRoadviewModal);
+document.getElementById('btnCloseRoadviewModal')?.addEventListener('click', closeRoadviewModal);
+document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e.target.id === 'roadviewModal') closeRoadviewModal(); });
+
+</script>
+
+<!-- Stats Modal -->
   <div id="statsModal" class="modalOverlay" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-label="환자 통계">
       <div class="modalHeader">
@@ -1631,17 +1640,9 @@ function closeRoadviewModal() {
 
       
       </div>
-    </div>
-  </div>
+    
 
-ntById('roadviewModal').style.display = 'none';
-}
 
-document.getElementById('btnRoadviewExpand')?.addEventListener('click', openRoadviewModal);
-document.getElementById('btnCloseRoadviewModal')?.addEventListener('click', closeRoadviewModal);
-document.getElementById('roadviewModal')?.addEventListener('click', (e)=>{ if (e.target.id === 'roadviewModal') closeRoadviewModal(); });
-
-</script>
 
 <div class="modalOverlay" id="roadviewModal" style="display:none;">
   <div class="modalCard">
