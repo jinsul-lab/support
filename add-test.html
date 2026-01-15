@@ -200,6 +200,14 @@
     .modalBody{padding:14px 16px;overflow:auto}
     .iconBtn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
     .iconBtn:hover{background:#f7f7f8}
+
+    /* InfoWindow overflow fix */
+    .iwc{padding:8px 10px;min-width:170px;max-width:320px;max-height:160px;overflow:auto;font-size:12px;line-height:1.35;word-break:break-word;}
+    .iwc .iw-addr{color:#2563eb;margin-top:4px;word-break:break-word;}
+    .iwc .iw-desc{color:#555;margin-top:4px;word-break:break-word;}
+    /* Stats table cell wrap */
+    table.miniTable th, table.miniTable td{word-break:break-word;white-space:normal;}
+
 </style>
 </head>
 
@@ -642,24 +650,33 @@ const state={
   }
 
   function classifyRow(headers,row){
+    // 1) 체크박스/플래그 컬럼(신환/90일초/재진)이 따로 있는 경우
     const truthy=(x)=>{
       const s=normalizeStr(x).toLowerCase();
-      return s==="1"||s==="y"||s==="yes"||s==="true"||s==="t"||s==="o"||s==="○";
+      if(s===""||s==="0"||s==="n"||s==="no"||s==="false"||s==="f"||s==="x") return false;
+      return s==="1"||s==="y"||s==="yes"||s==="true"||s==="t"||s==="o"||s==="○"||s==="신규"||s==="신환"||s==="초진"||s==="재진"||s==="90일초진"||s==="90일초";
     };
-    const hNew = headers.find(h=>["신환","신규","초진"].some(k=>String(h).includes(k)));
-    const h90  = headers.find(h=>["90일초","90초","90초진"].some(k=>String(h).includes(k)));
+
+    const hNew = headers.find(h=>["신환","신규","초진","신규환자"].some(k=>String(h).includes(k)));
+    const h90  = headers.find(h=>["90일초","90일초진","90초","90초진"].some(k=>String(h).includes(k)));
     const hRet = headers.find(h=>["재진"].some(k=>String(h).includes(k)));
 
     const isNewHeader = hNew ? truthy(row[hNew]) : null;
     const is90Header  = h90  ? truthy(row[h90])  : null;
     const isRetHeader = hRet ? truthy(row[hRet]) : null;
 
-    const typeField = headers.find(h=>["구분","유형","분류","타입","type"].some(k=>String(h).toLowerCase().includes(k)));
-    const v = normalizeStr(typeField ? row[typeField] : "");
+    // 2) 값 기반(예: '초재진구분', '환자유형', '내원유형' 등) 하나의 컬럼에 값으로 들어오는 경우
+    const typeField = headers.find(h=>{
+      const hk = String(h).replace(/\s+/g,"").toLowerCase();
+      return ["초재진","초진재진","초재진구분","환자유형","내원유형","방문유형","유형","구분","분류","타입","type","신규환자"].some(k=>hk.includes(String(k).replace(/\s+/g,"").toLowerCase()));
+    });
 
-    const is90Val = (v.includes("90") && (v.includes("초")||v.includes("초진"))) || v==="90일초" || v==="90초";
-    const isNewVal = v.includes("신환")||v.includes("신규")||v.includes("초진");
-    const isRetVal = v.includes("재진")||v.includes("재방문")||v.includes("기존");
+    const v = normalizeStr(typeField ? row[typeField] : "");
+    const vv = v.replace(/\s+/g,"");
+
+    const is90Val = (vv.includes("90") && (vv.includes("초")||vv.includes("초진"))) || vv==="90일초" || vv==="90초" || vv==="90일초진";
+    const isNewVal = vv.includes("신환")||vv.includes("신규")||vv.includes("초진");
+    const isRetVal = vv.includes("재진")||vv.includes("재방문")||vv.includes("기존");
 
     const is90 = (is90Header ?? is90Val);
     const isNew = (isNewHeader ?? isNewVal);
@@ -835,11 +852,13 @@ const state={
   }
 
   function buildInfoHTML(rec){
-    const name = rec.title ? `<div style="font-weight:1000;font-size:14px;">${rec.title} <span style="font-size:11px;font-weight:700;color:#6b7280;">(${rec.age ?? ""})</span></div>` : "";
-    const addr = rec.address ? `<div style="color:#2563eb;margin-top:4px;">${rec.address}</div>` : "";
-    const desc = `<div style="color:#555;margin-top:4px;">방문: <b style="color:#db4040">${rec.visits}회</b> / 차트: ${rec.chartNo ?? ""}</div>`;
-    return `<div style="padding:8px 10px;min-width:170px;font-size:12px;line-height:1.35;">${name}${addr}${desc}</div>`;
+    const name = rec.title ? `<div style="font-weight:1000;font-size:16px;">${rec.title} <span style="font-weight:700;color:#6b7280;">(${rec.age ?? ""})</span></div>` : "";
+    const addr = rec.address ? `<div class="iw-addr">${rec.address}</div>` : "";
+    const desc = `<div class="iw-desc">방문: <b style="color:#db4040">${rec.visits}회</b> / 차트: ${rec.chartNo ?? ""}</div>`;
+    return `<div class="iwc">${name}${addr}${desc}</div>`;
   }
+
+
 
   function clearPatients(){
     patientRecords.forEach(r=>r.marker && r.marker.setMap(null));
@@ -1182,16 +1201,35 @@ const state={
   }
 
   function findHeaderRowIndex(raw2d){
-    let headerRowIndex = -1;
-    for(let i=0;i<Math.min(raw2d.length, 30);i++) {
-      const row = raw2d[i] || [];
-      const rowStr = row.join("").replace(/\s+/g,"");
-      if(rowStr.includes("주소") || rowStr.toLowerCase().includes("address")) {
-        headerRowIndex = i; break;
+    // 여러 페이지로 뽑힌 엑셀(중간에 헤더가 반복/추가되는 형태) 대응:
+    // '주소'가 포함된 후보 행들 중, (내원일/차트/초재진/신규환자 등) 키워드가 많이 포함된 행을 선택한다.
+    let bestIndex = -1;
+    let bestScore = -1;
+    const maxScan = Math.min(raw2d.length, 80);
+
+    const scoreRow = (row)=>{
+      const rowStr = (row||[]).join(" ").replace(/\s+/g,"");
+      const lower = rowStr.toLowerCase();
+      let s = 0;
+      if(rowStr.includes("주소") || lower.includes("address")) s += 5;
+      if(rowStr.includes("내원") || rowStr.includes("방문") || rowStr.includes("진료") || lower.includes("date")) s += 3;
+      if(rowStr.includes("차트") || rowStr.includes("환자번호") || lower.includes("id") || lower.includes("no")) s += 2;
+      if(rowStr.includes("초재진") || rowStr.includes("초진") || rowStr.includes("재진") || rowStr.includes("신환") || rowStr.includes("신규") || rowStr.includes("신규환자")) s += 3;
+      if(rowStr.includes("90일") || rowStr.includes("90초")) s += 3;
+      return s;
+    };
+
+    for(let i=0;i<maxScan;i++){
+      const sc = scoreRow(raw2d[i] || []);
+      if(sc > bestScore || (sc === bestScore && sc >= 5 && i > bestIndex)){
+        bestScore = sc; bestIndex = i;
       }
     }
-    return headerRowIndex;
+    if(bestScore < 5) return -1;
+    return bestIndex;
   }
+
+}
 
   async function parseRowsWithDetectedHeader(file){
     const wb=await parseWorkbookFromFile(file);
