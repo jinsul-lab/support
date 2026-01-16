@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.1.5)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.1.6)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -72,7 +72,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.5</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.6</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -225,7 +225,7 @@ function initKakao(){
         });
       }
     });
-    toast("시스템 준비 완료 v1.1.5");
+    toast("시스템 준비 완료 v1.1.6");
   });
 }
 initKakao();
@@ -286,15 +286,21 @@ async function parseWorkbookFromFile(file){
   });
 }
 
-// [핵심 수정: mergePatientData]
+// [핵심 수정: mergePatientData - 유연한 키 매칭]
 function mergePatientData(rows, headers){
   const patientMap = new Map();
-  const typeCol = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
+  
+  // 1. 헤더에서 '신규환자' 같은 컬럼명 찾기
+  // (예: typeCol = " 신규환자")
+  const typeColName = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
   let useTypeCol = false;
   
-  if(typeCol){
+  // 2. 실제 데이터가 있는지 검사 (유연한 매칭 사용)
+  if(typeColName){
     const hasValue = rows.some(r => {
-      const v = String(r[typeCol]??"").trim();
+      // ★ 여기가 수정됨: item[typeColName] 대신 findVal 사용
+      const val = findVal(r, [typeColName, "신규", "신환", "구분"]); 
+      const v = String(val??"").trim();
       return ["1","Y","신규","신환","초진"].some(k => v.includes(k));
     });
     if(hasValue) useTypeCol = true;
@@ -308,13 +314,17 @@ function mergePatientData(rows, headers){
     if(!chartNo || !address) return;
 
     let isNew=false, is90=false, isRet=false;
+    
     if(useTypeCol){
-      const val = String(item[typeCol]??"").trim();
+      // ★ 데이터를 꺼낼 때도 유연하게 찾음
+      const valRaw = findVal(item, [typeColName, "신규", "신환", "구분"]);
+      const val = String(valRaw??"").trim();
+      
       if(val==="1"||val==="Y"||val.includes("신규")||val.includes("신환")||val.includes("초진")) isNew=true;
       else if(val.includes("90") || val==="90일초") is90=true;
       else isRet=true;
     } else {
-      // 비트 방식 등 헤더가 없으면 첫 등장시 신환
+      // fallback
       const key = chartNo;
       if(!patientMap.has(key)) isNew=true; else isRet=true;
     }
@@ -324,13 +334,12 @@ function mergePatientData(rows, headers){
       const rec = patientMap.get(key);
       rec.visits++;
       
-      // [신환 강등 방지 로직]
-      // 기존에 이미 '신환'이었으면, 이번 줄이 재진이어도 '신환' 유지
+      // [신환 유지 로직]
       if(rec.latestType === "신환") {
-        isNew = true; // 강제로 현재 상태도 신환으로 간주
+        isNew = true; 
         isRet = false;
       } else if(rec.latestType === "90일초") {
-         if(!isNew) is90 = true; // 90일초도 유지 노력 (단 신환이 오면 신환 승격)
+         if(!isNew) is90 = true; 
       }
 
       if(isNew) { rec.latestType="신환"; rec.types.new=true; }
