@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.4)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.5)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -75,7 +75,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.4</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.5</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -106,10 +106,10 @@
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">최대 45개</span></div>
-        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내 집중 검색</div>
+        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">병원/경로당</span></div>
+        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내 시설을 모두 찾습니다</div>
         <div class="target-group">
-          <div class="target-btn" data-category="정형외과">🏥 정형외과</div>
+          <div class="target-btn" data-category="정형외과">🏥 정형외과+</div>
           <div class="target-btn" data-category="경로당">🏠 경로당</div>
           <div class="target-btn" data-category="노인재가">💜 노인재가</div>
         </div>
@@ -191,7 +191,7 @@
 
 <script>
 // =====================================================
-//  JINSUL 시스템 v1.2.4 (나이 계산 버그 수정)
+//  JINSUL 시스템 v1.2.5 (병원 검색 엔진 교체 + 나이 수정)
 // =====================================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -200,16 +200,21 @@ let map, geocoder, places, boundsPatients, roadview, roadviewClient, clusterer;
 let patientRecords = [];
 let targetMarkers = [];
 
+// [검색 설정: 정형외과는 '카테고리 검색'으로 변경] v1.2.5
 const SEARCH_CONFIG = {
   "정형외과": {
-    keywords: ["정형외과", "신경외과", "통증의학과", "재활의학과"],
+    mode: "category", // HP8(병원) 전체를 털어서 필터링
+    code: "HP8",
+    filters: ["정형", "신경", "통증", "재활", "관절", "척추", "마취"],
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#2b8a3e" stroke-width="2"/><path d="M15 7v16M7 15h16" stroke="#2b8a3e" stroke-width="4" stroke-linecap="round"/></svg>`
   },
   "경로당": {
+    mode: "keyword",
     keywords: ["경로당", "노인정", "마을회관"],
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#964b00" stroke-width="2"/><path d="M15 6l-9 8h18z M8 14v10h14v-10" fill="#964b00"/></svg>`
   },
   "노인재가": {
+    mode: "keyword",
     keywords: ["재가복지센터", "주간보호센터", "방문요양", "노인복지센터"],
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#845ef7" stroke-width="2"/><path d="M15 24s-9-5.5-9-11a5 5 0 0 1 9-2 5 5 0 0 1 9 2c0 5.5-9 11-9 11z" fill="#845ef7"/></svg>`
   }
@@ -281,7 +286,7 @@ function initKakao(){
 
     kakao.maps.event.addListener(map, "rightclick", (e)=>{ if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); } });
 
-    toast("시스템 준비 완료 v1.2.4");
+    toast("시스템 준비 완료 v1.2.5");
   });
 }
 initKakao();
@@ -293,25 +298,59 @@ $$(".target-btn").forEach(btn => {
     const config = SEARCH_CONFIG[category];
     $$(".target-btn").forEach(b=>b.classList.remove("active")); this.classList.add("active");
     targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; seenIds.clear();
-    toast(`${category} 시설 검색 중...`);
-    config.keywords.forEach(keyword => { searchAllPages(keyword, config.icon); });
+    toast(`${category} 시설 검색 중... (화면 내 모든 시설 스캔)`);
+    
+    // 모드 분기 (v1.2.5)
+    if(config.mode === "category"){
+      // 병원(HP8) 전체 스캔 후 필터링
+      searchCategoryAll(config.code, config.filters, config.icon);
+    } else {
+      // 기존 키워드 검색
+      config.keywords.forEach(keyword => { searchAllPages(keyword, config.icon); });
+    }
   };
 });
 
+// 카테고리 검색 (병원 HP8 전체 -> 필터링)
+function searchCategoryAll(code, filters, iconSvg){
+  places.categorySearch(code, (data, status, pagination)=>{
+    if(status === kakao.maps.services.Status.OK){
+      data.forEach(place => {
+        if(seenIds.has(place.id)) return;
+        // 필터링: 이름이나 카테고리에 키워드가 하나라도 있는지
+        const name = place.place_name;
+        const cat = place.category_name;
+        const isMatch = filters.some(f => name.includes(f) || cat.includes(f));
+        
+        if(isMatch){
+          seenIds.add(place.id);
+          addMarker(place, iconSvg);
+        }
+      });
+      if(pagination.hasNextPage) pagination.nextPage();
+    }
+  }, { useMapBounds: true });
+}
+
+// 키워드 검색 (경로당 등)
 function searchAllPages(keyword, iconSvg){
   places.keywordSearch(keyword, (data, status, pagination)=>{
     if(status === kakao.maps.services.Status.OK){
       data.forEach(place => {
         if(seenIds.has(place.id)) return; seenIds.add(place.id);
-        const image = new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg), new kakao.maps.Size(30, 30));
-        const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: image, zIndex: 20 });
-        const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
-        kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-        targetMarkers.push(marker);
+        addMarker(place, iconSvg);
       });
       if(pagination.hasNextPage) pagination.nextPage();
     }
   }, { useMapBounds: true });
+}
+
+function addMarker(place, iconSvg){
+  const image = new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg), new kakao.maps.Size(30, 30));
+  const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: image, zIndex: 20 });
+  const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
+  kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
+  targetMarkers.push(marker);
 }
 
 $("#btnClearTargets").onclick = () => { targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; $$(".target-btn").forEach(b=>b.classList.remove("active")); toast("검색 초기화"); };
@@ -380,10 +419,10 @@ function mergePatientData(rows, headers){
     const ageRaw = findVal(item, ['나이','age','연령']);
     const juminRaw = findVal(item, ['주민','번호','주민등록']);
     
-    // [나이 계산 버그 수정 v1.2.4]
+    // [나이 계산 v1.2.5]
     if(ageRaw) {
-      // 52세2개월 -> 52만 추출. (세 앞에서 끊기)
       const str = String(ageRaw);
+      // '52세2개월' -> 52
       if(str.includes("세")) age = parseInt(str.split("세")[0].replace(/[^0-9]/g, "")) || 0;
       else age = parseInt(str.replace(/[^0-9]/g, "")) || 0; 
     }
