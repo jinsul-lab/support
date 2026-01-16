@@ -202,7 +202,11 @@
     <button id="btnOpenSidebar" class="iconBtn" style="position:absolute;top:12px;left:12px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
     <div id="mapLegend">
-      <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">방문 횟수</div>
+      <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">환자 구분</div>
+      <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 신환</div>
+      <div class="legend-item"><div class="legend-color" style="background:#e9ecef"></div> 90일초</div>
+      <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 재진</div>
+      <div class="legend-item"><div class="legend-color" style="background:#999"></div> 클러스터 숫자 = 밀집도</div>
       <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 5회 이상</div>
       <div class="legend-item"><div class="legend-color" style="background:orange"></div> 4회</div>
       <div class="legend-item"><div class="legend-color" style="background:#CCCC00"></div> 3회</div>
@@ -827,7 +831,7 @@ function addPlaceMarker(kind, place){
   const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
   const marker=new kakao.maps.Marker({
     position:pos, map, 
-    image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
+    image: kind==='ortho'?null:new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
   const iw=new kakao.maps.InfoWindow({ 
@@ -919,7 +923,7 @@ function onDistClick(latlng){
 function onDistMove(latlng){
   if(distFlag && distClickLine){
     const dist = Math.round(distClickLine.getLength());
-    toast(`거리: ${dist}m`, 500);
+    if(distOverlay){ distOverlay.setContent(`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m</div>`);} else { distOverlay=new kakao.maps.CustomOverlay({map:map,position:latlng,content:`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m</div>`}); }
   }
 }
 function onDistEnd(){ distFlag=false; toast("거리 측정 종료"); }
