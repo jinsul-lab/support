@@ -2,72 +2,88 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.6)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.8)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
-    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+    /* add-kakao.html 스타일 100% 이식 */
+    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --gray:#868e96; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040; }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
     .app{height:100%;width:100%;display:flex}
-    
-    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;transition:margin-left 0.3s ease;}
-    .sidebar.collapsed{margin-left:-360px;}
-    .sidebarHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.9);}
-    .brand{font-weight:900;font-size:1.1rem;}
-    .sidebarBody{flex:1;overflow-y:auto;padding:14px;}
-    
-    .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.03);}
-    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:800;font-size:14px;}
-    .pill{font-size:11px;background:var(--blue);color:white;padding:4px 8px;border-radius:10px;}
-    
-    .uploadBox{border:2px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;}
-    .uploadBox:hover{border-color:var(--blue);background:#eff6ff;}
-    
-    .row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;}
-    .toggle{width:40px;height:22px;background:#e5e7eb;border-radius:20px;position:relative;cursor:pointer;transition:0.3s;}
-    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:white;border-radius:50%;transition:0.3s;}
-    .toggle.on{background:var(--blue);}
-    .toggle.on::after{transform:translateX(18px);}
-    
-    /* 타겟 검색 버튼 스타일 (UI 이식) */
-    .target-group { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
-    .target-btn { flex: 1; padding: 8px; font-size: 12px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; transition: 0.2s; text-align: center; }
-    .target-btn.active { background: #e7f5ff; border-color: var(--blue); color: var(--blue); font-weight: bold; }
 
-    .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
-    .stat{background:#f3f4f6;padding:10px;border-radius:8px;text-align:center;}
-    .stat .k{font-size:11px;color:#868e96;margin-bottom:4px;}
-    .stat .v{font-size:16px;font-weight:800;}
-    
-    .btn{width:100%;padding:10px;border:none;border-radius:8px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:bold;}
-    .btn.primary{background:var(--blue);color:white;border:none;}
-    .btn.danger{background:#fee2e2;color:#ef4444;border:none;}
-    
-    .mapArea{flex:1;position:relative;}
-    #map{width:100%;height:100%;}
-    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:none;cursor:pointer;font-size:18px;font-weight:bold;margin-bottom:5px;}
-    .mapControls{position:absolute;top:20px;right:20px;z-index:30;display:flex;flex-direction:column;}
-    
-    #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:100;opacity:0;transition:0.3s;pointer-events:none;}
-    #toast.show{opacity:1;bottom:50px;}
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;transform:translateX(0);transition:transform 180ms ease;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+    .sidebar.collapsed{transform:translateX(-360px)}
 
-    .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
-    .number {font-weight:bold;color:#ee6152;}
+    .sidebarHeader{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);gap:10px;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .brandTitle{font-weight:1000;letter-spacing:.4px;font-size:14px;white-space:nowrap;}
+    .iconBtn{border:1px solid var(--border);background:#fff;color:var(--text);height:38px;width:38px;border-radius:14px;display:grid;place-items:center;cursor:pointer;user-select:none;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+    .iconBtn:hover{background:rgba(34,139,230,.06);border-color:rgba(34,139,230,.35)}
+    .sidebarBody{position:relative;z-index:1;padding:14px;overflow:auto}
 
-    #mapLegend {
-      position: absolute; bottom: 20px; left: 20px; z-index: 20;
-      background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15); font-size: 11px;
-      display: flex; flex-direction: column; gap: 5px;
-    }
-    .legend-item { display: flex; align-items: center; gap: 8px; }
-    .legend-color { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
+    .section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+    .sectionTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .sectionTitle h3{margin:0;font-size:13px;letter-spacing:.3px}
+    .pill{font-size:12px;color:#fff;background:var(--blue);padding:6px 10px;border-radius:999px;font-weight:1000;white-space:nowrap}
+
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid rgba(0,0,0,.06)}
+    .row:first-of-type{border-top:0;padding-top:0}
+    .rowLabel b{font-size:13px;font-weight:1000}
+
+    .toggle{position:relative;width:46px;height:26px;border-radius:999px;background:rgba(0,0,0,.10);border:1px solid var(--border);cursor:pointer;flex:0 0 auto;}
+    .toggle.on{background:rgba(34,139,230,.20);border-color:rgba(34,139,230,.45)}
+    .toggleKnob{position:absolute;top:50%;transform:translateY(-50%);left:3px;width:20px;height:20px;border-radius:999px;background:#fff;border:1px solid rgba(0,0,0,.08);transition:left 140ms ease;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+    .toggle.on .toggleKnob{left:23px}
+
+    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .btn{border:1px solid var(--border);background:#fff;color:var(--text);padding:10px 10px;border-radius:14px;cursor:pointer;font-weight:1000;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+    .btn:hover{background:rgba(34,139,230,.06);border-color:rgba(34,139,230,.35)}
+    .btn.primary{border-color:rgba(34,139,230,.45);background:rgba(34,139,230,.10)}
+    .btn.danger{border-color:rgba(219,64,64,.35);background:rgba(219,64,64,.08)}
+
+    .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .stat{border:1px solid var(--border);border-radius:14px;padding:12px;background:rgba(0,0,0,.02)}
+    .stat .k{color:var(--gray);font-size:12px;font-weight:900}
+    .stat .v{margin-top:4px;font-size:18px;font-weight:1000;letter-spacing:.3px}
+
+    .uploadBox{border:1px dashed rgba(34,139,230,.45);background:rgba(34,139,230,.06);border-radius:16px;padding:12px;display:grid;gap:10px;cursor:pointer;}
+    
+    .mapArea{flex:1 1 auto;height:100%;position:relative;overflow:hidden}
+    #map{width:100%;height:100%;background:#e9ecef}
+    .mapControls{position:absolute;top:12px;right:12px;z-index:30;display:flex;flex-direction:column;gap:8px}
+    .ctrl{display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:18px;padding:8px;box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+    .ctrl .miniBtn{width:42px;height:42px;border-radius:16px;border:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;display:grid;place-items:center;font-weight:1000;user-select:none}
+    
+    .toast{position:absolute;left:12px;bottom:12px;z-index:40;max-width:min(520px,calc(100vw - 24px));background:rgba(255,255,255,.94);border:1px solid var(--border);border-radius:18px;padding:10px 12px;box-shadow:var(--shadow);color:var(--text);font-size:13px;display:none;backdrop-filter:blur(6px)}
+    .toast.show{display:block}
+
+    .roadviewPanel{position:absolute;right:12px;bottom:12px;z-index:50;width:min(460px, calc(100vw - 24px));height:320px;background:rgba(255,255,255,.96);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;display:none;backdrop-filter: blur(6px);}
+    .roadviewPanel.show{display:block}
+    .roadviewHeader{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.08);font-weight:1000;font-size:12px;}
+    #roadview{width:100%;height:calc(100% - 42px);}
+
+    /* 통계 모달 */
+    .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
+    .modalPanel{width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;}
+    .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;}
+    .modalBody{padding:20px;overflow-y:auto;flex:1;}
+    .tabBar{display:flex;gap:10px;padding:10px 15px;border-bottom:1px solid #eee;}
+    .tabBtn{padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:white;cursor:pointer;}
+    .tabBtn.active{background:#333;color:white;border-color:#333;}
+    table.miniTable{width:100%;border-collapse:collapse;font-size:12px;}
+    table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
+    table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
+
+    /* 범례 */
+    #mapLegend {position:absolute;bottom:20px;left:20px;z-index:20;background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-size:11px;display:flex;flex-direction:column;gap:5px;}
+    .legend-item{display:flex;align-items:center;gap:8px;}
+    .legend-color{width:12px;height:12px;border-radius:50%;}
   </style>
 </head>
 <body>
@@ -75,106 +91,112 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.6</span></div>
-      <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
+      <div class="brand"><div class="brandTitle">JINSUL 분석 시스템 v1.2.8</div></div>
+      <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle"><h3>파일 업로드</h3><span class="pill">BIT/의사랑/엑셀</span></div>
-        <div id="uploadBox" class="uploadBox" onclick="document.getElementById('fileInput').click()">
-          <div>📂 파일 드래그 & 드롭</div>
-          <div style="font-size:11px;color:#888;margin-top:5px;">(XLS, XLSX, CSV 지원)</div>
-          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none"/>
+        <div class="sectionTitle"><h3>환자 데이터 업로드</h3><span class="pill">BIT/의사랑</span></div>
+        <div id="uploadBox" class="uploadBox" onclick="$('#fileInput').click()">
+          <div style="font-weight:1000;font-size:13px;text-align:center;">파일 선택 또는 드래그&드롭</div>
+          <input id="fileInput" type="file" accept=".xls,.xlsx,.csv" style="display:none"/>
         </div>
-        <div style="display:flex;gap:5px;margin-top:10px;">
-          <button id="btnFitPatients" class="btn primary">전체보기</button>
-          <button id="btnClearPatients" class="btn danger">초기화</button>
+        <div class="btnRow">
+          <button id="btnClearPatients" class="btn danger">환자 초기화</button>
+          <button id="btnFitPatients" class="btn primary">전체 보기</button>
         </div>
       </div>
 
       <div class="section">
         <div class="sectionTitle"><h3>환자 필터</h3><span class="pill">표시 설정</span></div>
-        <div class="row"><span>🧡 신환 (New)</span> <div class="toggle on" data-toggle="patient_new"></div></div>
-        <div class="row"><span>🤍 90일초 (Return)</span> <div class="toggle on" data-toggle="patient_90"></div></div>
-        <div class="row"><span>📍 재진 (Old)</span> <div class="toggle on" data-toggle="patient_return"></div></div>
+        <div class="row"><div class="rowLabel"><b>신환 (New)</b></div><div class="toggle on" data-toggle="patient_new"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>90일초 (Return)</b></div><div class="toggle on" data-toggle="patient_90"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>재진 (Old)</b></div><div class="toggle on" data-toggle="patient_return"><div class="toggleKnob"></div></div></div>
         <div class="statGrid">
-          <div class="stat"><div class="k">총 인원</div><div class="v" id="statPatientsUnique">0</div></div>
-          <div class="stat"><div class="k">총 방문</div><div class="v" id="statPatientsVisits">0</div></div>
+          <div class="stat"><div class="k">총 인원</div><div id="statPatientsUnique" class="v">0</div></div>
+          <div class="stat"><div class="k">총 방문</div><div id="statPatientsVisits" class="v">0</div></div>
         </div>
         <button id="btnOpenStats" class="btn" style="margin-top:10px;">📊 상세 통계 보기</button>
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">병원/경로당</span></div>
-        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내 시설을 모두 찾습니다</div>
-        <div class="target-group">
-          <div class="target-btn" data-category="정형외과">🏥 정형외과+</div>
-          <div class="target-btn" data-category="경로당">🏠 경로당</div>
-          <div class="target-btn" data-category="노인재가">💜 노인재가</div>
+        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">현재 화면</span></div>
+        <div class="row"><div class="rowLabel"><b>경로당</b></div><div class="toggle" data-toggle="target_senior"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>노인복지·재가요양</b></div><div class="toggle" data-toggle="target_welfare"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>정형외과</b></div><div class="toggle" data-toggle="target_ortho"><div class="toggleKnob"></div></div></div>
+
+        <div class="btnRow">
+          <button id="btnSearchTargets" class="btn primary">검색</button>
+          <button id="btnResetTargets" class="btn danger">초기화</button>
         </div>
-        <button id="btnClearTargets" class="btn" style="margin-top:5px; font-size:12px; padding:5px;">검색 결과 지우기</button>
+
+        <div class="statGrid">
+          <div class="stat"><div class="k">화면 내 타겟</div><div id="statTargetsTotal" class="v">0</div></div>
+          <div class="stat"><div class="k">업데이트</div><div id="statTargetsUpdated" class="v" style="font-size:12px;">-</div></div>
+        </div>
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>지도 도구</h3><span class="pill">측정/분석</span></div>
-        <div class="row">
-          <span>🔵 반경 그리기 (Drag)</span> 
-          <div class="toggle" data-toggle="tool_radius_draw"></div>
-        </div>
-        <div id="radiusInfo" style="display:none; font-size:11px; color:#228be6; margin-bottom:5px; text-align:right;">
-          지도 클릭(중심) → 이동 → 클릭(완성)
-        </div>
-        <div class="row"><span>📏 거리 재기 (Line)</span> <div class="toggle" data-toggle="tool_distance"></div></div>
-        <div class="row"><span>📷 로드뷰 보기</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
+        <div class="sectionTitle"><h3>도구</h3><span class="pill">ON/OFF</span></div>
+        <div class="row"><div class="rowLabel"><b>반경 그리기</b></div><div class="toggle" data-toggle="radius_enabled"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>거리 측정</b></div><div class="toggle" data-toggle="tool_distance"><div class="toggleKnob"></div></div></div>
+        <div class="row"><div class="rowLabel"><b>로드뷰(보기)</b></div><div class="toggle" data-toggle="tool_roadview"><div class="toggleKnob"></div></div></div>
       </div>
     </div>
   </aside>
 
   <main class="mapArea">
-    <button id="btnOpenSidebar" class="ctrlBtn" style="position:absolute;top:20px;left:20px;z-index:30;display:none;">☰</button>
+    <button id="btnOpenSidebar" class="iconBtn" style="position:absolute;top:12px;left:12px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
+    
     <div id="mapLegend">
-      <div style="font-weight:bold; margin-bottom:3px; border-bottom:1px solid #eee; padding-bottom:3px;">방문 횟수</div>
+      <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">방문 횟수</div>
       <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 5회 이상</div>
       <div class="legend-item"><div class="legend-color" style="background:orange"></div> 4회</div>
       <div class="legend-item"><div class="legend-color" style="background:#CCCC00"></div> 3회</div>
       <div class="legend-item"><div class="legend-color" style="background:green"></div> 2회</div>
       <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 1회</div>
     </div>
+
     <div class="mapControls">
-      <button id="btnZoomIn" class="ctrlBtn">+</button>
-      <button id="btnZoomOut" class="ctrlBtn">-</button>
+      <div class="ctrl">
+        <button id="btnZoomIn" class="miniBtn" title="확대">+</button>
+        <button id="btnZoomOut" class="miniBtn" title="축소">−</button>
+      </div>
     </div>
-    <div id="roadviewPanel" style="position:absolute;bottom:20px;right:20px;width:300px;height:200px;background:white;z-index:50;border-radius:12px;overflow:hidden;box-shadow:0 5px 15px rgba(0,0,0,0.2);display:none;">
-      <div id="roadview" style="width:100%;height:100%;"></div>
-      <button id="btnCloseRoadview" style="position:absolute;top:5px;right:5px;background:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;">X</button>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="roadviewPanel" class="roadviewPanel">
+      <div class="roadviewHeader">
+        <div>로드뷰</div>
+        <button id="btnCloseRoadview" class="iconBtn" style="height:24px;width:24px;">✕</button>
+      </div>
+      <div id="roadview"></div>
     </div>
   </main>
 </div>
 
-<div id="statsModal" class="modalBack" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;">
-  <div class="modalPanel" style="width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;">
-    <div class="modalHeader" style="padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-weight:bold;">
-      <span>상세 통계 분석</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
-    </div>
-    <div class="tabBar" style="border-bottom:1px solid #eee; padding:10px;">
-      <button class="tabBtn active" data-tab="tabSummary">요약(비율)</button>
-      <button class="tabBtn" data-tab="tabDong">행정동별(상세)</button>
+<div id="statsModal" class="modalBack">
+  <div class="modalPanel">
+    <div class="modalHeader"><span>상세 통계</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button></div>
+    <div class="tabBar">
+      <button class="tabBtn active" data-tab="tabSummary">요약</button>
+      <button class="tabBtn" data-tab="tabDong">행정동별</button>
       <button class="tabBtn" data-tab="tabAge">연령별</button>
     </div>
-    <div class="modalBody" style="padding:20px;flex:1;overflow:auto;">
+    <div class="modalBody">
       <div id="tabSummary" class="tabPane">
-        <div style="height:350px; display:flex; justify-content:center;"><canvas id="chartType_modal"></canvas></div>
+        <div style="height:300px;"><canvas id="chartType_modal"></canvas></div>
         <div class="statGrid" style="margin-top:20px;">
           <div class="stat"><div class="k">신환 비율</div><div class="v" id="kpiNewRate">0%</div></div>
           <div class="stat"><div class="k">재진 비율</div><div class="v" id="kpiRetRate">0%</div></div>
         </div>
       </div>
       <div id="tabDong" class="tabPane" style="display:none;">
-        <div style="margin-bottom:10px; font-size:12px; color:#666;">* 행정동별 신환/90일초/재진 분포입니다.</div>
         <table class="miniTable">
-          <thead><tr><th>행정동</th><th>신환(New)</th><th>90일(Return)</th><th>재진(Old)</th><th>합계</th></tr></thead>
+          <thead><tr><th>행정동</th><th>신환</th><th>90일</th><th>재진</th><th>합계</th></tr></thead>
           <tbody id="tblDongType"></tbody>
         </table>
       </div>
@@ -185,371 +207,387 @@
     </div>
   </div>
 </div>
-<div id="toast">알림</div>
 
 <script>
-// =====================================================
-//  JINSUL 시스템 v1.2.6 (통합 완성본: 검색+분석)
-// =====================================================
+// [초기화 및 전역변수]
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-let map, geocoder, places, boundsPatients, roadview, roadviewClient, clusterer;
-let patientRecords = [];
-let targetMarkers = [];
-
-// [검색 설정: 요청하신 add-kakao.html 로직 그대로 적용]
-const SEARCH_CONFIG = {
-  "정형외과": {
-    mode: "category", // HP8(병원) 전체를 털어서 필터링
-    code: "HP8",
-    filters: ["정형", "신경", "통증", "재활", "관절", "척추", "마취"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#2b8a3e" stroke-width="2"/><path d="M15 7v16M7 15h16" stroke="#2b8a3e" stroke-width="4" stroke-linecap="round"/></svg>`
-  },
-  "경로당": {
-    mode: "keyword",
-    keywords: ["경로당", "노인정", "마을회관"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#964b00" stroke-width="2"/><path d="M15 6l-9 8h18z M8 14v10h14v-10" fill="#964b00"/></svg>`
-  },
-  "노인재가": {
-    mode: "keyword",
-    keywords: ["재가복지센터", "주간보호센터", "방문요양", "노인복지센터"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#845ef7" stroke-width="2"/><path d="M15 24s-9-5.5-9-11a5 5 0 0 1 9-2 5 5 0 0 1 9 2c0 5.5-9 11-9 11z" fill="#845ef7"/></svg>`
-  }
-};
+let map, geocoder, places, clusterer, roadview, roadviewClient;
+let patientRecords = [], targetMarkers = { senior:[], welfare:[], ortho:[] };
+let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null;
+let distFlag=false, distClickLine=null, distMoveLine=null, distOverlay=null;
 
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
-  tool_roadview:false, tool_distance:false, tool_radius_draw:false
+  target_senior:false, target_welfare:false, target_ortho:false,
+  radius_enabled:false, tool_distance:false, tool_roadview:false
 };
 
-let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
-let distFlag=false, distClickLine, distMoveLine, distOverlay;
+function toast(msg, ms=2000){
+  const t=$("#toast"); t.innerText=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), ms);
+}
 
+// Sidebar logic
+$("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
+$("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
+
+// Toggle Logic (add-kakao style)
+$$(".toggle").forEach(t => t.addEventListener("click", ()=>{
+  const name = t.getAttribute("data-toggle");
+  state[name] = !state[name];
+  t.classList.toggle("on", state[name]);
+  
+  if(name.startsWith("patient_") || name==="radius_enabled") applyFilters();
+  if(name.startsWith("tool_")) toggleTool(name);
+}));
+
+// Kakao Init
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
-    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665,126.9780), level: 8 });
+    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
-    boundsPatients = new kakao.maps.LatLngBounds();
+    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
-    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 4, styles: [{ width: '50px', height: '50px', background: 'rgba(34, 139, 230, .8)', borderRadius: '25px', color: '#fff', textAlign: 'center', fontWeight: 'bold', lineHeight: '50px' }] });
 
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
-    function toggleSidebar(open){ const sb = $("#sidebar"); const btn = $("#btnOpenSidebar"); if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; } else { sb.classList.add("collapsed"); btn.style.display="flex"; } setTimeout(() => map.relayout(), 310); }
-    $("#btnCollapse").onclick = () => toggleSidebar(false);
-    $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
 
+    // Map Click Events (Tools)
     kakao.maps.event.addListener(map, "click", (e)=>{
-      if(state.tool_radius_draw){
-        if(!radiusFlag){
-          radiusFlag = true; radiusCenter = e.latLng;
-          if(radiusCircle) radiusCircle.setMap(null); if(radiusOverlay) radiusOverlay.setMap(null);
-          radiusPolyline = new kakao.maps.Polyline({ map: map, path: [radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeOpacity:1, strokeStyle:'solid' });
-          radiusCircle = new kakao.maps.Circle({ map: map, center: radiusCenter, radius: 0, strokeWeight:1, strokeColor:'#228be6', strokeOpacity:0.1, fillColor:'#228be6', fillOpacity:0.2 });
-          toast("마우스를 움직여 크기 조절 후 클릭하세요.");
-        } else {
-          radiusFlag = false; if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
-          applyFilters(); toast("반경 설정 완료.");
-        }
-        return;
+      if(state.radius_enabled && !radiusCenter){
+        radiusCenter = e.latLng;
+        if(radiusCircle) radiusCircle.setMap(null);
+        // 반경 시작 (임시 원)
+        radiusCircle = new kakao.maps.Circle({ map:map, center:radiusCenter, radius:0, strokeWeight:1, strokeColor:'#228be6', fillOpacity:0.2 });
+        radiusFlag = true; // 드래그 모드 진입
+        toast("마우스를 움직여 반경 조절 후 클릭하세요");
+      } else if(state.radius_enabled && radiusFlag){
+        // 반경 확정
+        radiusFlag = false;
+        applyFilters();
+        toast("반경 설정 완료");
       }
-      if(state.tool_distance){
-        const clickPos = e.latLng;
-        if(!distFlag){
-          distFlag = true; if(distClickLine) distClickLine.setMap(null); if(distOverlay) distOverlay.setMap(null);
-          distClickLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:1, strokeStyle:'solid'});
-          distMoveLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:0.5, strokeStyle:'solid'});
-        } else { const path = distClickLine.getPath(); path.push(clickPos); distClickLine.setPath(path); }
-        return;
-      }
-      if(state.tool_roadview){ roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{ if(panoId){ $("#roadviewPanel").style.display = "block"; roadview.setPanoId(panoId, e.latLng); } else toast("주변에 로드뷰가 없습니다."); }); }
+      
+      if(state.tool_distance) onDistClick(e.latLng);
+      if(state.tool_roadview) openRoadview(e.latLng);
     });
 
     kakao.maps.event.addListener(map, "mousemove", (e)=>{
-      if(state.tool_radius_draw && radiusFlag){
-        const path = [radiusCenter, e.latLng]; radiusPolyline.setPath(path); const dist = Math.round(radiusPolyline.getLength()); radiusCircle.setRadius(dist);
-        const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">반경 <span class="number">${dist}</span>m</div>`;
-        if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); } else { radiusOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
+      if(state.radius_enabled && radiusFlag && radiusCenter){
+        const poly = new kakao.maps.Polyline({ path:[radiusCenter, e.latLng] });
+        const dist = poly.getLength();
+        radiusCircle.setRadius(dist);
       }
-      if(state.tool_distance && distFlag){
-        const path = distClickLine.getPath(); const movePath = [path[path.length-1], e.latLng]; distMoveLine.setPath(movePath); const dist = Math.round(distClickLine.getLength() + distMoveLine.getLength());
-        const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">총거리 <span class="number">${dist}</span>m</div>`;
-        if(distOverlay) { distOverlay.setPosition(e.latLng); distOverlay.setContent(content); } else { distOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
-      }
+      if(state.tool_distance && distFlag) onDistMove(e.latLng);
     });
 
-    kakao.maps.event.addListener(map, "rightclick", (e)=>{ if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); } });
+    kakao.maps.event.addListener(map, "rightclick", ()=>{
+      if(state.tool_distance) onDistEnd();
+    });
 
-    toast("시스템 준비 완료 v1.2.6");
+    toast("시스템 준비 완료 v1.2.8");
   });
 }
 initKakao();
 
-// [검색 로직 구현: 카테고리/키워드 통합]
-let seenIds = new Set(); 
-$$(".target-btn").forEach(btn => {
-  btn.onclick = function(){
-    const category = this.getAttribute("data-category");
-    const config = SEARCH_CONFIG[category];
-    $$(".target-btn").forEach(b=>b.classList.remove("active")); this.classList.add("active");
-    targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; seenIds.clear();
-    toast(`${category} 시설 검색 중... (화면 내 최대 검색)`);
-    
-    // 모드 분기 (정형외과는 카테고리 전체 스캔 후 필터링)
-    if(config.mode === "category"){
-      searchCategoryAll(config.code, config.filters, config.icon);
-    } else {
-      config.keywords.forEach(keyword => { searchAllPages(keyword, config.icon); });
-    }
-  };
-});
-
-// 카테고리 검색 (병원 HP8 -> 키워드 필터링)
-function searchCategoryAll(code, filters, iconSvg){
-  places.categorySearch(code, (data, status, pagination)=>{
-    if(status === kakao.maps.services.Status.OK){
-      data.forEach(place => {
-        if(seenIds.has(place.id)) return;
-        const name = place.place_name; const cat = place.category_name;
-        // 필터 키워드가 포함된 곳만
-        const isMatch = filters.some(f => name.includes(f) || cat.includes(f));
-        if(isMatch){
-          seenIds.add(place.id);
-          addMarker(place, iconSvg);
-        }
-      });
-      if(pagination.hasNextPage) pagination.nextPage();
-    }
-  }, { useMapBounds: true });
-}
-
-// 키워드 검색 (경로당 등)
-function searchAllPages(keyword, iconSvg){
-  places.keywordSearch(keyword, (data, status, pagination)=>{
-    if(status === kakao.maps.services.Status.OK){
-      data.forEach(place => {
-        if(seenIds.has(place.id)) return; seenIds.add(place.id);
-        addMarker(place, iconSvg);
-      });
-      if(pagination.hasNextPage) pagination.nextPage();
-    }
-  }, { useMapBounds: true });
-}
-
-function addMarker(place, iconSvg){
-  const image = new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg), new kakao.maps.Size(30, 30));
-  const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: image, zIndex: 20 });
-  const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
-  kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-  targetMarkers.push(marker);
-}
-
-$("#btnClearTargets").onclick = () => { targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; $$(".target-btn").forEach(b=>b.classList.remove("active")); toast("검색 초기화"); };
-
-const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
+// [1] Patient Data Logic (v1.2.5 Logic + add-kakao Parsing)
+const fileInput = $("#fileInput");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
-uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
-uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
 
 async function handleFile(file){
   toast("파일 분석 중...");
-  try {
-    const workbook = await parseWorkbookFromFile(file);
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, {type:'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
-    let headerRow = [], headerIdx = -1;
-    for(let i=0; i<Math.min(rawData.length, 30); i++){
-      const rowStr = rawData[i].join(" ");
-      if((rowStr.includes("주소")||rowStr.includes("도로명")) && (rowStr.includes("이름")||rowStr.includes("수진자")||rowStr.includes("차트"))){ headerIdx = i; headerRow = rawData[i]; break; }
-    }
-    if(headerIdx<0) throw new Error("유효한 헤더를 찾을 수 없습니다.");
-    const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
-    const patients = mergePatientData(bodyRows, headerRow);
-    processDataAndMap(patients);
-  } catch(e){ console.error(e); toast("오류: " + e.message); }
+    const json = XLSX.utils.sheet_to_json(sheet, {header:1});
+    processData(json);
+  };
+  reader.readAsArrayBuffer(file);
 }
 
-async function parseWorkbookFromFile(file){
-  return new Promise((resolve, reject)=>{
-    const fr = new FileReader();
-    fr.onload = (e)=>{
-      const data = new Uint8Array(e.target.result);
-      const isBin = (data[0]===0x50&&data[1]===0x4B) || (data[0]===0xD0&&data[1]===0xCF);
-      if(isBin) resolve(XLSX.read(data, {type:'array'}));
-      else {
-        const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규", "초재진구분"];
-        let textUTF8="", textEUC="";
-        try{textUTF8=new TextDecoder("utf-8").decode(data);}catch(e){}
-        try{textEUC=new TextDecoder("euc-kr").decode(data);}catch(e){}
-        const scoreUTF8 = keywords.filter(k => textUTF8.includes(k)).length;
-        const scoreEUC = keywords.filter(k => textEUC.includes(k)).length;
-        if(scoreEUC > scoreUTF8) resolve(XLSX.read(textEUC, {type:'string'}));
-        else resolve(XLSX.read(textUTF8, {type:'string'}));
-      }
-    };
-    fr.readAsArrayBuffer(file);
-  });
-}
-
-function mergePatientData(rows, headers){
-  const patientMap = new Map();
-  const typeColName = headers.find(h => ["신규","신환","초진","구분","초재진"].some(k => String(h).includes(k)));
-  let useTypeCol = false;
-  if(typeColName){
-    if(rows.some(r => {
-      const v = String(findVal(r, [typeColName,"신규","신환","초재진"])??"").trim();
-      return ["1","Y","신규","신환","90"].some(k=>v.includes(k));
-    })) useTypeCol = true;
+function processData(rows){
+  // Header Detection
+  let headerIdx = -1;
+  for(let i=0; i<Math.min(rows.length, 30); i++){
+    if(rows[i].join("").includes("주소") && (rows[i].join("").includes("차트") || rows[i].join("").includes("이름"))) { headerIdx=i; break; }
   }
+  if(headerIdx<0){ toast("헤더를 찾을 수 없습니다."); return; }
+  
+  const headers = rows[headerIdx];
+  const body = rows.slice(headerIdx+1);
+  const pMap = new Map();
 
-  rows.forEach(item => {
-    const title = findVal(item, ['수진자','이름','name']);
-    const address = findVal(item, ['주소','addr']);
-    const chartNo = findVal(item, ['차트','환자번호','ID','등록번호']);
+  body.forEach(row => {
+    // Fuzzy matching for columns
+    const getVal = (keys) => {
+      const idx = headers.findIndex(h => keys.some(k => String(h).includes(k)));
+      return idx > -1 ? row[idx] : null;
+    };
+
+    const chartNo = getVal(['차트','번호','ID']);
+    const addr = getVal(['주소']);
+    const name = getVal(['이름','수진자']);
+    const typeVal = String(getVal(['구분','신환','초재진'])||"");
     let age = 0;
-    const ageRaw = findVal(item, ['나이','age','연령']);
-    const juminRaw = findVal(item, ['주민','번호','주민등록']);
     
-    // [나이 계산 - 52세2개월 -> 52세]
-    if(ageRaw) {
-      const str = String(ageRaw);
-      if(str.includes("세")) age = parseInt(str.split("세")[0].replace(/[^0-9]/g, "")) || 0;
-      else age = parseInt(str.replace(/[^0-9]/g, "")) || 0; 
-    }
-    else if(juminRaw) {
-      const jumin = String(juminRaw).replace(/-/g,"").trim();
-      if(jumin.length >= 7) {
-        const yearPre = parseInt(jumin.substring(0,2)); const gender = parseInt(jumin.substring(6,7));
-        let birthYear = (gender===1||gender===2) ? 1900+yearPre : 2000+yearPre;
-        age = new Date().getFullYear() - birthYear;
-      }
-    }
+    // Age fix: 52세2개월 -> 52
+    const ageRaw = String(getVal(['나이','연령'])||"");
+    if(ageRaw.includes("세")) age = parseInt(ageRaw.split("세")[0].replace(/[^0-9]/g,"")) || 0;
+    else age = parseInt(ageRaw.replace(/[^0-9]/g,"")) || 0;
 
-    if(!chartNo || !address) return;
+    if(!chartNo || !addr) return;
 
-    let isNew=false, is90=false, isRet=false;
-    if(useTypeCol){
-      const val = String(findVal(item, [typeColName,"신규","신환","초재진"])??"").trim();
-      if(val==="1"||val==="Y"||val.includes("신규")||val.includes("신환")||val.includes("초진")&&!val.includes("90")) isNew=true;
-      else if(val.includes("90") || val==="90일초") is90=true;
-      else isRet=true; 
-    } else { if(!patientMap.has(chartNo)) isNew=true; else isRet=true; }
-
-    if(patientMap.has(chartNo)){
-      const rec = patientMap.get(chartNo); rec.visits++;
-      if(rec.latestType==="신환") { isNew=true; isRet=false; }
-      else if(rec.latestType==="90일초" && !isNew) is90=true;
-      if(isNew) { rec.latestType="신환"; rec.types.new=true; } else if(is90) { rec.latestType="90일초"; rec.types.d90=true; } else { rec.latestType="재진"; rec.types.ret=true; }
+    let isNew = typeVal.includes("신환") || typeVal.includes("신규");
+    let is90 = typeVal.includes("90");
+    
+    if(pMap.has(chartNo)){
+      const p = pMap.get(chartNo);
+      p.visits++;
+      if(p.type==="신환") {} // Keep New
+      else if(isNew) p.type="신환";
+      else if(is90 && p.type!=="신환") p.type="90일초";
     } else {
-      let lType = "재진"; if(is90) lType="90일초"; else if(isNew) lType="신환";
-      patientMap.set(chartNo, { key:chartNo, title, address, chartNo, age, visits:1, types:{new:isNew,d90:is90,ret:isRet}, latestType:lType, marker:null, latlng:null, dong:"미상" });
+      let type = "재진";
+      if(isNew) type="신환"; else if(is90) type="90일초";
+      pMap.set(chartNo, { name, addr, type, age, visits:1, latlng:null, marker:null, dong:"" });
     }
   });
-  return Array.from(patientMap.values());
-}
 
-function processDataAndMap(uniquePatients){
-  clusterer.clear(); patientRecords = []; boundsPatients = new kakao.maps.LatLngBounds();
-  let success = 0;
-  uniquePatients.forEach((item, idx) => {
+  // Geocoding & Map
+  patientRecords = Array.from(pMap.values());
+  clusterer.clear();
+  let done=0;
+  patientRecords.forEach((p, idx)=>{
     setTimeout(()=>{
-      let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
-      geocoder.addressSearch(cleanAddr, (res, status)=>{
-        if(status===kakao.maps.services.Status.OK && res[0]){
-          const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
-          if(res[0].address?.region_3depth_name) item.dong = res[0].address.region_3depth_name;
-          else if(res[0].road_address?.region_3depth_name) item.dong = res[0].road_address.region_3depth_name;
-          const color = visitColor(item.visits);
-          const iconChar = typeIcon(item.latestType);
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" /><text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text></svg>`;
-          const marker = new kakao.maps.Marker({ position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
-          const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b> (${item.age>0?item.age+'세':''})<br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
-          kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          item.marker = marker; item.latlng = coords; patientRecords.push(item); boundsPatients.extend(coords); clusterer.addMarker(marker); success++;
+      geocoder.addressSearch(p.addr, (res, status)=>{
+        if(status===kakao.maps.services.Status.OK){
+          p.latlng = new kakao.maps.LatLng(res[0].y, res[0].x);
+          p.dong = res[0].address.region_3depth_name;
+          
+          const color = p.visits>=5?'#db4040': p.visits===4?'orange': p.visits===3?'#CCCC00': p.visits===2?'green':'#228be6';
+          const char = p.type==='신환'?'♥': p.type==='90일초'?'♡':'📍';
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
+          
+          p.marker = new kakao.maps.Marker({
+            position: p.latlng,
+            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
+          });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br>${p.type} / ${p.visits}회</div>` });
+          kakao.maps.event.addListener(p.marker, 'click', ()=>iw.open(map, p.marker));
+          
+          done++;
         }
-        if(idx === uniquePatients.length-1){ if(success>0) map.setBounds(boundsPatients); applyFilters(); toast(`완료: ${success}명 분석`); }
+        if(idx === patientRecords.length-1) { applyFilters(); toast(`${done}명 지도 표시`); }
       });
-    }, idx * 10);
+    }, idx*10);
   });
 }
 
 function applyFilters(){
-  let unique=0, visits=0; const dongStats = {}; const ageStats = {};
-  clusterer.clear(); const visibleMarkers = [];
-  patientRecords.forEach(r => {
+  clusterer.clear();
+  let unique=0, visits=0;
+  const dongMap = {};
+  
+  patientRecords.forEach(p=>{
+    if(!p.marker) return;
     let show = true;
-    if(r.latestType==="신환" && !state.patient_new) show=false;
-    if(r.latestType==="90일초" && !state.patient_90) show=false;
-    if(r.latestType==="재진" && !state.patient_return) show=false;
-    if(show && radiusCircle && radiusCircle.getMap()){
-      const center = radiusCircle.getCenter(); const radius = radiusCircle.getRadius();
-      const poly = new kakao.maps.Polyline({ path: [center, r.latlng] });
-      if(poly.getLength() > radius) show = false;
+    if(p.type==="신환" && !state.patient_new) show=false;
+    if(p.type==="90일초" && !state.patient_90) show=false;
+    if(p.type==="재진" && !state.patient_return) show=false;
+    
+    if(show && state.radius_enabled && radiusCenter && radiusCircle){
+      const line = new kakao.maps.Polyline({ path:[radiusCenter, p.latlng] });
+      if(line.getLength() > radiusCircle.getRadius()) show=false;
     }
-    if(show) visibleMarkers.push(r.marker);
+
     if(show){
-      unique++; visits += r.visits; const d = r.dong||"미상";
-      if(!dongStats[d]) dongStats[d] = { total:0, new:0, d90:0, ret:0 };
-      dongStats[d].total++;
-      if(r.latestType==="신환") dongStats[d].new++; else if(r.latestType==="90일초") dongStats[d].d90++; else dongStats[d].ret++;
-      if(r.age > 0){ const ageGroup = Math.floor(r.age/10)*10; ageStats[ageGroup] = (ageStats[ageGroup]||0) + 1; }
+      clusterer.addMarker(p.marker);
+      unique++; visits+=p.visits;
+      
+      const d = p.dong || "미상";
+      if(!dongMap[d]) dongMap[d] = {n:0, d:0, r:0, t:0};
+      dongMap[d].t++;
+      if(p.type==="신환") dongMap[d].n++;
+      else if(p.type==="90일초") dongMap[d].d++;
+      else dongMap[d].r++;
     }
   });
-  clusterer.addMarkers(visibleMarkers);
-  $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits;
-  updateCharts(dongStats, ageStats, unique);
+  
+  $("#statPatientsUnique").innerText = unique;
+  $("#statPatientsVisits").innerText = visits;
+  updateStats(dongMap, unique);
 }
 
-$$(".toggle").forEach(t => t.onclick = function(){
-  this.classList.toggle("on"); const key = this.getAttribute("data-toggle"); state[key] = this.classList.contains("on");
-  if(key==="tool_radius_draw"){
-    if(state.tool_radius_draw) { toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성"); $("#radiusInfo").style.display = "block"; if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); } }
-    else { $("#radiusInfo").style.display = "none"; radiusFlag=false; if(radiusPolyline) radiusPolyline.setMap(null); if(radiusCircle) radiusCircle.setMap(null); if(radiusOverlay) radiusOverlay.setMap(null); applyFilters(); }
+// [2] Target Search Logic (add-kakao 100% Logic: Tiling)
+const TARGET_SVGS = {
+  senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
+  welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
+  ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%232b8a3e%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A5%3C/text%3E%3C/svg%3E"
+};
+
+// 타일링(분할) 함수 (add-kakao 핵심 로직)
+function tileBounds(bounds){
+  const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+  const midLat = (sw.getLat() + ne.getLat()) / 2;
+  const midLng = (sw.getLng() + ne.getLng()) / 2;
+  return [
+    new kakao.maps.LatLngBounds(sw, new kakao.maps.LatLng(midLat, midLng)),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(sw.getLat(), midLng), new kakao.maps.LatLng(midLat, ne.getLng())),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, sw.getLng()), new kakao.maps.LatLng(ne.getLat(), midLng)),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, midLng), ne)
+  ];
+}
+
+async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
+  return new Promise((resolve)=>{
+    const collected = [];
+    places.keywordSearch(keyword, (data, status, pagination)=>{
+      if(status===kakao.maps.services.Status.OK){
+        collected.push(...data);
+        if(pagination.hasNextPage) pagination.nextPage();
+        else {
+          // 45개 꽉 찼으면 분할 재검색 (무한 스캔 비결)
+          if(collected.length >= 45 && depth < 2){
+            Promise.all(tileBounds(bounds).map(b => keywordSearchAllEnhanced(keyword, b, depth+1)))
+              .then(results => resolve([...collected, ...results.flat()]));
+          } else {
+            resolve(collected);
+          }
+        }
+      } else resolve(collected);
+    }, { bounds: bounds, useMapBounds: false });
+  });
+}
+
+$("#btnSearchTargets").onclick = async () => {
+  if(!state.target_senior && !state.target_welfare && !state.target_ortho){ toast("검색할 대상을 토글로 켜주세요"); return; }
+  
+  const b = map.getBounds();
+  let total = 0;
+  toast("정밀 스캔 중... (시간이 걸릴 수 있습니다)");
+
+  // Clear previous
+  Object.keys(targetMarkers).forEach(k => { targetMarkers[k].forEach(m=>m.setMap(null)); targetMarkers[k]=[]; });
+
+  const seen = new Set();
+  const add = (kind, items) => {
+    items.forEach(p => {
+      if(seen.has(p.id)) return; seen.add(p.id);
+      const m = new kakao.maps.Marker({
+        map: map, position: new kakao.maps.LatLng(p.y, p.x),
+        image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
+        zIndex: 20
+      });
+      const iw = new kakao.maps.InfoWindow({ content:`<div style="padding:5px;font-size:12px;"><b>${p.place_name}</b></div>` });
+      kakao.maps.event.addListener(m,'click',()=>iw.open(map,m));
+      targetMarkers[kind].push(m);
+      total++;
+    });
+  };
+
+  if(state.target_senior) {
+    const res = await keywordSearchAllEnhanced("경로당", b);
+    add("senior", res);
   }
-  if(key==="tool_distance"){
-    if(state.tool_distance) { toast("지도 클릭: 시작/경유, 우클릭: 종료"); if(state.tool_radius_draw) { state.tool_radius_draw=false; $(`[data-toggle="tool_radius_draw"]`).classList.remove("on"); } }
-    else { distFlag=false; if(distClickLine) distClickLine.setMap(null); if(distMoveLine) distMoveLine.setMap(null); if(distOverlay) distOverlay.setMap(null); }
+  if(state.target_welfare) {
+    for(const kw of ["노인복지관","재가요양","방문요양","요양센터"]) {
+      const res = await keywordSearchAllEnhanced(kw, b);
+      add("welfare", res);
+    }
   }
-  if(key==="tool_roadview") { if(!state.tool_roadview) $("#roadviewPanel").style.display="none"; else toast("지도에서 위치를 클릭하세요."); }
-  applyFilters();
+  if(state.target_ortho) {
+    // 병원 카테고리 전체 스캔 후 정형외과 관련 필터링 (가장 강력함)
+    places.categorySearch('HP8', (data, status, pgn)=>{
+      if(status===kakao.maps.services.Status.OK){
+        const filtered = data.filter(p => ["정형","신경","통증","재활","관절","척추"].some(k => p.place_name.includes(k)));
+        add("ortho", filtered);
+        if(pgn.hasNextPage) pgn.nextPage();
+      }
+    }, { bounds: b, useMapBounds: false }); 
+  }
+
+  setTimeout(()=>{
+    $("#statTargetsTotal").innerText = total;
+    $("#statTargetsUpdated").innerText = new Date().toLocaleTimeString();
+    toast(`완료: 총 ${total}개 시설 검색됨`);
+  }, 2000);
+};
+
+$("#btnResetTargets").onclick = () => {
+  Object.keys(targetMarkers).forEach(k => { targetMarkers[k].forEach(m=>m.setMap(null)); targetMarkers[k]=[]; });
+  $("#statTargetsTotal").innerText = "0";
+  toast("시설 검색 초기화");
+};
+
+// [3] Tool Logic
+function toggleTool(name){
+  if(name==="tool_roadview") {
+    if(state.tool_roadview) $("#roadviewPanel").style.display="block";
+    else $("#roadviewPanel").style.display="none";
+  }
+}
+
+function onDistClick(latlng){
+  if(!distFlag){
+    distFlag=true;
+    if(distClickLine) distClickLine.setMap(null);
+    distClickLine = new kakao.maps.Polyline({ map:map, path:[latlng], strokeWeight:3, strokeColor:'#db4040' });
+  } else {
+    const p = distClickLine.getPath(); p.push(latlng); distClickLine.setPath(p);
+  }
+}
+function onDistMove(latlng){
+  if(distFlag && distClickLine){
+    const p = distClickLine.getPath();
+    const dist = Math.round(distClickLine.getLength());
+    toast(`거리: ${dist}m`, 500);
+  }
+}
+function onDistEnd(){ distFlag=false; toast("거리 측정 종료"); }
+
+function openRoadview(latlng){
+  roadviewClient.getNearestPanoId(latlng, 50, (id)=>{
+    if(id) roadview.setPanoId(id, latlng);
+    else toast("로드뷰 데이터 없음");
+  });
+}
+
+// Stats & Charts
+$("#btnOpenStats").onclick = () => { $("#statsModal").style.display="flex"; };
+$("#btnCloseStats").onclick = () => { $("#statsModal").style.display="none"; };
+$$(".tabBtn").forEach(b => b.onclick = function(){
+  $$(".tabBtn").forEach(btn=>btn.classList.remove("active")); this.classList.add("active");
+  $$(".tabPane").forEach(p=>p.style.display="none"); $("#" + this.dataset.tab).style.display="block";
 });
 
-$("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; applyFilters(); };
-$("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
-$$(".tabBtn").forEach(btn => { btn.onclick = function(){ $$(".tabBtn").forEach(b=>b.classList.remove("active")); this.classList.add("active"); $$(".tabPane").forEach(p=>p.style.display="none"); $("#"+this.dataset.tab).style.display="block"; } });
+let chartType;
+function updateStats(dongMap, total){
+  const tbody = $("#tblDongType");
+  tbody.innerHTML = Object.entries(dongMap).sort((a,b)=>b[1].t-a[1].t).map(([d,v])=>
+    `<tr><td>${d}</td><td>${v.n}</td><td>${v.d}</td><td>${v.r}</td><td><b>${v.t}</b></td></tr>`
+  ).join("");
 
-let chartType, chartAge;
-function updateCharts(dongStats, ageStats, totalCount){
-  const sortedDong = Object.entries(dongStats).sort((a,b)=>b[1].total - a[1].total);
-  const dongHtml = sortedDong.map(([d, s])=> `<tr><td>${d}</td><td style="color:#db4040;font-weight:bold;">${s.new}</td><td style="color:#888;">${s.d90}</td><td style="color:#228be6;">${s.ret}</td><td style="font-weight:bold;">${s.total}</td></tr>`).join("");
-  $("#tblDongType").innerHTML = dongHtml;
-  let totalNew=0, total90=0, totalRet=0;
-  Object.values(dongStats).forEach(s => { totalNew+=s.new; total90+=s.d90; totalRet+=s.ret; });
-  $("#kpiNewRate").innerText = totalCount>0 ? ((totalNew/totalCount)*100).toFixed(1)+"%" : "0%";
-  $("#kpiRetRate").innerText = totalCount>0 ? (((totalRet+total90)/totalCount)*100).toFixed(1)+"%" : "0%";
   if(window.Chart){
-    const ctxType = $("#chartType_modal");
+    let n=0, d=0, r=0;
+    Object.values(dongMap).forEach(v => { n+=v.n; d+=v.d; r+=v.r; });
+    
     if(chartType) chartType.destroy();
-    chartType = new Chart(ctxType, { type: 'doughnut', data: { labels: ['신환', '90일초진', '재진'], datasets: [{ data: [totalNew, total90, totalRet], backgroundColor: ['#db4040', '#e9ecef', '#228be6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
-    const sortedAgeKeys = Object.keys(ageStats).sort((a,b)=>Number(a)-Number(b));
-    const ageData = sortedAgeKeys.map(k=>ageStats[k]);
-    const ageLabels = sortedAgeKeys.map(k=>k+"대");
-    const ctxAge = $("#chartAge_modal");
-    if(chartAge) chartAge.destroy();
-    chartAge = new Chart(ctxAge, { type: 'bar', data: { labels: ageLabels, datasets: [{ label: '인원수', data: ageData, backgroundColor: '#228be6' }] }, options: { responsive: true, maintainAspectRatio: false } });
-    const ageHtml = sortedAgeKeys.map((k, i) => `<tr><td>${k}대</td><td>${ageData[i]}명</td><td>${((ageData[i]/totalCount)*100).toFixed(1)}%</td></tr>`).join("");
-    $("#tblAge").innerHTML = ageHtml;
+    chartType = new Chart($("#chartType_modal"), {
+      type: 'doughnut',
+      data: { labels:['신환','90일','재진'], datasets:[{data:[n,d,r], backgroundColor:['#db4040','#e9ecef','#228be6']}] }
+    });
+    
+    $("#kpiNewRate").innerText = total ? ((n/total)*100).toFixed(1)+"%" : "0%";
+    $("#kpiRetRate").innerText = total ? (((d+r)/total)*100).toFixed(1)+"%" : "0%";
   }
 }
-
-function findVal(obj, keys){ const kFound = Object.keys(obj).find(k => keys.some(wk => k.replace(/\s/g,'').includes(wk))); return kFound ? obj[kFound] : null; }
-function visitColor(v){ if(v>=5) return "#db4040"; if(v===4) return "orange"; if(v===3) return "#CCCC00"; if(v===2) return "green"; return "#228be6"; }
-function typeIcon(t){ if(t==="신환") return "♥"; if(t==="90일초") return "♡"; return "📍"; }
-function toast(msg){ const t = $("#toast"); t.innerText=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2500); }
 </script>
 </body>
 </html>
