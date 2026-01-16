@@ -144,18 +144,18 @@
         </div>
 
         <label style="display:block;margin-bottom:6px;">
-          <input type="radio" name="geoMode" value="fast" checked>
-          📊 월간/분기 보고 (속도 우선)
+          <input type="radio" name="geoMode" value="fast" checked title="주소가 일부 불완전해도 근사 좌표를 포함해 빠르게 집계합니다.">
+          📊 속도 우선 — 주소 근사치 포함
         </label>
 
         <label style="display:block;margin-bottom:6px;">
-          <input type="radio" name="geoMode" value="accurate">
-          🔬 상권 정밀 분석 (정확도 우선)
+          <input type="radio" name="geoMode" value="accurate" title="주소 기준을 적용해 분석용으로 균형 잡힌 결과를 제공합니다.">
+          🔬 균형 모드 — 주소 기준 적용
         </label>
 
         <label style="display:block;">
-          <input type="radio" name="geoMode" value="full">
-          🧪 디버깅/검증 (풀 보정)
+          <input type="radio" name="geoMode" value="full" title="주소가 명확한 경우만 포함하며, 불확실한 데이터는 제외합니다.">
+          🧪 엄격 모드 — 주소 불확실 제외
         </label>
       </div>
 
