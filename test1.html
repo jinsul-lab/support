@@ -674,46 +674,116 @@ function mergePatientData(rows){
 }
 
 function processDataAndMap(uniquePatients){
-  clusterer.clear(); patientRecords = []; 
-  let success=0;
-  uniquePatients.forEach((item, idx) => {
-    setTimeout(()=>{
-      let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
-      geocoder.addressSearch(cleanAddr, (res, status)=>{
-        if(status===kakao.maps.services.Status.OK){
-          const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
-          const dong = res[0].address?.region_3depth_name || "";
-          
-          const color = item.visits>=5?'#db4040': item.visits===4?'orange': item.visits===3?'#CCCC00': item.visits===2?'green':'#228be6';
-          const char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
-          
-          const marker = new kakao.maps.Marker({
-            position: coords,
-            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
-          });
-          
-          const iw = new kakao.maps.InfoWindow({ 
-            content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>`,
-            removable: true 
-          });
-          
-          kakao.maps.event.addListener(marker, 'click', ()=> {
-            closeAllInfoWindows(); 
-            iw.open(map, marker);
-            openedInfoWindows.push(iw);
-          });
-          
-          item.marker = marker; item.latlng = coords; item.dong = dong;
-          patientRecords.push(item);
-          clusterer.addMarker(marker);
-          success++;
-        }
-        if(idx === uniquePatients.length-1){ applyFilters(); toast(`${success}명 분석 완료`); }
+  clusterer.clear();
+  patientRecords = [];
+
+  let success = 0;
+  let done = 0;
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  // 주소에서 시/구만 뽑기 (fallback용)
+  function extractSigungu(addr){
+    const m = addr.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[^\s]*\s+[^\s]+구/);
+    return m ? m[0] : null;
+  }
+
+  async function geocodeWithRetry(item, idx){
+    let addr = String(item.address)
+      .replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c) ? " "+c : "")
+      .trim();
+
+    // 1️⃣ 1차 시도
+    let res = await geocode(addr);
+    if(!res){
+      // 2️⃣ 리트라이
+      await delay(350);
+      res = await geocode(addr);
+    }
+
+    if(!res){
+      // 3️⃣ 시군구 fallback
+      const sg = extractSigungu(addr);
+      if(sg){
+        await delay(500);
+        res = await geocode(sg);
+      }
+    }
+
+    if(res){
+      const coords = new kakao.maps.LatLng(res.y, res.x);
+      const dong = res.address?.region_3depth_name || "";
+
+      const color =
+        item.visits>=5?'#db4040':
+        item.visits===4?'orange':
+        item.visits===3?'#CCCC00':
+        item.visits===2?'green':'#228be6';
+
+      const char =
+        item.latestType==='신환'?'♥':
+        item.latestType==='90일초'?'♡':'📍';
+
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30">
+        <circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/>
+        <text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text>
+      </svg>`;
+
+      const marker = new kakao.maps.Marker({
+        position: coords,
+        image: new kakao.maps.MarkerImage(
+          "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),
+          new kakao.maps.Size(30,30)
+        )
       });
-    }, idx * 10);
-  });
+
+      const iw = new kakao.maps.InfoWindow({
+        content: `<div style="padding:5px;font-size:12px;">
+          <b>${item.title}</b> (${item.age}세)<br>
+          ${item.latestType} / ${item.visits}회
+        </div>`,
+        removable:true
+      });
+
+      kakao.maps.event.addListener(marker,'click',()=>{
+        closeAllInfoWindows();
+        iw.open(map,marker);
+        openedInfoWindows.push(iw);
+      });
+
+      item.marker = marker;
+      item.latlng = coords;
+      item.dong = dong;
+
+      patientRecords.push(item);
+      clusterer.addMarker(marker);
+      success++;
+    }
+
+    done++;
+    if(done === uniquePatients.length){
+      applyFilters();
+      toast(`${success}명 분석 완료 (보정 포함)`);
+    }
+  }
+
+  function geocode(addr){
+    return new Promise(resolve=>{
+      geocoder.addressSearch(addr,(r,s)=>{
+        if(s===kakao.maps.services.Status.OK && r[0]) resolve(r[0]);
+        else resolve(null);
+      });
+    });
+  }
+
+  (async ()=>{
+    for(let i=0;i<uniquePatients.length;i++){
+      await geocodeWithRetry(uniquePatients[i], i);
+      await delay(120); // 전체 속도 조절 (중요)
+    }
+  })();
 }
+
 
 function applyFilters(){
   clusterer.clear();
