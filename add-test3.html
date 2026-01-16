@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.1.8)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.0)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing&autoload=false"></script>
@@ -10,57 +10,53 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
-    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --gray:#868e96; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040; }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
+    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
     .app{height:100%;width:100%;display:flex}
-    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;position:relative;transition:margin-left 0.3s ease;}
+    
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;transition:margin-left 0.3s ease;}
     .sidebar.collapsed{margin-left:-360px;}
     .sidebarHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.9);}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem;}
+    .brand{font-weight:900;font-size:1.1rem;}
     .sidebarBody{flex:1;overflow-y:auto;padding:14px;}
     .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.03);}
-    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-    .sectionTitle h3{margin:0;font-size:14px;font-weight:800;}
+    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:800;font-size:14px;}
     .pill{font-size:11px;background:var(--blue);color:white;padding:4px 8px;border-radius:10px;}
-    .uploadBox{border:2px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:0.2s;background:#f8fafc;}
+    
+    .uploadBox{border:2px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;}
     .uploadBox:hover{border-color:var(--blue);background:#eff6ff;}
+    
     .row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;}
     .toggle{width:40px;height:22px;background:#e5e7eb;border-radius:20px;position:relative;cursor:pointer;transition:0.3s;}
-    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:white;border-radius:50%;transition:0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:white;border-radius:50%;transition:0.3s;}
     .toggle.on{background:var(--blue);}
     .toggle.on::after{transform:translateX(18px);}
+    
+    .target-group { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+    .target-btn { flex: 1; padding: 8px; font-size: 12px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; transition: 0.2s; text-align: center; }
+    .target-btn.active { background: #e7f5ff; border-color: var(--blue); color: var(--blue); font-weight: bold; }
+
     .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
     .stat{background:#f3f4f6;padding:10px;border-radius:8px;text-align:center;}
-    .stat .k{font-size:11px;color:var(--gray);margin-bottom:4px;}
-    .stat .v{font-size:16px;font-weight:800;color:var(--text);}
-    .btn{width:100%;padding:10px;border:none;border-radius:8px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:bold;transition:0.2s;}
-    .btn:hover{background:#f9fafb;}
+    .stat .k{font-size:11px;color:#868e96;margin-bottom:4px;}
+    .stat .v{font-size:16px;font-weight:800;}
+    
+    .btn{width:100%;padding:10px;border:none;border-radius:8px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:bold;}
     .btn.primary{background:var(--blue);color:white;border:none;}
     .btn.danger{background:#fee2e2;color:#ef4444;border:none;}
+    
     .mapArea{flex:1;position:relative;}
     #map{width:100%;height:100%;}
-    .mapControls{position:absolute;top:20px;right:20px;z-index:30;display:flex;flex-direction:column;gap:8px;}
-    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:none;cursor:pointer;font-size:18px;font-weight:bold;}
+    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:none;cursor:pointer;font-size:18px;font-weight:bold;margin-bottom:5px;}
+    .mapControls{position:absolute;top:20px;right:20px;z-index:30;display:flex;flex-direction:column;}
+    
     #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:100;opacity:0;transition:0.3s;pointer-events:none;}
     #toast.show{opacity:1;bottom:50px;}
-    .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
-    .modalPanel{width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;}
-    .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;}
-    .modalBody{padding:20px;overflow-y:auto;flex:1;}
-    .tabBar{display:flex;gap:10px;padding:10px 15px;border-bottom:1px solid #eee;}
-    .tabBtn{padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:white;cursor:pointer;}
-    .tabBtn.active{background:#333;color:white;border-color:#333;}
-    table.miniTable{width:100%;border-collapse:collapse;font-size:12px;}
-    table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
-    table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
-    .iwBox{padding:5px;font-size:13px;}
+
+    /* 오버레이 스타일 */
     .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
-    .dotOverlay:nth-of-type(n) {border:0; box-shadow:0px 1px 2px #888;}
     .number {font-weight:bold;color:#ee6152;}
-    .distanceInfo {position:relative;top:5px;left:5px;list-style:none;margin:0;}
-    .distanceInfo .label {display:inline-block;width:50px;}
-    .distanceInfo:after {content:none;}
   </style>
 </head>
 <body>
@@ -68,9 +64,10 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.8</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.0</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
+
     <div class="sidebarBody">
       <div class="section">
         <div class="sectionTitle"><h3>파일 업로드</h3><span class="pill">BIT/의사랑/엑셀</span></div>
@@ -84,6 +81,7 @@
           <button id="btnClearPatients" class="btn danger">초기화</button>
         </div>
       </div>
+
       <div class="section">
         <div class="sectionTitle"><h3>환자 필터</h3><span class="pill">표시 설정</span></div>
         <div class="row"><span>🧡 신환 (New)</span> <div class="toggle on" data-toggle="patient_new"></div></div>
@@ -95,24 +93,35 @@
         </div>
         <button id="btnOpenStats" class="btn" style="margin-top:10px;">📊 상세 통계 보기</button>
       </div>
+
+      <div class="section">
+        <div class="sectionTitle"><h3>타겟 검색</h3><span class="pill">경쟁/시설</span></div>
+        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내에서 검색합니다</div>
+        <div class="target-group">
+          <div class="target-btn" data-keyword="경로당">경로당</div>
+          <div class="target-btn" data-keyword="노인복지">노인복지</div>
+          <div class="target-btn" data-keyword="정형외과">정형외과</div>
+        </div>
+        <button id="btnClearTargets" class="btn" style="margin-top:5px; font-size:12px; padding:5px;">검색 결과 지우기</button>
+      </div>
+
       <div class="section">
         <div class="sectionTitle"><h3>지도 도구</h3><span class="pill">측정/분석</span></div>
-        <div class="row"><span>🔵 반경 분석 (원)</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
-        <div id="radiusControl" style="margin-top:5px; display:none; background:#f8f9fa; padding:10px; border-radius:8px;">
-          <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-bottom:5px;">
-            <span>반경(m)</span> <span id="radiusLabel" style="color:var(--blue)">1000m</span>
-          </div>
-          <input type="range" id="radiusSlider" min="100" max="5000" step="100" value="1000" style="width:100%">
-          <div style="display:flex;gap:5px;margin-top:10px;">
-            <button id="btnPickRadiusCenter" class="btn">중심점 찍기</button>
-            <button id="btnClearRadius" class="btn danger">지우기</button>
-          </div>
+        
+        <div class="row">
+          <span>🔵 반경 그리기 (Drag)</span> 
+          <div class="toggle" data-toggle="tool_radius_draw"></div>
         </div>
-        <div class="row" style="margin-top:5px;"><span>📏 거리 재기 (선)</span> <div class="toggle" data-toggle="tool_distance"></div></div>
+        <div id="radiusInfo" style="display:none; font-size:11px; color:#228be6; margin-bottom:5px; text-align:right;">
+          지도 클릭(중심) → 이동 → 클릭(완성)
+        </div>
+        
+        <div class="row"><span>📏 거리 재기 (Line)</span> <div class="toggle" data-toggle="tool_distance"></div></div>
         <div class="row"><span>📷 로드뷰 보기</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
       </div>
     </div>
   </aside>
+
   <main class="mapArea">
     <button id="btnOpenSidebar" class="ctrlBtn" style="position:absolute;top:20px;left:20px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
@@ -126,28 +135,46 @@
     </div>
   </main>
 </div>
-<div id="statsModal" class="modalBack">
-  <div class="modalPanel">
-    <div class="modalHeader"><span>상세 통계 분석</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button></div>
-    <div class="tabBar"><button class="tabBtn active" data-tab="tabSummary">요약</button><button class="tabBtn" data-tab="tabDong">행정동별</button><button class="tabBtn" data-tab="tabAge">연령별</button></div>
-    <div class="modalBody">
-      <div id="tabSummary" class="tabPane"><div class="statGrid" style="margin-bottom:20px;"><div class="stat"><div class="k">분석 대상</div><div class="v" id="kpiUnique">0명</div></div><div class="stat"><div class="k">총 방문 수</div><div class="v" id="kpiVisits">0회</div></div></div><div style="height:300px;"><canvas id="chartDong_modal"></canvas></div></div>
-      <div id="tabDong" class="tabPane" style="display:none;"><table class="miniTable"><thead><tr><th>행정동</th><th>신환</th><th>90일초</th><th>재진</th><th>합계</th></tr></thead><tbody id="tblDongType"></tbody></table></div>
-      <div id="tabAge" class="tabPane" style="display:none;"><div style="height:250px;margin-bottom:20px;"><canvas id="chartAge_modal"></canvas></div><table class="miniTable"><tbody id="tblAge"></tbody></table></div>
+
+<div id="statsModal" class="modalBack" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;">
+  <div class="modalPanel" style="width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;">
+    <div class="modalHeader" style="padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-weight:bold;">
+      <span>상세 통계 분석</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modalBody" style="padding:20px;flex:1;overflow:auto;">
+      <canvas id="chartDong_modal" style="height:300px;width:100%"></canvas>
+      <table id="tblDongType" style="width:100%;font-size:12px;margin-top:20px;border-collapse:collapse;"></table>
     </div>
   </div>
 </div>
 <div id="toast">알림</div>
 
 <script>
+// ==========================================
+//  JINSUL 시스템 v1.2.0 (타겟검색 + 반경드로잉)
+// ==========================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
+
 let map, geocoder, places, boundsPatients, roadview, roadviewClient;
 let patientRecords = [];
-let radiusCircle=null, radiusCenterMarker=null, radiusCenterLatLng=null, radiusMeters=1000, radiusPickMode=false;
-let drawingFlag=false, moveLine, clickLine, distanceOverlay, dots=[];
+let targetMarkers = []; // 타겟 검색 마커들
 
-const state = { patient_new:true, patient_90:true, patient_return:true, tool_roadview:false, radius_enabled:false, tool_distance:false };
+// [도구 상태]
+const state = {
+  patient_new:true, patient_90:true, patient_return:true,
+  tool_roadview:false, tool_distance:false, tool_radius_draw:false
+};
+
+// [거리재기 변수]
+let distFlag=false, distClickLine, distMoveLine, distOverlay;
+
+// [반경그리기 변수] (v1.2.0 New)
+let radiusFlag=false; // 그리기 중인가?
+let radiusCenter=null; 
+let radiusPolyline=null; // 그릴 때 보이는 선
+let radiusCircle=null; // 최종 원
+let radiusOverlay=null; // 거리 표시 오버레이
 
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
@@ -158,28 +185,174 @@ function initKakao(){
     boundsPatients = new kakao.maps.LatLngBounds();
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
+    
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
-    function toggleSidebar(open){ const sb = $("#sidebar"); const btn = $("#btnOpenSidebar"); if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; } else { sb.classList.add("collapsed"); btn.style.display="flex"; } setTimeout(() => map.relayout(), 310); }
+    
+    // 사이드바 접기/펴기
+    function toggleSidebar(open){
+      const sb = $("#sidebar"); const btn = $("#btnOpenSidebar");
+      if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; }
+      else { sb.classList.add("collapsed"); btn.style.display="flex"; }
+      setTimeout(() => map.relayout(), 310);
+    }
     $("#btnCollapse").onclick = () => toggleSidebar(false);
     $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
+
+    // ============================
+    //  [통합 지도 클릭 이벤트 핸들러]
+    // ============================
     kakao.maps.event.addListener(map, "click", (e)=>{
-      if(radiusPickMode){ radiusCenterLatLng = e.latLng; radiusPickMode = false; renderRadius(); applyFilters(); toast("반경 중심이 설정되었습니다."); return; }
-      if(state.tool_distance){
-        const clickPosition = e.latLng;
-        if (!drawingFlag) { drawingFlag = true; deleteClickLine(); deleteDistnce(); deleteCircleDot(); clickLine = new kakao.maps.Polyline({ map: map, path: [clickPosition], strokeWeight: 3, strokeColor: '#db4040', strokeOpacity: 1, strokeStyle: 'solid' }); moveLine = new kakao.maps.Polyline({ map: map, path: [clickPosition], strokeWeight: 3, strokeColor: '#db4040', strokeOpacity: 0.5, strokeStyle: 'solid' }); displayCircleDot(clickPosition, 0); }
-        else { const path = clickLine.getPath(); path.push(clickPosition); clickLine.setPath(path); displayCircleDot(clickPosition, Math.round(clickLine.getLength())); }
+      
+      // 1. 반경 그리기 모드 (v1.2.0 New)
+      if(state.tool_radius_draw){
+        if(!radiusFlag){
+          // [1단계] 중심점 찍기
+          radiusFlag = true;
+          radiusCenter = e.latLng;
+          if(radiusCircle) radiusCircle.setMap(null); // 기존 원 삭제
+          if(radiusOverlay) radiusOverlay.setMap(null);
+          
+          radiusPolyline = new kakao.maps.Polyline({
+            map: map, path: [radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeOpacity:1, strokeStyle:'solid'
+          });
+          radiusCircle = new kakao.maps.Circle({
+            map: map, center: radiusCenter, radius: 0, strokeWeight:1, strokeColor:'#228be6', strokeOpacity:0.1, fillColor:'#228be6', fillOpacity:0.2
+          });
+          toast("마우스를 움직여 반경을 설정하고 클릭하세요.");
+        } else {
+          // [2단계] 원 확정
+          radiusFlag = false;
+          if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
+          // 오버레이 고정
+          applyFilters(); // 원 안에 있는 환자만 필터링
+          toast("반경 설정 완료. (내부 환자만 표시됨)");
+        }
         return;
       }
-      if(state.tool_roadview){ roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{ if(panoId){ $("#roadviewPanel").style.display = "block"; roadview.setPanoId(panoId, e.latLng); } else toast("주변에 로드뷰가 없습니다."); }); }
+
+      // 2. 거리 재기 모드
+      if(state.tool_distance){
+        const clickPos = e.latLng;
+        if(!distFlag){
+          distFlag = true;
+          if(distClickLine) distClickLine.setMap(null);
+          if(distOverlay) distOverlay.setMap(null);
+          distClickLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:1, strokeStyle:'solid'});
+          distMoveLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:0.5, strokeStyle:'solid'});
+        } else {
+          const path = distClickLine.getPath();
+          path.push(clickPos);
+          distClickLine.setPath(path);
+        }
+        return;
+      }
+
+      // 3. 로드뷰 모드
+      if(state.tool_roadview){
+        roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{
+          if(panoId){
+            $("#roadviewPanel").style.display = "block";
+            roadview.setPanoId(panoId, e.latLng);
+          } else toast("주변에 로드뷰가 없습니다.");
+        });
+      }
     });
-    kakao.maps.event.addListener(map, 'mousemove', function (mouseEvent) { if (drawingFlag){ const mousePosition = mouseEvent.latLng; const path = clickLine.getPath(); const movepath = [path[path.length-1], mousePosition]; moveLine.setPath(movepath); const distance = Math.round(clickLine.getLength() + moveLine.getLength()); showDistance('<div class="dotOverlay distanceInfo">총거리 <span class="number">' + distance + '</span>m</div>', mousePosition); } });
-    kakao.maps.event.addListener(map, 'rightclick', function (mouseEvent) { if (drawingFlag) { moveLine.setMap(null); moveLine = null; const path = clickLine.getPath(); if (path.length > 1) { if (dots[dots.length-1].distance) { dots[dots.length-1].distance.setMap(null); dots[dots.length-1].distance = null; } const distance = Math.round(clickLine.getLength()); showDistance('<div class="dotOverlay distanceInfo">총거리 <span class="number">' + distance + '</span>m</div>', path[path.length-1]); } else { deleteClickLine(); deleteCircleDot(); deleteDistnce(); } drawingFlag = false; } });
-    toast("시스템 준비 완료 v1.1.8");
+
+    // [마우스 이동 이벤트] - 반경 그리기 / 거리 재기 공통
+    kakao.maps.event.addListener(map, "mousemove", (e)=>{
+      // 반경 그리기 중
+      if(state.tool_radius_draw && radiusFlag){
+        const path = [radiusCenter, e.latLng];
+        radiusPolyline.setPath(path);
+        const dist = Math.round(radiusPolyline.getLength());
+        radiusCircle.setRadius(dist);
+        
+        const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">반경 <span class="number">${dist}</span>m</div>`;
+        if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); }
+        else { radiusOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
+      }
+
+      // 거리 재기 중
+      if(state.tool_distance && distFlag){
+        const path = distClickLine.getPath();
+        const movePath = [path[path.length-1], e.latLng];
+        distMoveLine.setPath(movePath);
+        const dist = Math.round(distClickLine.getLength() + distMoveLine.getLength());
+        const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">총거리 <span class="number">${dist}</span>m</div>`;
+        if(distOverlay) { distOverlay.setPosition(e.latLng); distOverlay.setContent(content); }
+        else { distOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
+      }
+    });
+
+    // [우클릭 이벤트] - 거리 재기 종료
+    kakao.maps.event.addListener(map, "rightclick", (e)=>{
+      if(state.tool_distance && distFlag){
+        distFlag = false;
+        if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
+        toast("거리 측정이 완료되었습니다.");
+      }
+    });
+
+    toast("시스템 준비 완료 v1.2.0");
   });
 }
 initKakao();
 
+// =======================
+//  [타겟 검색 기능 v1.2.0]
+// =======================
+$$(".target-btn").forEach(btn => {
+  btn.onclick = function(){
+    const keyword = this.getAttribute("data-keyword");
+    
+    // UI 활성화 처리
+    $$(".target-btn").forEach(b=>b.classList.remove("active"));
+    this.classList.add("active");
+
+    // 기존 검색 마커 삭제
+    targetMarkers.forEach(m => m.setMap(null));
+    targetMarkers = [];
+
+    toast(`현 지도 내 '${keyword}' 검색 중...`);
+    
+    // 현재 지도 범위 내 검색
+    places.keywordSearch(keyword, (data, status)=>{
+      if(status === kakao.maps.services.Status.OK){
+        data.forEach(place => {
+          const marker = new kakao.maps.Marker({
+            map: map,
+            position: new kakao.maps.LatLng(place.y, place.x),
+            title: place.place_name,
+            image: new kakao.maps.MarkerImage(
+              "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png", // 별표 마커
+              new kakao.maps.Size(24, 35)
+            ) 
+          });
+          const iw = new kakao.maps.InfoWindow({
+            content: `<div style="padding:5px;font-size:12px;">${place.place_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>`
+          });
+          kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
+          targetMarkers.push(marker);
+        });
+        toast(`${data.length}개의 ${keyword} 발견!`);
+      } else {
+        toast("검색 결과가 없습니다.");
+      }
+    }, { useMapBounds: true }); // ★ 현재 지도 화면 안에서만 검색
+  };
+});
+
+$("#btnClearTargets").onclick = () => {
+  targetMarkers.forEach(m => m.setMap(null));
+  targetMarkers = [];
+  $$(".target-btn").forEach(b=>b.classList.remove("active"));
+  toast("검색 결과가 초기화되었습니다.");
+};
+
+// =======================
+//  [파일 처리 & 로직 v1.1.8 유지]
+// =======================
 const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
@@ -211,7 +384,6 @@ async function parseWorkbookFromFile(file){
       const isBin = (data[0]===0x50&&data[1]===0x4B) || (data[0]===0xD0&&data[1]===0xCF);
       if(isBin) resolve(XLSX.read(data, {type:'array'}));
       else {
-        // [정밀 인코딩 점수제 적용] v1.1.8
         const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규", "초재진구분"];
         let textUTF8="", textEUC="";
         try{textUTF8=new TextDecoder("utf-8").decode(data);}catch(e){}
@@ -228,11 +400,9 @@ async function parseWorkbookFromFile(file){
 
 function mergePatientData(rows, headers){
   const patientMap = new Map();
-  // [초재진구분 정밀 탐색]
   const typeColName = headers.find(h => ["신규","신환","초진","구분","초재진"].some(k => String(h).includes(k)));
   let useTypeCol = false;
   
-  // 데이터 검증: 실제로 유의미한 값("신환", "90")이 들어있는지 확인
   if(typeColName){
     if(rows.some(r => {
       const v = String(findVal(r, [typeColName,"신규","신환","초재진"])??"").trim();
@@ -250,10 +420,9 @@ function mergePatientData(rows, headers){
     let isNew=false, is90=false, isRet=false;
     if(useTypeCol){
       const val = String(findVal(item, [typeColName,"신규","신환","초재진"])??"").trim();
-      // 정확한 키워드 매칭
       if(val==="1"||val==="Y"||val.includes("신규")||val.includes("신환")||val.includes("초진")&&!val.includes("90")) isNew=true;
       else if(val.includes("90") || val==="90일초") is90=true;
-      else isRet=true; // 나머지(빈칸, 재진, 진찰료산정안함 등)는 모두 재진 처리
+      else isRet=true; 
     } else {
       if(!patientMap.has(chartNo)) isNew=true; else isRet=true;
     }
@@ -261,7 +430,6 @@ function mergePatientData(rows, headers){
     if(patientMap.has(chartNo)){
       const rec = patientMap.get(chartNo);
       rec.visits++;
-      // [신환 보존 로직]
       if(rec.latestType==="신환") { isNew=true; isRet=false; }
       else if(rec.latestType==="90일초" && !isNew) is90=true;
       
@@ -309,27 +477,65 @@ function applyFilters(){
     if(r.latestType==="신환" && !state.patient_new) show=false;
     if(r.latestType==="90일초" && !state.patient_90) show=false;
     if(r.latestType==="재진" && !state.patient_return) show=false;
-    if(show && state.radius_enabled && radiusCenterLatLng){ const poly = new kakao.maps.Polyline({ path: [radiusCenterLatLng, r.latlng] }); if(poly.getLength() > radiusMeters) show=false; }
+    
+    // [반경 필터링 적용] v1.2.0
+    if(show && radiusCircle && radiusCircle.getMap()){
+      const center = radiusCircle.getCenter();
+      const radius = radiusCircle.getRadius();
+      const poly = new kakao.maps.Polyline({ path: [center, r.latlng] });
+      if(poly.getLength() > radius) show = false;
+    }
+
     if(r.marker) r.marker.setMap(show ? map : null);
     if(show){ unique++; visits += r.visits; const d = r.dong||"미상"; dongMap[d] = (dongMap[d]||0)+1; }
   });
   $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits; $("#kpiUnique").innerText = unique+"명"; $("#kpiVisits").innerText = visits+"회"; updateDongTable(dongMap); updateCharts(dongMap);
 }
-// 거리재기 헬퍼
-function deleteClickLine() { if(clickLine){ clickLine.setMap(null); clickLine=null; } }
-function deleteDistnce() { if(distanceOverlay){ distanceOverlay.setMap(null); distanceOverlay=null; } }
-function deleteCircleDot() { for(var i=0; i<dots.length; i++){ if(dots[i].circle) dots[i].circle.setMap(null); if(dots[i].distance) dots[i].distance.setMap(null); } dots=[]; }
-function showDistance(content, position) { if(distanceOverlay) { distanceOverlay.setPosition(position); distanceOverlay.setContent(content); } else { distanceOverlay = new kakao.maps.CustomOverlay({ map: map, content: content, position: position, xAnchor: 0, yAnchor: 0, zIndex: 3 }); } }
-function displayCircleDot(position, distance) { var circleOverlay = new kakao.maps.CustomOverlay({ content: '<span class="dot"></span>', position: position, zIndex: 1 }); circleOverlay.setMap(map); if(distance > 0) { var distanceOverlay = new kakao.maps.CustomOverlay({ content: '<div class="dotOverlay">거리 <span class="number">' + distance + '</span>m</div>', position: position, yAnchor: 1, zIndex: 2 }); distanceOverlay.setMap(map); } dots.push({circle:circleOverlay, distance: distanceOverlay}); }
-// UI 연결
-$$(".toggle").forEach(t => t.onclick = function(){ this.classList.toggle("on"); const key = this.getAttribute("data-toggle"); state[key] = this.classList.contains("on"); if(key==="radius_enabled") { renderRadius(); $("#radiusControl").style.display = state.radius_enabled ? "block" : "none"; if(!state.radius_enabled) { radiusCenterLatLng=null; renderRadius(); applyFilters(); } } if(key==="tool_roadview") { if(!state.tool_roadview) $("#roadviewPanel").style.display="none"; else toast("지도에서 위치를 클릭하세요."); } if(key==="tool_distance"){ if(state.tool_distance) toast("지도 클릭: 시작/경유, 우클릭: 종료"); else { deleteClickLine(); deleteDistnce(); deleteCircleDot(); drawingFlag=false; } } applyFilters(); });
-$("#radiusSlider").oninput = function(){ radiusMeters = parseInt(this.value); $("#radiusLabel").innerText = radiusMeters + "m"; if(state.radius_enabled) { renderRadius(); applyFilters(); } };
-$("#btnPickRadiusCenter").onclick = () => { radiusPickMode=true; toast("지도에서 중심점을 클릭하세요"); };
-$("#btnClearRadius").onclick = () => { radiusCenterLatLng=null; renderRadius(); applyFilters(); };
-$("#btnClearPatients").onclick = () => { patientRecords.forEach(r=>r.marker?.setMap(null)); patientRecords=[]; applyFilters(); };
-$("#btnFitPatients").onclick = () => { if(boundsPatients) map.setBounds(boundsPatients); };
-$("#btnCloseRoadview").onclick = () => { $("#roadviewPanel").style.display="none"; };
-function renderRadius(){ if(radiusCircle) radiusCircle.setMap(null); if(radiusCenterMarker) radiusCenterMarker.setMap(null); if(state.radius_enabled && radiusCenterLatLng){ radiusCircle = new kakao.maps.Circle({ center: radiusCenterLatLng, radius: radiusMeters, strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.7, fillColor: '#228be6', fillOpacity: 0.1 }); radiusCircle.setMap(map); radiusCenterMarker = new kakao.maps.Marker({ position: radiusCenterLatLng, map: map }); } }
+
+// UI 헬퍼 & 이벤트
+$$(".toggle").forEach(t => t.onclick = function(){
+  this.classList.toggle("on");
+  const key = this.getAttribute("data-toggle");
+  state[key] = this.classList.contains("on");
+  
+  // 도구별 초기화 로직
+  if(key==="tool_radius_draw"){
+    if(state.tool_radius_draw) {
+       toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성");
+       $("#radiusInfo").style.display = "block";
+       // 다른 도구 끄기
+       if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); }
+    } else {
+       $("#radiusInfo").style.display = "none";
+       radiusFlag=false;
+       if(radiusPolyline) radiusPolyline.setMap(null);
+       // 원은 남겨둘지 말지? -> 끄면 지우는게 깔끔함
+       if(radiusCircle) radiusCircle.setMap(null);
+       if(radiusOverlay) radiusOverlay.setMap(null);
+       applyFilters();
+    }
+  }
+
+  if(key==="tool_distance"){
+    if(state.tool_distance) {
+      toast("지도 클릭: 시작/경유, 우클릭: 종료");
+      if(state.tool_radius_draw) { state.tool_radius_draw=false; $(`[data-toggle="tool_radius_draw"]`).classList.remove("on"); }
+    } else {
+      distFlag=false;
+      if(distClickLine) distClickLine.setMap(null);
+      if(distMoveLine) distMoveLine.setMap(null);
+      if(distOverlay) distOverlay.setMap(null);
+    }
+  }
+
+  if(key==="tool_roadview") {
+    if(!state.tool_roadview) $("#roadviewPanel").style.display="none";
+    else toast("지도에서 위치를 클릭하세요.");
+  }
+  
+  applyFilters();
+});
+
 $("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; applyFilters(); };
 $("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
 $$(".tabBtn").forEach(btn => { btn.onclick = function(){ $$(".tabBtn").forEach(b=>b.classList.remove("active")); this.classList.add("active"); $$(".tabPane").forEach(p=>p.style.display="none"); $("#"+this.dataset.tab).style.display="block"; } });
