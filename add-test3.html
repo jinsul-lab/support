@@ -2,12 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.1.2)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.1.3)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
@@ -52,7 +51,6 @@
     #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:100;opacity:0;transition:0.3s;pointer-events:none;}
     #toast.show{opacity:1;bottom:50px;}
 
-    /* 모달 스타일 */
     .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
     .modalPanel{width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;}
     .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;}
@@ -66,22 +64,22 @@
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
     .iwBox{padding:5px;font-size:13px;}
   </style>
-  </head>
+</head>
 <body>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.2</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.3</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle"><h3>파일 업로드</h3><span class="pill">BIT/의사랑 호환</span></div>
+        <div class="sectionTitle"><h3>파일 업로드</h3><span class="pill">BIT/의사랑/엑셀</span></div>
         <div id="uploadBox" class="uploadBox" onclick="document.getElementById('fileInput').click()">
-          <div>📂 엑셀/CSV 드래그 & 드롭</div>
-          <div style="font-size:11px;color:#888;margin-top:5px;">(클릭하여 선택 가능)</div>
+          <div>📂 파일 드래그 & 드롭</div>
+          <div style="font-size:11px;color:#888;margin-top:5px;">(XLS, XLSX, CSV 지원)</div>
           <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none"/>
         </div>
         <div style="display:flex;gap:5px;margin-top:10px;">
@@ -95,10 +93,9 @@
         <div class="row"><span>🧡 신환 (New)</span> <div class="toggle on" data-toggle="patient_new"></div></div>
         <div class="row"><span>🤍 90일초 (Return)</span> <div class="toggle on" data-toggle="patient_90"></div></div>
         <div class="row"><span>📍 재진 (Old)</span> <div class="toggle on" data-toggle="patient_return"></div></div>
-        
         <div class="statGrid">
-          <div class="stat"><div class="k" id="lblPatientsUnique">총 인원</div><div class="v" id="statPatientsUnique">0</div></div>
-          <div class="stat"><div class="k" id="lblPatientsVisits">총 방문</div><div class="v" id="statPatientsVisits">0</div></div>
+          <div class="stat"><div class="k">총 인원</div><div class="v" id="statPatientsUnique">0</div></div>
+          <div class="stat"><div class="k">총 방문</div><div class="v" id="statPatientsVisits">0</div></div>
         </div>
         <button id="btnOpenStats" class="btn" style="margin-top:10px;">📊 상세 통계 보기</button>
       </div>
@@ -173,8 +170,8 @@
 </div>
 
 <div id="toast">알림</div>
+
 <script>
-// 전역 변수
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 let map, geocoder, places, boundsPatients, roadview, roadviewClient;
@@ -195,17 +192,14 @@ function initKakao(){
     places = new kakao.maps.services.Places();
     boundsPatients = new kakao.maps.LatLngBounds();
     
-    // 로드뷰
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
     
-    // 이벤트 연결
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
     $("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
     $("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
     
-    // 지도 클릭 이벤트
     kakao.maps.event.addListener(map, "click", (e)=>{
       if(radiusPickMode){
         radiusCenterLatLng = e.latLng;
@@ -223,13 +217,12 @@ function initKakao(){
         });
       }
     });
-
-    toast("시스템 준비 완료 v1.1.2");
+    toast("시스템 준비 완료 v1.1.3");
   });
 }
 initKakao();
 
-// 2. 파일 처리 (스마트 헤더 탐지 + 인코딩 자동 보정)
+// 2. 파일 처리 (강력한 파서 적용)
 const fileInput = $("#fileInput");
 const uploadBox = $("#uploadBox");
 
@@ -240,26 +233,25 @@ uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer
 async function handleFile(file){
   toast("파일 분석 중...");
   try {
-    const workbook = await parseWorkbookFromFile(file);
+    const workbook = await parseWorkbookFromFile(file); // 개선된 파서 호출
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
     
-    // 헤더 찾기 (의사랑 호환성 강화)
+    // 헤더 찾기
     let headerRow = [];
     let headerIdx = -1;
     for(let i=0; i<Math.min(rawData.length, 30); i++){
       const rowStr = rawData[i].join(" ");
       const hasAddr = rowStr.includes("주소") || rowStr.includes("도로명");
       const hasName = rowStr.includes("이름") || rowStr.includes("수진자");
-      const hasChart = rowStr.includes("차트") || rowStr.includes("등록번호");
+      const hasChart = rowStr.includes("차트") || rowStr.includes("등록번호") || rowStr.includes("ID");
       
-      // 이름이 없더라도 주소와 차트번호가 있으면 헤더로 인정
       if(hasAddr && (hasName || hasChart)){
         headerIdx = i; headerRow = rawData[i]; break;
       }
     }
     
-    if(headerIdx<0) throw new Error("유효한 데이터 헤더(주소, 차트번호 등)를 찾을 수 없습니다. 인코딩 상태를 확인해주세요.");
+    if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다. (인코딩 또는 형식 문제)");
 
     const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
     const patients = mergePatientData(bodyRows, headerRow);
@@ -271,10 +263,47 @@ async function handleFile(file){
   }
 }
 
-// 3. 데이터 병합 (지능형 EMR 구분)
+// 3. 강력한 파일 파서 (의사랑 Binary/Text/HTML 자동 판별)
+async function parseWorkbookFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = (e)=>{
+      const data = new Uint8Array(e.target.result);
+      
+      // 시그니처 체크
+      const isZip = (data[0]===0x50 && data[1]===0x4B); // .xlsx
+      const isOle = (data[0]===0xD0 && data[1]===0xCF && data[2]===0x11 && data[3]===0xE0); // .xls (Binary)
+      
+      if(isZip || isOle) {
+        // 진짜 엑셀 파일
+        resolve(XLSX.read(data, {type:'array'}));
+      } else {
+        // 가짜 엑셀 (Text/CSV) - 인코딩 경합 (UTF-8 vs EUC-KR)
+        // 차트, 주소, 수진자 등의 키워드가 더 많이 보이는 인코딩을 선택
+        const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규", "등록번호"];
+        
+        let textUTF8 = "", textEUC = "";
+        try { textUTF8 = new TextDecoder("utf-8").decode(data); } catch(e){}
+        try { textEUC = new TextDecoder("euc-kr").decode(data); } catch(e){}
+        
+        const scoreUTF8 = keywords.filter(k => textUTF8.includes(k)).length;
+        const scoreEUC = keywords.filter(k => textEUC.includes(k)).length;
+        
+        // 승자 결정
+        if(scoreEUC > scoreUTF8) {
+          resolve(XLSX.read(textEUC, {type:'string'}));
+        } else {
+          resolve(XLSX.read(textUTF8, {type:'string'}));
+        }
+      }
+    };
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+// 4. 데이터 병합
 function mergePatientData(rows, headers){
   const patientMap = new Map();
-  
   const typeCol = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
   let useTypeCol = false;
   
@@ -289,7 +318,7 @@ function mergePatientData(rows, headers){
   rows.forEach(item => {
     const title = findVal(item, ['수진자','이름','name']);
     const address = findVal(item, ['주소','addr']);
-    const chartNo = findVal(item, ['차트','환자번호','ID']);
+    const chartNo = findVal(item, ['차트','환자번호','ID','등록번호']);
     
     if(!chartNo || !address) return;
 
@@ -330,7 +359,7 @@ function mergePatientData(rows, headers){
   return Array.from(patientMap.values());
 }
 
-// 4. 지도 표시 (마커 로직)
+// 5. 지도 표시
 function processDataAndMap(uniquePatients){
   patientRecords.forEach(r => r.marker && r.marker.setMap(null));
   patientRecords = [];
@@ -388,7 +417,6 @@ function processDataAndMap(uniquePatients){
   });
 }
 
-// 5. 필터 및 통계
 function applyFilters(){
   let unique=0, visits=0;
   const dongMap = {};
@@ -506,39 +534,6 @@ function typeIcon(t){
 function toast(msg){
   const t = $("#toast"); t.innerText=msg; t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"), 2500);
-}
-
-// 6. 비트/의사랑 파일 스마트 파싱 (인코딩 자동 보정)
-async function parseWorkbookFromFile(file){
-  return new Promise((resolve, reject)=>{
-    const fr = new FileReader();
-    fr.onload = (e)=>{
-      const data = new Uint8Array(e.target.result);
-      const isXlsx = (data[0]===0x50 && data[1]===0x4B);
-      
-      if(isXlsx) {
-        resolve(XLSX.read(data, {type:'array'}));
-      } else {
-        // [스마트 인코딩 감지]
-        const utf8Decoder = new TextDecoder("utf-8", {fatal: false});
-        const utf8Text = utf8Decoder.decode(data);
-        const keywords = ["주소", "차트", "이름", "수진자", "신환", "신규", "등록번호"];
-        const matchCount = keywords.filter(k => utf8Text.includes(k)).length;
-
-        if(matchCount >= 1) {
-          resolve(XLSX.read(utf8Text, {type:'string'}));
-        } else {
-          try {
-            const str = Encoding.convert(data, {to:'UNICODE', from:'EUC-KR', type:'string'});
-            resolve(XLSX.read(str, {type:'string'}));
-          } catch(err) { 
-            resolve(XLSX.read(utf8Text, {type:'string'})); 
-          }
-        }
-      }
-    };
-    fr.readAsArrayBuffer(file);
-  });
 }
 </script>
 </body>
