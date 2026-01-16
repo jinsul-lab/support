@@ -2,12 +2,13 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.0)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.1)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
     :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); }
@@ -57,6 +58,16 @@
     /* 오버레이 스타일 */
     .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
     .number {font-weight:bold;color:#ee6152;}
+
+    /* v1.2.1 추가: 좌측 하단 범례 */
+    #mapLegend {
+      position: absolute; bottom: 20px; left: 20px; z-index: 20;
+      background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15); font-size: 11px;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .legend-color { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
@@ -64,7 +75,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.0</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.1</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -107,7 +118,6 @@
 
       <div class="section">
         <div class="sectionTitle"><h3>지도 도구</h3><span class="pill">측정/분석</span></div>
-        
         <div class="row">
           <span>🔵 반경 그리기 (Drag)</span> 
           <div class="toggle" data-toggle="tool_radius_draw"></div>
@@ -115,7 +125,6 @@
         <div id="radiusInfo" style="display:none; font-size:11px; color:#228be6; margin-bottom:5px; text-align:right;">
           지도 클릭(중심) → 이동 → 클릭(완성)
         </div>
-        
         <div class="row"><span>📏 거리 재기 (Line)</span> <div class="toggle" data-toggle="tool_distance"></div></div>
         <div class="row"><span>📷 로드뷰 보기</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
       </div>
@@ -125,6 +134,16 @@
   <main class="mapArea">
     <button id="btnOpenSidebar" class="ctrlBtn" style="position:absolute;top:20px;left:20px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
+    
+    <div id="mapLegend">
+      <div style="font-weight:bold; margin-bottom:3px; border-bottom:1px solid #eee; padding-bottom:3px;">방문 횟수</div>
+      <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 5회 이상</div>
+      <div class="legend-item"><div class="legend-color" style="background:orange"></div> 4회</div>
+      <div class="legend-item"><div class="legend-color" style="background:#CCCC00"></div> 3회</div>
+      <div class="legend-item"><div class="legend-color" style="background:green"></div> 2회</div>
+      <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 1회</div>
+    </div>
+
     <div class="mapControls">
       <button id="btnZoomIn" class="ctrlBtn">+</button>
       <button id="btnZoomOut" class="ctrlBtn">-</button>
@@ -141,9 +160,35 @@
     <div class="modalHeader" style="padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;font-weight:bold;">
       <span>상세 통계 분석</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button>
     </div>
+    <div class="tabBar" style="border-bottom:1px solid #eee; padding:10px;">
+      <button class="tabBtn active" data-tab="tabSummary">요약(비율)</button>
+      <button class="tabBtn" data-tab="tabDong">행정동별(상세)</button>
+      <button class="tabBtn" data-tab="tabAge">연령별</button>
+    </div>
     <div class="modalBody" style="padding:20px;flex:1;overflow:auto;">
-      <canvas id="chartDong_modal" style="height:300px;width:100%"></canvas>
-      <table id="tblDongType" style="width:100%;font-size:12px;margin-top:20px;border-collapse:collapse;"></table>
+      <div id="tabSummary" class="tabPane">
+        <div style="height:350px; display:flex; justify-content:center;">
+           <canvas id="chartType_modal"></canvas>
+        </div>
+        <div class="statGrid" style="margin-top:20px;">
+          <div class="stat"><div class="k">신환 비율</div><div class="v" id="kpiNewRate">0%</div></div>
+          <div class="stat"><div class="k">재진 비율</div><div class="v" id="kpiRetRate">0%</div></div>
+        </div>
+      </div>
+      <div id="tabDong" class="tabPane" style="display:none;">
+        <div style="margin-bottom:10px; font-size:12px; color:#666;">* 행정동별 신환/90일초/재진 분포입니다.</div>
+        <table class="miniTable">
+          <thead><tr><th>행정동</th><th>신환(New)</th><th>90일(Return)</th><th>재진(Old)</th><th>합계</th></tr></thead>
+          <tbody id="tblDongType"></tbody>
+        </table>
+      </div>
+      <div id="tabAge" class="tabPane" style="display:none;">
+        <div style="height:300px;"><canvas id="chartAge_modal"></canvas></div>
+        <table class="miniTable" style="margin-top:20px;">
+          <thead><tr><th>연령대</th><th>인원수</th><th>비율</th></tr></thead>
+          <tbody id="tblAge"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -151,30 +196,24 @@
 
 <script>
 // ==========================================
-//  JINSUL 시스템 v1.2.0 (타겟검색 + 반경드로잉)
+//  JINSUL 시스템 v1.2.1 (통계/연령/범례 강화)
 // ==========================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, boundsPatients, roadview, roadviewClient;
 let patientRecords = [];
-let targetMarkers = []; // 타겟 검색 마커들
+let targetMarkers = [];
 
-// [도구 상태]
+// 상태 변수
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
   tool_roadview:false, tool_distance:false, tool_radius_draw:false
 };
 
-// [거리재기 변수]
+// 그리기 도구 변수
+let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine, distMoveLine, distOverlay;
-
-// [반경그리기 변수] (v1.2.0 New)
-let radiusFlag=false; // 그리기 중인가?
-let radiusCenter=null; 
-let radiusPolyline=null; // 그릴 때 보이는 선
-let radiusCircle=null; // 최종 원
-let radiusOverlay=null; // 거리 표시 오버레이
 
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
@@ -189,7 +228,6 @@ function initKakao(){
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
     
-    // 사이드바 접기/펴기
     function toggleSidebar(open){
       const sb = $("#sidebar"); const btn = $("#btnOpenSidebar");
       if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; }
@@ -199,39 +237,26 @@ function initKakao(){
     $("#btnCollapse").onclick = () => toggleSidebar(false);
     $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
 
-    // ============================
-    //  [통합 지도 클릭 이벤트 핸들러]
-    // ============================
+    // 통합 클릭 이벤트
     kakao.maps.event.addListener(map, "click", (e)=>{
-      
-      // 1. 반경 그리기 모드 (v1.2.0 New)
+      // 반경 그리기
       if(state.tool_radius_draw){
         if(!radiusFlag){
-          // [1단계] 중심점 찍기
-          radiusFlag = true;
-          radiusCenter = e.latLng;
-          if(radiusCircle) radiusCircle.setMap(null); // 기존 원 삭제
+          radiusFlag = true; radiusCenter = e.latLng;
+          if(radiusCircle) radiusCircle.setMap(null);
           if(radiusOverlay) radiusOverlay.setMap(null);
-          
-          radiusPolyline = new kakao.maps.Polyline({
-            map: map, path: [radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeOpacity:1, strokeStyle:'solid'
-          });
-          radiusCircle = new kakao.maps.Circle({
-            map: map, center: radiusCenter, radius: 0, strokeWeight:1, strokeColor:'#228be6', strokeOpacity:0.1, fillColor:'#228be6', fillOpacity:0.2
-          });
-          toast("마우스를 움직여 반경을 설정하고 클릭하세요.");
+          radiusPolyline = new kakao.maps.Polyline({ map: map, path: [radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeOpacity:1, strokeStyle:'solid' });
+          radiusCircle = new kakao.maps.Circle({ map: map, center: radiusCenter, radius: 0, strokeWeight:1, strokeColor:'#228be6', strokeOpacity:0.1, fillColor:'#228be6', fillOpacity:0.2 });
+          toast("마우스를 움직여 크기 조절 후 클릭하세요.");
         } else {
-          // [2단계] 원 확정
           radiusFlag = false;
           if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
-          // 오버레이 고정
-          applyFilters(); // 원 안에 있는 환자만 필터링
-          toast("반경 설정 완료. (내부 환자만 표시됨)");
+          applyFilters();
+          toast("반경 설정 완료.");
         }
         return;
       }
-
-      // 2. 거리 재기 모드
+      // 거리 재기
       if(state.tool_distance){
         const clickPos = e.latLng;
         if(!distFlag){
@@ -241,42 +266,31 @@ function initKakao(){
           distClickLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:1, strokeStyle:'solid'});
           distMoveLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:0.5, strokeStyle:'solid'});
         } else {
-          const path = distClickLine.getPath();
-          path.push(clickPos);
-          distClickLine.setPath(path);
+          const path = distClickLine.getPath(); path.push(clickPos); distClickLine.setPath(path);
         }
         return;
       }
-
-      // 3. 로드뷰 모드
+      // 로드뷰
       if(state.tool_roadview){
         roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{
-          if(panoId){
-            $("#roadviewPanel").style.display = "block";
-            roadview.setPanoId(panoId, e.latLng);
-          } else toast("주변에 로드뷰가 없습니다.");
+          if(panoId){ $("#roadviewPanel").style.display = "block"; roadview.setPanoId(panoId, e.latLng); }
+          else toast("주변에 로드뷰가 없습니다.");
         });
       }
     });
 
-    // [마우스 이동 이벤트] - 반경 그리기 / 거리 재기 공통
+    // 마우스 이동
     kakao.maps.event.addListener(map, "mousemove", (e)=>{
-      // 반경 그리기 중
       if(state.tool_radius_draw && radiusFlag){
-        const path = [radiusCenter, e.latLng];
-        radiusPolyline.setPath(path);
+        const path = [radiusCenter, e.latLng]; radiusPolyline.setPath(path);
         const dist = Math.round(radiusPolyline.getLength());
         radiusCircle.setRadius(dist);
-        
         const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">반경 <span class="number">${dist}</span>m</div>`;
         if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); }
         else { radiusOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
       }
-
-      // 거리 재기 중
       if(state.tool_distance && distFlag){
-        const path = distClickLine.getPath();
-        const movePath = [path[path.length-1], e.latLng];
+        const path = distClickLine.getPath(); const movePath = [path[path.length-1], e.latLng];
         distMoveLine.setPath(movePath);
         const dist = Math.round(distClickLine.getLength() + distMoveLine.getLength());
         const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">총거리 <span class="number">${dist}</span>m</div>`;
@@ -285,74 +299,46 @@ function initKakao(){
       }
     });
 
-    // [우클릭 이벤트] - 거리 재기 종료
+    // 우클릭 종료 (거리재기)
     kakao.maps.event.addListener(map, "rightclick", (e)=>{
       if(state.tool_distance && distFlag){
-        distFlag = false;
-        if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
-        toast("거리 측정이 완료되었습니다.");
+        distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
+        toast("거리 측정 완료");
       }
     });
 
-    toast("시스템 준비 완료 v1.2.0");
+    toast("시스템 준비 완료 v1.2.1");
   });
 }
 initKakao();
 
-// =======================
-//  [타겟 검색 기능 v1.2.0]
-// =======================
+// 타겟 검색
 $$(".target-btn").forEach(btn => {
   btn.onclick = function(){
     const keyword = this.getAttribute("data-keyword");
-    
-    // UI 활성화 처리
-    $$(".target-btn").forEach(b=>b.classList.remove("active"));
-    this.classList.add("active");
-
-    // 기존 검색 마커 삭제
-    targetMarkers.forEach(m => m.setMap(null));
-    targetMarkers = [];
-
-    toast(`현 지도 내 '${keyword}' 검색 중...`);
-    
-    // 현재 지도 범위 내 검색
+    $$(".target-btn").forEach(b=>b.classList.remove("active")); this.classList.add("active");
+    targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
+    toast(`'${keyword}' 검색 중...`);
     places.keywordSearch(keyword, (data, status)=>{
       if(status === kakao.maps.services.Status.OK){
         data.forEach(place => {
-          const marker = new kakao.maps.Marker({
-            map: map,
-            position: new kakao.maps.LatLng(place.y, place.x),
-            title: place.place_name,
-            image: new kakao.maps.MarkerImage(
-              "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png", // 별표 마커
-              new kakao.maps.Size(24, 35)
-            ) 
-          });
-          const iw = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;">${place.place_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>`
-          });
+          const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png", new kakao.maps.Size(24, 35)) });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;">${place.place_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
           targetMarkers.push(marker);
         });
-        toast(`${data.length}개의 ${keyword} 발견!`);
-      } else {
-        toast("검색 결과가 없습니다.");
-      }
-    }, { useMapBounds: true }); // ★ 현재 지도 화면 안에서만 검색
+        toast(`${data.length}개 발견!`);
+      } else toast("결과가 없습니다.");
+    }, { useMapBounds: true });
   };
 });
-
 $("#btnClearTargets").onclick = () => {
-  targetMarkers.forEach(m => m.setMap(null));
-  targetMarkers = [];
+  targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
   $$(".target-btn").forEach(b=>b.classList.remove("active"));
-  toast("검색 결과가 초기화되었습니다.");
+  toast("검색 초기화");
 };
 
-// =======================
-//  [파일 처리 & 로직 v1.1.8 유지]
-// =======================
+// 파일 처리
 const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
@@ -369,7 +355,7 @@ async function handleFile(file){
       const rowStr = rawData[i].join(" ");
       if((rowStr.includes("주소")||rowStr.includes("도로명")) && (rowStr.includes("이름")||rowStr.includes("수진자")||rowStr.includes("차트"))){ headerIdx = i; headerRow = rawData[i]; break; }
     }
-    if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다.");
+    if(headerIdx<0) throw new Error("유효한 헤더를 찾을 수 없습니다.");
     const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
     const patients = mergePatientData(bodyRows, headerRow);
     processDataAndMap(patients);
@@ -414,7 +400,23 @@ function mergePatientData(rows, headers){
     const title = findVal(item, ['수진자','이름','name']);
     const address = findVal(item, ['주소','addr']);
     const chartNo = findVal(item, ['차트','환자번호','ID','등록번호']);
+    // 연령 계산 로직 추가
+    let age = 0;
+    const ageRaw = findVal(item, ['나이','age','연령']);
+    const juminRaw = findVal(item, ['주민','번호','주민등록']);
     
+    if(ageRaw) {
+      age = parseInt(String(ageRaw).replace(/[^0-9]/g, "")) || 0;
+    } else if(juminRaw) {
+      const jumin = String(juminRaw).replace(/-/g,"").trim();
+      if(jumin.length >= 7) {
+        const yearPre = parseInt(jumin.substring(0,2));
+        const gender = parseInt(jumin.substring(6,7));
+        let birthYear = (gender===1||gender===2) ? 1900+yearPre : 2000+yearPre;
+        age = new Date().getFullYear() - birthYear;
+      }
+    }
+
     if(!chartNo || !address) return;
 
     let isNew=false, is90=false, isRet=false;
@@ -439,7 +441,7 @@ function mergePatientData(rows, headers){
     } else {
       let lType = "재진";
       if(is90) lType="90일초"; else if(isNew) lType="신환";
-      patientMap.set(chartNo, { key:chartNo, title, address, chartNo, visits:1, types:{new:isNew,d90:is90,ret:isRet}, latestType:lType, marker:null, latlng:null, dong:"미상" });
+      patientMap.set(chartNo, { key:chartNo, title, address, chartNo, age, visits:1, types:{new:isNew,d90:is90,ret:isRet}, latestType:lType, marker:null, latlng:null, dong:"미상" });
     }
   });
   return Array.from(patientMap.values());
@@ -460,7 +462,7 @@ function processDataAndMap(uniquePatients){
           const iconChar = typeIcon(item.latestType);
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" /><text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text></svg>`;
           const marker = new kakao.maps.Marker({ map: map, position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
-          const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b><br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
+          const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b> (${item.age>0?item.age+'세':''})<br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
           item.marker = marker; item.latlng = coords; patientRecords.push(item); boundsPatients.extend(coords); success++;
         }
@@ -471,14 +473,16 @@ function processDataAndMap(uniquePatients){
 }
 
 function applyFilters(){
-  let unique=0, visits=0; const dongMap = {};
+  let unique=0, visits=0;
+  // 통계 집계용 변수
+  const dongStats = {}; // { 동이름: {total, new, d90, ret} }
+  const ageStats = {};  // { 10: 5, 20: 10 ... }
+
   patientRecords.forEach(r => {
     let show = true;
     if(r.latestType==="신환" && !state.patient_new) show=false;
     if(r.latestType==="90일초" && !state.patient_90) show=false;
     if(r.latestType==="재진" && !state.patient_return) show=false;
-    
-    // [반경 필터링 적용] v1.2.0
     if(show && radiusCircle && radiusCircle.getMap()){
       const center = radiusCircle.getCenter();
       const radius = radiusCircle.getRadius();
@@ -487,51 +491,58 @@ function applyFilters(){
     }
 
     if(r.marker) r.marker.setMap(show ? map : null);
-    if(show){ unique++; visits += r.visits; const d = r.dong||"미상"; dongMap[d] = (dongMap[d]||0)+1; }
+    
+    if(show){
+      unique++; visits += r.visits;
+      
+      // 동별 통계 집계 (v1.2.1)
+      const d = r.dong||"미상";
+      if(!dongStats[d]) dongStats[d] = { total:0, new:0, d90:0, ret:0 };
+      dongStats[d].total++;
+      if(r.latestType==="신환") dongStats[d].new++;
+      else if(r.latestType==="90일초") dongStats[d].d90++;
+      else dongStats[d].ret++;
+
+      // 연령별 통계 집계
+      if(r.age > 0){
+        const ageGroup = Math.floor(r.age/10)*10;
+        ageStats[ageGroup] = (ageStats[ageGroup]||0) + 1;
+      }
+    }
   });
-  $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits; $("#kpiUnique").innerText = unique+"명"; $("#kpiVisits").innerText = visits+"회"; updateDongTable(dongMap); updateCharts(dongMap);
+
+  $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits;
+  // 통계 갱신 함수 호출
+  updateCharts(dongStats, ageStats, unique);
 }
 
-// UI 헬퍼 & 이벤트
 $$(".toggle").forEach(t => t.onclick = function(){
   this.classList.toggle("on");
   const key = this.getAttribute("data-toggle");
   state[key] = this.classList.contains("on");
   
-  // 도구별 초기화 로직
   if(key==="tool_radius_draw"){
     if(state.tool_radius_draw) {
        toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성");
        $("#radiusInfo").style.display = "block";
-       // 다른 도구 끄기
        if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); }
     } else {
-       $("#radiusInfo").style.display = "none";
-       radiusFlag=false;
+       $("#radiusInfo").style.display = "none"; radiusFlag=false;
        if(radiusPolyline) radiusPolyline.setMap(null);
-       // 원은 남겨둘지 말지? -> 끄면 지우는게 깔끔함
        if(radiusCircle) radiusCircle.setMap(null);
        if(radiusOverlay) radiusOverlay.setMap(null);
        applyFilters();
     }
   }
-
   if(key==="tool_distance"){
     if(state.tool_distance) {
       toast("지도 클릭: 시작/경유, 우클릭: 종료");
       if(state.tool_radius_draw) { state.tool_radius_draw=false; $(`[data-toggle="tool_radius_draw"]`).classList.remove("on"); }
     } else {
-      distFlag=false;
-      if(distClickLine) distClickLine.setMap(null);
-      if(distMoveLine) distMoveLine.setMap(null);
-      if(distOverlay) distOverlay.setMap(null);
+      distFlag=false; if(distClickLine) distClickLine.setMap(null); if(distMoveLine) distMoveLine.setMap(null); if(distOverlay) distOverlay.setMap(null);
     }
   }
-
-  if(key==="tool_roadview") {
-    if(!state.tool_roadview) $("#roadviewPanel").style.display="none";
-    else toast("지도에서 위치를 클릭하세요.");
-  }
+  if(key==="tool_roadview") { if(!state.tool_roadview) $("#roadviewPanel").style.display="none"; else toast("지도에서 위치를 클릭하세요."); }
   
   applyFilters();
 });
@@ -539,8 +550,71 @@ $$(".toggle").forEach(t => t.onclick = function(){
 $("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; applyFilters(); };
 $("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
 $$(".tabBtn").forEach(btn => { btn.onclick = function(){ $$(".tabBtn").forEach(b=>b.classList.remove("active")); this.classList.add("active"); $$(".tabPane").forEach(p=>p.style.display="none"); $("#"+this.dataset.tab).style.display="block"; } });
-function updateDongTable(mapData){ const sorted = Object.entries(mapData).sort((a,b)=>b[1]-a[1]); const html = sorted.map(([d,c])=> `<tr><td>${d}</td><td>-</td><td>-</td><td>-</td><td><b>${c}</b></td></tr>`).join(""); $("#tblDongType").innerHTML = html; }
-let chartDong; function updateCharts(dongMap){ if(!window.Chart) return; const sorted = Object.entries(dongMap).sort((a,b)=>b[1]-a[1]).slice(0,10); const ctxD = $("#chartDong_modal"); if(chartDong) chartDong.destroy(); chartDong = new Chart(ctxD, { type: 'bar', data: { labels: sorted.map(x=>x[0]), datasets: [{ label:'환자수', data: sorted.map(x=>x[1]), backgroundColor: '#228be6' }] }, options: { maintainAspectRatio: false } }); }
+
+// 차트 및 테이블 업데이트 (v1.2.1 강화)
+let chartType, chartAge;
+function updateCharts(dongStats, ageStats, totalCount){
+  // 1. 행정동 테이블 (신환/90/재진 상세)
+  const sortedDong = Object.entries(dongStats).sort((a,b)=>b[1].total - a[1].total);
+  const dongHtml = sortedDong.map(([d, s])=> `
+    <tr>
+      <td>${d}</td>
+      <td style="color:#db4040;font-weight:bold;">${s.new}</td>
+      <td style="color:#888;">${s.d90}</td>
+      <td style="color:#228be6;">${s.ret}</td>
+      <td style="font-weight:bold;">${s.total}</td>
+    </tr>
+  `).join("");
+  $("#tblDongType").innerHTML = dongHtml;
+
+  // 2. 요약 탭 - 도넛 차트 (전체 비율)
+  let totalNew=0, total90=0, totalRet=0;
+  Object.values(dongStats).forEach(s => { totalNew+=s.new; total90+=s.d90; totalRet+=s.ret; });
+  
+  $("#kpiNewRate").innerText = totalCount>0 ? ((totalNew/totalCount)*100).toFixed(1)+"%" : "0%";
+  $("#kpiRetRate").innerText = totalCount>0 ? (((totalRet+total90)/totalCount)*100).toFixed(1)+"%" : "0%";
+
+  if(window.Chart){
+    // 도넛 차트
+    const ctxType = $("#chartType_modal");
+    if(chartType) chartType.destroy();
+    chartType = new Chart(ctxType, {
+      type: 'doughnut',
+      data: {
+        labels: ['신환', '90일초진', '재진'],
+        datasets: [{
+          data: [totalNew, total90, totalRet],
+          backgroundColor: ['#db4040', '#e9ecef', '#228be6']
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right' } }
+      }
+    });
+
+    // 3. 연령별 차트 (Bar)
+    const sortedAgeKeys = Object.keys(ageStats).sort((a,b)=>Number(a)-Number(b));
+    const ageData = sortedAgeKeys.map(k=>ageStats[k]);
+    const ageLabels = sortedAgeKeys.map(k=>k+"대");
+    
+    const ctxAge = $("#chartAge_modal");
+    if(chartAge) chartAge.destroy();
+    chartAge = new Chart(ctxAge, {
+      type: 'bar',
+      data: {
+        labels: ageLabels,
+        datasets: [{ label: '인원수', data: ageData, backgroundColor: '#228be6' }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 연령 테이블
+    const ageHtml = sortedAgeKeys.map((k, i) => `<tr><td>${k}대</td><td>${ageData[i]}명</td><td>${((ageData[i]/totalCount)*100).toFixed(1)}%</td></tr>`).join("");
+    $("#tblAge").innerHTML = ageHtml;
+  }
+}
+
 function findVal(obj, keys){ const kFound = Object.keys(obj).find(k => keys.some(wk => k.replace(/\s/g,'').includes(wk))); return kFound ? obj[kFound] : null; }
 function visitColor(v){ if(v>=5) return "#db4040"; if(v===4) return "orange"; if(v===3) return "#CCCC00"; if(v===2) return "green"; return "#228be6"; }
 function typeIcon(t){ if(t==="신환") return "♥"; if(t==="90일초") return "♡"; return "📍"; }
