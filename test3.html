@@ -145,25 +145,25 @@
 
         <label style="display:block;margin-bottom:6px;">
           <input type="radio" name="geoMode" value="fast" checked title="주소가 일부 불완전해도 근사 좌표를 포함해 빠르게 집계합니다.">
-          📊 속도 우선 — 주소 근사치 포함
+          속도 우선 — 주소 근사치 포함
         </label>
 
         <label style="display:block;margin-bottom:6px;">
           <input type="radio" name="geoMode" value="accurate" title="주소 기준을 적용해 분석용으로 균형 잡힌 결과를 제공합니다.">
-          🔬 균형 모드 — 주소 기준 적용
+          균형 모드 — 주소 기준 적용
         </label>
 
         <label style="display:block;">
           <input type="radio" name="geoMode" value="full" title="주소가 명확한 경우만 포함하며, 불확실한 데이터는 제외합니다.">
-          🧪 엄격 모드 — 주소 불확실 제외
+          엄격 모드 — 주소 불확실 제외
         </label>
       </div>
 
 <div class="section">
         <div class="sectionTitle"><h3>환자 필터</h3><span class="pill">표시 설정</span></div>
-        <div class="row"><span>🧡 신환 (New)</span> <div class="toggle on" data-toggle="patient_new"></div></div>
-        <div class="row"><span>🤍 90일초 (Return)</span> <div class="toggle on" data-toggle="patient_90"></div></div>
-        <div class="row"><span>📍 재진 (Old)</span> <div class="toggle on" data-toggle="patient_return"></div></div>
+        <div class="row"><span>🧡 신환</span> <div class="toggle on" data-toggle="patient_new"></div></div>
+        <div class="row"><span>🤍 90일초</span> <div class="toggle on" data-toggle="patient_90"></div></div>
+        <div class="row"><span>📍 재진</span> <div class="toggle on" data-toggle="patient_return"></div></div>
         <div class="statGrid">
           <div class="stat"><div class="k">총 인원</div><div class="v" id="statPatientsUnique">0</div></div>
           <div class="stat"><div class="k">총 방문</div><div class="v" id="statPatientsVisits">0</div></div>
@@ -176,7 +176,7 @@
         <div class="search-grid">
           <div class="search-btn" data-target="target_senior"><span class="search-icon">🏠</span> 경로당</div>
           <div class="search-btn" data-target="target_welfare"><span class="search-icon">💜</span> 노인재가</div>
-          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 정형외과+</div>
+          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 경쟁병원</div>
           <div class="search-btn" id="btnResetTargets" style="background:#fff0f0; border-color:#ffc9c9; color:#fa5252;"><span class="search-icon">🗑️</span> 지우기</div>
         </div>
         <div class="btnRow">
@@ -193,7 +193,7 @@
         <div class="row"><span>🔵 반경 그리기</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
         <div class="row"><span>📏 거리 측정</span> <div class="toggle" data-toggle="tool_distance"></div></div>
         <div class="row"><span>📷 로드뷰</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
-        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 및 지도 그림 싹 지우기 (통합)</button>
+        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 지우기</button>
       </div>
     </div>
   </aside>
