@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v0.1.4.7</title>
+  <title>jinsul-add v2.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false">
@@ -123,30 +123,6 @@ function attachCircleTimeOverlay(circle){
   circle.__timeOverlay = overlay;
 }
 
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
-}
-
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 function showClusterSummary(cluster){
@@ -244,30 +220,6 @@ function attachCircleTimeOverlay(circle){
   });
   overlay.setMap(map);
   circle.__timeOverlay = overlay;
-}
-
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
 }
 
 </script>
@@ -369,30 +321,6 @@ function attachCircleTimeOverlay(circle){
   circle.__timeOverlay = overlay;
 }
 
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
-}
-
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
 function showClusterSummary(cluster){
@@ -490,30 +418,6 @@ function attachCircleTimeOverlay(circle){
   });
   overlay.setMap(map);
   circle.__timeOverlay = overlay;
-}
-
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
 }
 
 </script>
@@ -615,40 +519,16 @@ function attachCircleTimeOverlay(circle){
   circle.__timeOverlay = overlay;
 }
 
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
-}
-
 </script>
 
   <style>
     /* UI 스타일: add-kakao.html 100% 이식 */
-    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040; }
+    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:; }
     *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
     .app{height:100%;width:100%;display:flex}
     
-    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;transition:margin-left 0.3s ease;}
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);z-index:20;display:flex;flex-direction:column;transition:margin-left 0.3s ease;}
     .sidebar.collapsed{margin-left:-360px;}
     .sidebarHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.9);}
     .brand{font-weight:900;font-size:1.1rem;}
@@ -656,7 +536,7 @@ function createPatientMarker(position, type){
     .iconBtn:hover{background:#f1f3f5;}
     .sidebarBody{flex:1;overflow-y:auto;padding:14px;}
 
-    .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.03);}
+    .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
     .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:800;font-size:14px;}
     .pill{font-size:11px;background:var(--blue);color:white;padding:4px 8px;border-radius:10px;}
     
@@ -688,16 +568,16 @@ function createPatientMarker(position, type){
     .mapArea{flex:1;position:relative;}
     #map{width:100%;height:100%;}
     .mapControls{position:absolute;top:20px;right:20px;z-index:30;display:flex;flex-direction:column;gap:5px;}
-    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:none;cursor:pointer;font-size:18px;font-weight:bold;}
+    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;border:none;cursor:pointer;font-size:18px;font-weight:bold;}
     
     #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:100;opacity:0;transition:0.3s;pointer-events:none;}
     #toast.show{opacity:1;bottom:50px;}
 
-    .roadviewPanel{position:absolute;bottom:20px;right:20px;width:300px;height:200px;background:white;z-index:50;border-radius:12px;overflow:hidden;box-shadow:0 5px 15px rgba(0,0,0,0.2);display:none;}
+    .roadviewPanel{position:absolute;bottom:20px;right:20px;width:300px;height:200px;background:white;z-index:50;border-radius:12px;overflow:hidden;display:none;}
     .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
     .number {font-weight:bold;color:#ee6152;}
     
-    #mapLegend {position:absolute;bottom:20px;left:20px;z-index:20;background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-size:11px;display:flex;flex-direction:column;gap:5px;}
+    #mapLegend {position:absolute;top:12px;left:12px;bottom:auto;right:auto;z-index:20;background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;font-size:11px;display:flex;flex-direction:column;gap:5px;max-width:170px;}
     .legend-item{display:flex;align-items:center;gap:8px;}
     .legend-color{width:12px;height:12px;border-radius:50%;}
 
@@ -721,9 +601,16 @@ function createPatientMarker(position, type){
 }
 </style>
 
+
+<style>
+.marker-new { background:#ff922b !important; }
+.marker-return { background:#f1f3f5 !important; border:1px solid #ccc; }
+.marker-old { background:#228be6 !important; }
+</style>
+
 </head>
 <body>
-<div class="version-badge">jinsul-add v0.1.4.7</div>
+<div class="version-badge">jinsul-add v2.2</div>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
@@ -811,23 +698,16 @@ function createPatientMarker(position, type){
   <main class="mapArea">
     <button id="btnOpenSidebar" class="iconBtn" style="position:absolute;top:12px;left:12px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
+    
     <div id="mapLegend">
       <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">환자 구분</div>
       <div class="legend-item"><div class="legend-color" style="background:#ff922b"></div> 신환</div>
       <div class="legend-item"><div class="legend-color" style="background:#f1f3f5;border:1px solid #ccc"></div> 90일초</div>
       <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 재진</div>
-      <div class="legend-item"><div class="legend-pin"></div> 경쟁병원</div>
-      <div class="legend-item"><div class="legend-color" style="background:#999"></div> 클러스터 숫자 = 밀집도</div>
-      <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 신환</div>
-      <div class="legend-item"><div class="legend-color" style="background:#e9ecef"></div> 90일초</div>
-      <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 재진</div>
-      <div class="legend-item"><div class="legend-color" style="background:#999"></div> 클러스터 숫자 = 밀집도</div>
-      <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 5회 이상</div>
-      <div class="legend-item"><div class="legend-color" style="background:orange"></div> 4회</div>
-      <div class="legend-item"><div class="legend-color" style="background:#CCCC00"></div> 3회</div>
-      <div class="legend-item"><div class="legend-color" style="background:green"></div> 2회</div>
-      <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 1회</div>
+      <div style="height:6px;"></div>
+      <div class="legend-item"><div class="legend-color" style="background:#999"></div> 숫자 = 밀집도</div>
     </div>
+
     <div class="mapControls">
       <button id="btnZoomIn" class="ctrlBtn">+</button>
       <button id="btnZoomOut" class="ctrlBtn">-</button>
@@ -871,7 +751,7 @@ function createPatientMarker(position, type){
 
 // === Drawing Toolbox (Kakao native) : multi-circle + multi-distance, removable X, labels, multi-tools ===
 let __drawManager, __drawToolbox;
-let __circlePalette = ['#20c997','#339af0','#845ef7','#f59f00','#e03131','#12b886','#228be6'];
+let __circlePalette = ['#20c997','#339af0','#845ef7','','#e03131','','#228be6'];
 let __circleIdx = 0;
 const __overlayLabels = new Map(); // overlay -> label overlay
 
@@ -1336,14 +1216,14 @@ function processDataAndMap(uniquePatients){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
           const dong = res[0].address?.region_3depth_name || "";
           
-          const color = item.visits>=5?'#db4040': item.visits===4?'orange': item.visits===3?'#CCCC00': item.visits===2?'green':'#228be6';
-          const char = '';
-      const _unused_char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
+          const color = (item.latestType==='신환') ? '#ff922b' : (item.latestType==='90일초') ? '#f1f3f5' : '#228be6';
+          const stroke = (item.latestType==='90일초') ? '#ccc' : 'white';
+          const sw = (item.latestType==='90일초') ? 1 : 2;
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="8" fill="${color}" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
           
           const marker = new kakao.maps.Marker({
             position: coords,
-            image: null, new kakao.maps.Size(30,30))
+            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(18,18))
           });
           
           const iw = new kakao.maps.InfoWindow({ 
@@ -1441,21 +1321,72 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   });
 }
 
-function clearTargetMarkers(kind){ targetMarkers[kind].forEach(m=>m.setMap(null)); targetMarkers[kind]=[]; }
+function clearTargetMarkers(kind){ targetMarkers[kind].forEach(m=>{ try{ m.setMap(null); }catch(e){}; try{ if(m.__cross) m.__cross.setMap(null);}catch(e){}; }); targetMarkers[kind]=[]; }
 
 function addPlaceMarker(kind, place){
-  const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
-  const marker=new kakao.maps.Marker({
-    position:pos, map, 
-    image: kind==='competitor'?null:null),
+  const pos = new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
+
+  // 경쟁병원(ortho)은 카카오 기본 빨간 핀 스타일(병원 느낌) + 십자가 오버레이 + 툴팁/상세 오버레이
+  if(kind === "ortho"){
+    // Kakao 예제에서 제공하는 red marker 이미지 사용
+    const imgSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
+    const imgSize = new kakao.maps.Size(24, 35);
+    const imgOption = {offset: new kakao.maps.Point(12, 35)};
+    const markerImage = new kakao.maps.MarkerImage(imgSrc, imgSize, imgOption);
+
+    const marker = new kakao.maps.Marker({ position: pos, map, image: markerImage, zIndex: 30 });
+    marker.__name = place.place_name;
+
+    // 십자가(+) 오버레이 (클릭 방해하지 않게)
+    const cross = new kakao.maps.CustomOverlay({
+      position: pos,
+      content: `<div style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+                      color:#fff;font-weight:800;font-size:14px;transform:translate(-1px,-18px);
+                      text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none;">✚</div>`,
+      yAnchor: 1
+    });
+    cross.setMap(map);
+
+    // hover 툴팁
+    const tooltip = new kakao.maps.CustomOverlay({
+      position: pos,
+      content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${place.place_name}</div>`,
+      yAnchor: 1.9
+    });
+
+    kakao.maps.event.addListener(marker, "mouseover", ()=> tooltip.setMap(map));
+    kakao.maps.event.addListener(marker, "mouseout", ()=> tooltip.setMap(null));
+
+    // click 상세 오버레이(닫기 가능)
+    const iw = new kakao.maps.InfoWindow({
+      content:`<div style="padding:6px 8px;font-size:12px;"><b>${place.place_name}</b><br/>경쟁병원<br/>${place.road_address_name || place.address_name || ""}</div>`,
+      removable:true
+    });
+    kakao.maps.event.addListener(marker,"click",()=>{
+      closeAllInfoWindows();
+      iw.open(map,marker);
+      openedInfoWindows.push(iw);
+    });
+
+    // 추적 관리 (삭제/리셋용)
+    marker.__cross = cross;
+    targetMarkers[kind].push(marker);
+    return;
+  }
+
+  // 그 외 시설은 기존 커스텀 원형 마커 유지
+  const marker = new kakao.maps.Marker({
+    position: pos,
+    map,
+    image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
-  const iw=new kakao.maps.InfoWindow({ 
+  const iw = new kakao.maps.InfoWindow({
     content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>`,
-    removable: true
+    removable:true
   });
   kakao.maps.event.addListener(marker,"click",()=>{
-    closeAllInfoWindows(); 
+    closeAllInfoWindows();
     iw.open(map,marker);
     openedInfoWindows.push(iw);
   });
@@ -1531,7 +1462,7 @@ function onDistClick(latlng){
   if(!distFlag){
     distFlag=true;
     if(distClickLine) distClickLine.setMap(null);
-    distClickLine = new kakao.maps.Polyline({ map:map, path:[latlng], strokeWeight:3, strokeColor:'#db4040' });
+    distClickLine = new kakao.maps.Polyline({ map:map, path:[latlng], strokeWeight:3, strokeColor:'' });
   } else {
     const p = distClickLine.getPath(); p.push(latlng); distClickLine.setPath(p);
   }
@@ -1574,7 +1505,7 @@ let chartType, chartAge;
 function updateStats(dongMap, total){
   const tbody = $("#tblDongType");
   tbody.innerHTML = Object.entries(dongMap).sort((a,b)=>b[1].t-a[1].t).map(([d,v])=>
-    `<tr><td>${d}</td><td style="color:#db4040">${v.n}</td><td style="color:#888">${v.d}</td><td style="color:#228be6">${v.r}</td><td><b>${v.t}</b></td></tr>`
+    `<tr><td>${d}</td><td style="color:">${v.n}</td><td style="color:#888">${v.d}</td><td style="color:#228be6">${v.r}</td><td><b>${v.t}</b></td></tr>`
   ).join("");
 
   if(window.Chart){
@@ -1583,7 +1514,7 @@ function updateStats(dongMap, total){
     if(chartType) chartType.destroy();
     chartType = new Chart($("#chartType_modal"), {
       type: 'doughnut',
-      data: { labels:['신환','90일','재진'], datasets:[{data:[n,d,r], backgroundColor:['#db4040','#e9ecef','#228be6']}] }
+      data: { labels:['신환','90일','재진'], datasets:[{data:[n,d,r], backgroundColor:['','#e9ecef','#228be6']}] }
     });
     $("#kpiNewRate").innerText = total ? ((n/total)*100).toFixed(1)+"%" : "0%";
     $("#kpiRetRate").innerText = total ? (((d+r)/total)*100).toFixed(1)+"%" : "0%";
@@ -1698,30 +1629,6 @@ function attachCircleTimeOverlay(circle){
   circle.__timeOverlay = overlay;
 }
 
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
-}
-
 </script>
 
 <button id="openPanelBtn" style="
@@ -1741,54 +1648,7 @@ if(closeBtn){
     openBtn.style.display='block';
   };
 }
-
-// === FINAL Patient Marker Helper (override) ===
-function createPatientMarker(position, type){
-  const colorMap = {
-    '신환': '#ff922b',
-    '90일초': '#f1f3f5',
-    '재진': '#228be6'
-  };
-  const border = type === '90일초' ? '1px solid #ccc' : 'none';
-  const div = document.createElement('div');
-  div.style.cssText = `
-    width:18px;height:18px;
-    border-radius:50%;
-    background:${colorMap[type]};
-    border:${border};
-    opacity:0.85;
-  `;
-  return new kakao.maps.CustomOverlay({
-    position,
-    content: div,
-    yAnchor: 0.5
-  });
-}
-
 </script>
-
-<script>
-(function(){
-  const legend = document.createElement('div');
-  legend.style.cssText = `
-    position:absolute; top:12px; left:380px;
-    background:#fff; padding:8px 10px;
-    border-radius:6px; font-size:12px;
-    box-shadow:0 2px 6px rgba(0,0,0,.15);
-    z-index:1000;
-  `;
-  legend.innerHTML = `
-    <b>환자 구분</b><br>
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff922b"></span> 신환<br>
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f1f3f5;border:1px solid #ccc"></span> 90일초<br>
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#228be6"></span> 재진
-    <hr style="margin:6px 0">
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#999"></span> 숫자 = 밀집도
-  `;
-  document.body.appendChild(legend);
-})();
-</script>
-
 </body>
 
 </html>
