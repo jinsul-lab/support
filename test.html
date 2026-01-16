@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.3.9)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.4.0)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -88,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.9</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.0</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -201,7 +201,9 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, clusterer, roadview, roadviewClient;
 let patientRecords = [], targetMarkers = { senior:[], welfare:[], ortho:[] };
-// 도구 변수
+// [NEW] 열린 인포윈도우 관리 배열 (말풍선 지우기용)
+let openedInfoWindows = [];
+
 let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine=null, distMoveLine=null, distOverlay=null;
 
@@ -219,19 +221,23 @@ $("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed")
 
 $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
   const name = t.getAttribute("data-toggle");
+  
   if(name.startsWith("patient_")){
     state[name] = !state[name];
     t.classList.toggle("on", state[name]);
     applyFilters();
     return;
   }
+
   if(name === "radius_enabled" || name.startsWith("tool_")){
     if(state[name]) {
+      // 끄기 (OFF)
       state[name] = false;
       t.classList.remove("on");
-      resetToolsInteraction(); // 모드만 끄고 그림 유지
+      resetToolsInteraction(); 
       toast("도구 모드 종료 (그림 유지됨)");
     } else {
+      // 켜기 (ON)
       resetAllToolsState();
       state[name] = true;
       t.classList.add("on");
@@ -281,6 +287,7 @@ function initKakao(){
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
 
+    // Click Event
     kakao.maps.event.addListener(map, "click", (e)=>{
       if(state.radius_enabled){
         if(!radiusFlag){
@@ -289,7 +296,8 @@ function initKakao(){
           radiusCircle = new kakao.maps.Circle({ map:map, center:radiusCenter, radius:0, strokeWeight:1, strokeColor:'#228be6', fillOpacity:0.2 });
           radiusPolyline = new kakao.maps.Polyline({ map:map, path:[radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeStyle:'dash' });
         } else {
-          radiusFlag = false; if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
+          radiusFlag = false; 
+          if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
           applyFilters(); toast("반경 설정 완료");
         }
       }
@@ -297,6 +305,7 @@ function initKakao(){
       if(state.tool_roadview) openRoadview(e.latLng);
     });
 
+    // Move Event
     kakao.maps.event.addListener(map, "mousemove", (e)=>{
       if(state.radius_enabled && radiusFlag && radiusCenter){
         const path = [radiusCenter, e.latLng];
@@ -311,7 +320,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.3.9");
+    toast("시스템 준비 완료 v1.4.0");
   });
 }
 initKakao();
@@ -322,7 +331,13 @@ function clearRadiusObjects(){
   if(radiusOverlay) { radiusOverlay.setMap(null); radiusOverlay=null; }
 }
 
-// [통합 초기화] v1.3.9
+// [모든 인포윈도우(말풍선) 닫기 함수] v1.4.0
+function closeAllInfoWindows() {
+  openedInfoWindows.forEach(iw => iw.close());
+  openedInfoWindows = [];
+}
+
+// [통합 초기화]
 $("#btnClearTools").onclick = () => {
   clearRadiusObjects();
   radiusFlag = false;
@@ -340,19 +355,17 @@ $("#btnClearTools").onclick = () => {
   $(`[data-toggle="tool_roadview"]`).classList.remove("on");
   $("#roadviewPanel").style.display = "none";
 
-  // 타겟 마커도 같이 초기화
   clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
   $$(".search-btn").forEach(b => b.classList.remove("active"));
   state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
   $("#statTargetsTotal").innerText = "0";
 
+  closeAllInfoWindows(); // 말풍선도 싹 지움
+
   applyFilters();
   toast("모든 도구 및 검색 결과 초기화 완료");
 };
 
-// =========================================================================
-//  [1] 환자 데이터 처리: v1.3.9 로직 강화 (신환/재진 정확도)
-// =========================================================================
 const uploadBox=$("#uploadBox");
 const fileInput=$("#fileInput");
 
@@ -397,12 +410,11 @@ function mergePatientData(rows){
   if(headerIdx<0) { toast("유효한 헤더를 찾을 수 없습니다."); return []; }
 
   const patientMap = new Map();
-  // 컬럼명 Fuzzy 찾기
   const findCol = (keys) => headers.findIndex(h => keys.some(k => String(h).includes(k)));
   const colName = findCol(['이름','수진자']);
   const colAddr = findCol(['주소']);
   const colChart = findCol(['차트','ID','번호']);
-  const colType = findCol(['신규','신환','구분','초재진','초진']); // v1.3.9
+  const colType = findCol(['신규','신환','구분','초재진','초진']);
   const colAge = findCol(['나이','age','연령','주민']);
 
   const body = rows.slice(headerIdx+1);
@@ -422,21 +434,13 @@ function mergePatientData(rows){
       } else age = parseInt(val.replace(/[^0-9]/g,""))||0;
     }
 
-    // [v1.3.9 신환 판별 로직]
     let isNew=false, is90=false;
     if(colType > -1){
       const valRaw = row[colType];
       const t = valRaw ? String(valRaw).trim() : "";
-      
-      // Strict Check
-      if(t.includes("신환") || t.includes("신규") || t.includes("초진") || t==="1" || t.toUpperCase()==="Y") {
-        isNew = true;
-      } else if(t.includes("90")) {
-        is90 = true;
-      }
-      // 빈값은 재진으로 떨어짐 (isNew=false)
+      if(t.includes("신환") || t.includes("신규") || t.includes("초진") || t==="1" || t.toUpperCase()==="Y") isNew = true;
+      else if(t.includes("90")) is90 = true;
     } else {
-      // 컬럼이 아예 없으면 처음 나온 차트번호는 신환? -> 여기선 보수적으로 재진 처리 or Map 기준
       if(!patientMap.has(chartNo)) isNew=true;
     }
 
@@ -475,7 +479,11 @@ function processDataAndMap(uniquePatients){
             image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
           });
           const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>` });
-          kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
+          kakao.maps.event.addListener(marker, 'click', ()=> {
+            closeAllInfoWindows(); // 다른거 닫고
+            iw.open(map, marker);
+            openedInfoWindows.push(iw); // 관리 목록에 추가
+          });
           
           item.marker = marker; item.latlng = coords; item.dong = dong;
           patientRecords.push(item);
@@ -499,7 +507,7 @@ function applyFilters(){
     if(p.latestType==="90일초" && !state.patient_90) show=false;
     if(p.latestType==="재진" && !state.patient_return) show=false;
     
-    // 반경 필터 (그려진 원이 있으면 적용)
+    // 반경 필터
     if(show && radiusCircle && radiusCircle.getMap()){
       const line = new kakao.maps.Polyline({ path:[radiusCenter, p.latlng] });
       if(line.getLength() > radiusCircle.getRadius()) show=false;
@@ -571,7 +579,11 @@ function addPlaceMarker(kind, place){
     zIndex: 20
   });
   const iw=new kakao.maps.InfoWindow({ content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>` });
-  kakao.maps.event.addListener(marker,"click",()=>iw.open(map,marker));
+  kakao.maps.event.addListener(marker,"click",()=>{
+    closeAllInfoWindows(); // 기존 말풍선 제거
+    iw.open(map,marker);
+    openedInfoWindows.push(iw); // 리스트 추가
+  });
   targetMarkers[kind].push(marker);
 }
 
@@ -609,12 +621,12 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    // 의료기관 인증 필터 적용 (v1.3.7)
+    // [의료기관 인증 필터]
     for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
       const cleanData = data.filter(p => 
         (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
-        !p.place_name.includes("스포츠") // 스포츠 키워드 제외
+        !p.place_name.includes("스포츠") // 스포츠 제외
       );
       cleanData.forEach(p => addPlaceMarker("ortho", p));
       total += cleanData.length;
@@ -626,12 +638,13 @@ $("#btnSearchTargets").onclick = async () => {
   toast(`검색 완료: 총 ${total}개 시설`);
 };
 
-// [초기화 버튼] 타겟 검색 결과도 초기화
+// [초기화 버튼] 인포윈도우(말풍선)까지 삭제
 $("#btnResetTargets").onclick = () => {
   clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
   $$(".search-btn").forEach(b => b.classList.remove("active"));
   state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
   $("#statTargetsTotal").innerText = "0";
+  closeAllInfoWindows(); // [중요] 말풍선 삭제
   toast("초기화 완료");
 };
 
@@ -668,6 +681,7 @@ $("#btnCloseRoadview").onclick = () => $("#roadviewPanel").style.display="none";
 $("#btnClearPatients").onclick = () => {
   clusterer.clear(); patientRecords=[];
   $("#statPatientsUnique").innerText=0; $("#statPatientsVisits").innerText=0;
+  closeAllInfoWindows(); // 환자 마커 말풍선도 닫기
 };
 $("#btnFitPatients").onclick = () => {
   if(!patientRecords.length) return;
