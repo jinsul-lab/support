@@ -91,6 +91,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
   return results;
 }
 
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 function showClusterSummary(cluster){
@@ -156,6 +167,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
     }
   });
   return results;
+}
+
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
 </script>
@@ -225,6 +247,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
   return results;
 }
 
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
 function showClusterSummary(cluster){
@@ -292,6 +325,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
   return results;
 }
 
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
 function showClusterSummary(cluster){
@@ -357,6 +401,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
     }
   });
   return results;
+}
+
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
 </script>
@@ -533,6 +588,11 @@ function getNearbyCompetitors(center, radiusMeters=300){
     <div id="map"></div>
     <div id="mapLegend">
       <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">환자 구분</div>
+      <div class="legend-item"><div class="legend-color" style="background:#ff922b"></div> 신환</div>
+      <div class="legend-item"><div class="legend-color" style="background:#f1f3f5;border:1px solid #ccc"></div> 90일초</div>
+      <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 재진</div>
+      <div class="legend-item"><div class="legend-pin"></div> 경쟁병원</div>
+      <div class="legend-item"><div class="legend-color" style="background:#999"></div> 클러스터 숫자 = 밀집도</div>
       <div class="legend-item"><div class="legend-color" style="background:#db4040"></div> 신환</div>
       <div class="legend-item"><div class="legend-color" style="background:#e9ecef"></div> 90일초</div>
       <div class="legend-item"><div class="legend-color" style="background:#228be6"></div> 재진</div>
@@ -1052,8 +1112,9 @@ function processDataAndMap(uniquePatients){
           const dong = res[0].address?.region_3depth_name || "";
           
           const color = item.visits>=5?'#db4040': item.visits===4?'orange': item.visits===3?'#CCCC00': item.visits===2?'green':'#228be6';
-          const char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
+          const char = '';
+      const _unused_char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
           
           const marker = new kakao.maps.Marker({
             position: coords,
@@ -1161,7 +1222,7 @@ function addPlaceMarker(kind, place){
   const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
   const marker=new kakao.maps.Marker({
     position:pos, map, 
-    image: kind==='ortho'?null:new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
+    image: kind==='competitor'?null:new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
   const iw=new kakao.maps.InfoWindow({ 
@@ -1253,7 +1314,7 @@ function onDistClick(latlng){
 function onDistMove(latlng){
   if(distFlag && distClickLine){
     const dist = Math.round(distClickLine.getLength());
-    if(distOverlay){ distOverlay.setContent(`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m</div>`);} else { distOverlay=new kakao.maps.CustomOverlay({map:map,position:latlng,content:`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m</div>`}); }
+    if(distOverlay){ distOverlay.setContent(`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist/67))}</b>분</div>`);} else { distOverlay=new kakao.maps.CustomOverlay({map:map,position:latlng,content:`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist/67))}</b>분</div>`}); }
   }
 }
 function onDistEnd(){ distFlag=false; toast("거리 측정 종료"); }
@@ -1378,6 +1439,17 @@ function getNearbyCompetitors(center, radiusMeters=300){
     }
   });
   return results;
+}
+
+
+function attachHospitalTooltip(marker, name){
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:#fff;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;white-space:nowrap;">${name}</div>`,
+    position: marker.getPosition(),
+    yAnchor: 1.6
+  });
+  kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
+  kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
 </script>
