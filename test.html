@@ -2,10 +2,30 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.4.4)</title>
+  <title>jinsul-add v0.1.4.13</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer,drawing&autoload=false">
+// === SAFE GPS (waits for map init) ===
+(function(){
+  function bind(){
+    const btn=document.getElementById('gpsBtn')||document.querySelector('[id*="gps" i], [class*="gps" i]');
+    if(!btn) return;
+    btn.onclick=function(){
+      if(!window.map){ return; }
+      if(!navigator.geolocation){ alert('위치 기능 미지원'); return; }
+      navigator.geolocation.getCurrentPosition(p=>{
+        const loc=new kakao.maps.LatLng(p.coords.latitude,p.coords.longitude);
+        map.panTo(loc);
+        if(window.__gpsMarker) window.__gpsMarker.setMap(null);
+        window.__gpsMarker=new kakao.maps.Marker({position:loc,map:map});
+      },()=>alert('위치 권한 확인'));
+    };
+  }
+  document.addEventListener('DOMContentLoaded', ()=>setTimeout(bind,500));
+})();
+
+</script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -81,14 +101,69 @@
     table.miniTable{width:100%;border-collapse:collapse;font-size:12px;}
     table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
-  </style>
+  
+/* ===== Cluster gradient 5-step (density) ===== */
+.cluster-lv0,.cluster-lv1,.cluster-lv2,.cluster-lv3,.cluster-lv4{
+  display:flex;align-items:center;justify-content:center;
+  border-radius:999px;
+  color:#fff;font-weight:800;
+  border:2px solid rgba(255,255,255,.6);
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+.cluster-lv0{background:linear-gradient(135deg,#4dabf7,#228be6);}
+.cluster-lv1{background:linear-gradient(135deg,#69db7c,#37b24d);}
+.cluster-lv2{background:linear-gradient(135deg,#ffe066,#f59f00);}
+.cluster-lv3{background:linear-gradient(135deg,#ffa94d,#f76707);}
+.cluster-lv4{background:linear-gradient(135deg,#ff6b6b,#e03131);}
+
+</style>
+
+<style>
+.version-badge{
+  position:fixed; right:12px; top:10px; z-index:9999;
+  background:#111; color:#fff; padding:6px 10px;
+  border-radius:8px; font-size:12px; opacity:.8
+}
+</style>
+
+
+<script>
+
+// __fallbackInitKakao
+document.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(()=>{
+    try{
+      if(!window.map && window.kakao && kakao.maps && kakao.maps.load && typeof window.initKakao === 'function'){
+        kakao.maps.load(window.initKakao);
+      }
+    }catch(e){}
+  }, 300);
+});
+
+
+// window.__KAKAO_READY_GUARD__
+(function(){
+  function whenReady(cb){
+    let tries=0;
+    (function tick(){
+      tries++;
+      if(window.kakao && kakao.maps && kakao.maps.load) return cb();
+      if(tries<60) return setTimeout(tick,100);
+      console.warn('Kakao SDK not ready');
+    })();
+  }
+  window.__whenKakaoReady = whenReady;
+})();
+</script>
+
 </head>
 <body>
+<div class="version-badge">jinsul-add v0.1.4.13</div>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.4</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v0.1.4.8</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -123,7 +198,7 @@
         <div class="search-grid">
           <div class="search-btn" data-target="target_senior"><span class="search-icon">🏠</span> 경로당</div>
           <div class="search-btn" data-target="target_welfare"><span class="search-icon">💜</span> 노인재가</div>
-          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 정형외과+</div>
+          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 경쟁병원+</div>
           <div class="search-btn" id="btnResetTargets" style="background:#fff0f0; border-color:#ffc9c9; color:#fa5252;"><span class="search-icon">🗑️</span> 지우기</div>
         </div>
         <div class="btnRow">
@@ -196,6 +271,123 @@
 <div id="toast">알림</div>
 
 <script>
+
+// === Drawing Toolbox (Kakao native) : multi-circle + multi-distance, removable X, labels, multi-tools ===
+let __drawManager, __drawToolbox;
+let __circlePalette = ['#20c997','#339af0','#845ef7','#f59f00','#e03131','#12b886','#228be6'];
+let __circleIdx = 0;
+const __overlayLabels = new Map(); // overlay -> label overlay
+
+function __formatMeters(m){
+  if(!isFinite(m)) return '';
+  if(m >= 1000) return (m/1000).toFixed(2) + ' km';
+  return Math.round(m) + ' m';
+}
+
+function __makeLabel(latlng, text){
+  const content = '<div style="padding:4px 8px;background:rgba(17,17,17,.85);color:#fff;border-radius:8px;font-size:12px;white-space:nowrap;">'+
+                  text +'</div>';
+  return new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1.2, zIndex: 9999 });
+}
+
+function __syncLabels(){
+  if(!__drawManager) return;
+  const ovs = __drawManager.getOverlays ? __drawManager.getOverlays() : null;
+  if(!ovs) return;
+  const live = new Set();
+  Object.keys(ovs).forEach(k=>{
+    (ovs[k]||[]).forEach(o=>live.add(o));
+  });
+  // remove labels for deleted overlays
+  for(const [ov, lab] of __overlayLabels.entries()){
+    if(!live.has(ov)){
+      try{ lab.setMap(null); }catch(e){}
+      __overlayLabels.delete(ov);
+    }
+  }
+}
+
+
+function __pickFacilityImage(kind){
+  if(kind==='senior') return __facilityMarkerImages.senior;
+  if(kind==='welfare') return __facilityMarkerImages.welfare;
+  return __facilityMarkerImages.ortho; // 경쟁병원
+}
+
+function __initDrawingTool(){
+  __drawManager = new kakao.maps.drawing.DrawingManager({
+    map: map,
+    drawingMode: [
+      kakao.maps.drawing.OverlayType.CIRCLE,
+      kakao.maps.drawing.OverlayType.POLYLINE
+    ],
+    circleOptions: {
+      draggable: true,
+      removable: true,
+      strokeWeight: 2,
+      fillOpacity: 0.12
+    },
+    polylineOptions: {
+      draggable: true,
+      removable: true,
+      strokeWeight: 3
+    }
+  });
+
+  // Kakao native toolbox UI
+  __drawToolbox = new kakao.maps.drawing.Toolbox({ drawingManager: __drawManager });
+  map.addControl(__drawToolbox.getElement(), kakao.maps.ControlPosition.TOPRIGHT);
+
+  // When a circle/polyline is drawn, recolor circles and add labels
+  kakao.maps.event.addListener(__drawManager, 'drawend', function(e){
+    const ov = e.overlay;
+    const type = e.type;
+
+    if(type === kakao.maps.drawing.OverlayType.CIRCLE){
+      const color = __circlePalette[__circleIdx % __circlePalette.length];
+      __circleIdx++;
+      // set circle color
+      try{
+        if(ov.setOptions){
+          ov.setOptions({ strokeColor: color, fillColor: color });
+        }else{
+          if(ov.setStrokeColor) ov.setStrokeColor(color);
+          if(ov.setFillColor) ov.setFillColor(color);
+        }
+      }catch(err){}
+      // radius label
+      try{
+        const center = ov.getPosition ? ov.getPosition() : ov.getCenter();
+        const r = ov.getRadius ? ov.getRadius() : null;
+        if(center && r!=null){
+          const lab = __makeLabel(center, '반경 ' + __formatMeters(r));
+          lab.setMap(map);
+          __overlayLabels.set(ov, lab);
+        }
+      }catch(err){}
+    }
+
+    if(type === kakao.maps.drawing.OverlayType.POLYLINE){
+      // length label at last point
+      try{
+        const path = ov.getPath && ov.getPath();
+        const last = path && path.length ? path[path.length-1] : null;
+        const len = ov.getLength ? ov.getLength() : null;
+        if(last && len!=null){
+          const lab = __makeLabel(last, '거리 ' + __formatMeters(len));
+          lab.setMap(map);
+          __overlayLabels.set(ov, lab);
+        }
+      }catch(err){}
+    }
+    __syncLabels();
+  });
+
+  // periodic cleanup for X removals
+  setInterval(__syncLabels, 800);
+}
+
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -296,13 +488,51 @@ $$(".search-btn").forEach(btn => {
 });
 
 // Map Init
+
+function clusterGradientCalculator(markers){
+  if(!markers || typeof markers.length !== "number") return 0;
+  let sumVisits = 0;
+  for(let i=0;i<markers.length;i++){
+    sumVisits += (markerVisitWeight.get(markers[i]) || 1);
+  }
+  const denom = totalVisitCountAll || 1;
+  const ratio = sumVisits / denom; // 전체 방문 대비 비중
+
+  // 5단계 상대 구간
+  if(ratio >= 0.15) return 4;
+  if(ratio >= 0.07) return 3;
+  if(ratio >= 0.03) return 2;
+  if(ratio >= 0.01) return 1;
+  return 0;
+}
+
+
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
+
+// === Facility marker images (no halo) ===
+var __facilityMarkerImages = {
+  senior: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%23868e96' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M9 7h6v2H9zM9 10h6v2H9z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)}),
+  welfare: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%232f9e44' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M8.5 8.5h7v7h-7z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)}),
+  ortho: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%23845ef7' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M12 6l4 4h-3v4h-2v-4H8z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)})
+};
+
+
     map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     geocoder = new kakao.maps.services.Geocoder();
+    __initDrawingTool();
     places = new kakao.maps.services.Places();
-    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
+    clusterer = new kakao.maps.MarkerClusterer({
+      calculator: clusterGradientCalculator,
+      styles: [
+        {width:'44px', height:'44px', className:'cluster-lv0'},
+        {width:'46px', height:'46px', className:'cluster-lv1'},
+        {width:'50px', height:'50px', className:'cluster-lv2'},
+        {width:'54px', height:'54px', className:'cluster-lv3'},
+        {width:'60px', height:'60px', className:'cluster-lv4'}
+      ],
+ map: map, averageCenter: true, minLevel: 5 });
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
 
@@ -342,7 +572,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.4.4");
+    toast("시스템 준비 완료 v0.1.4.8");
   });
 }
 initKakao();
@@ -424,73 +654,118 @@ async function handleFile(file){
 
 function mergePatientData(rows){
   let headerIdx = -1, headers = [];
-  for(let i=0; i<Math.min(rows.length, 30); i++){
-    const str = (rows[i]||[]).join(" ");
-    if(str.includes("주소") && (str.includes("차트") || str.includes("이름"))){ headerIdx=i; headers=rows[i]; break; }
+  for(let i=0;i<Math.min(30, rows.length);i++){
+    const line = (rows[i]||[]).join(" ");
+    if(line.includes("주소") && (line.includes("차트") || line.includes("번호"))){
+      headerIdx = i; headers = rows[i]; break;
+    }
   }
-  if(headerIdx<0) { toast("유효한 헤더를 찾을 수 없습니다."); return []; }
+  if(headerIdx < 0) return [];
+
+  const findCol = (keys)=> headers.findIndex(h=> keys.some(k=> String(h).includes(k)));
+  const colAddr  = findCol(["주소"]);
+  const colChart = findCol(["차트","번호","ID"]);
+  const colType  = findCol(["구분","분류","신환","초진","재진","환자구분"]);
+  const colNew   = findCol(["신규","신규환자"]);
+  const colName  = findCol(["이름","수진자","환자명"]);
+  const colAge   = findCol(["나이","연령","만나이"]);
+  const colDate  = findCol(["일자","날짜","내원","방문","진료","접수"]);
 
   const patientMap = new Map();
-  const findCol = (keys) => headers.findIndex(h => keys.some(k => String(h).includes(k)));
-  const colName = findCol(['이름','수진자']);
-  const colAddr = findCol(['주소']);
-  const colChart = findCol(['차트','ID','번호']);
-  const colType = findCol(['신규','신환','구분','초재진','초진']);
-  const colAge = findCol(['나이','age','연령','주민']);
 
-  const body = rows.slice(headerIdx+1);
-  
-  body.forEach(row => {
+  // helper: normalize address
+  const clean = (a)=> String(a||"").replace(/\s+/g," ").trim();
+
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const row = rows[i] || [];
     const chartNo = row[colChart];
-    const addr = row[colAddr];
-    if(!chartNo || !addr) return;
+    const addr = clean(row[colAddr]);
+    if(!chartNo || !addr) continue;
 
-    let age = 0;
-    if(colAge > -1) {
-      const val = String(row[colAge]);
-      if(val.includes("세")) age = parseInt(val.split("세")[0].replace(/[^0-9]/g,""))||0;
-      else if(val.includes("-")) { 
-        const y=parseInt(val.substr(0,2)), g=parseInt(val.substr(7,1));
-        age = new Date().getFullYear() - ((g<3)?1900+y:2000+y);
-      } else age = parseInt(val.replace(/[^0-9]/g,""))||0;
-    }
+    // --- 의사랑 핵심: 신규환자 컬럼이 있으면 "값 있는 행만 신규(첫 방문)" ---
+    const hasNewCol = colNew >= 0;
+    const newFlag = hasNewCol ? (row[colNew] !== undefined && String(row[colNew]).trim() !== "") : null;
 
-    // [v1.4.4] 신환 판별 로직 수정 (90일초진 분리)
-    let isNew=false, is90=false;
-    if(colType > -1){
-      const valRaw = row[colType];
-      const t = valRaw ? String(valRaw).trim() : "";
-      
-      // 1순위: 90 체크 (초진이라는 글자가 있어도 90이 있으면 90일초)
-      if(t.includes("90")) {
-        is90 = true;
-      } 
-      // 2순위: 신환 체크
-      else if(t.includes("신환") || t.includes("신규") || t.includes("초진") || t==="1" || t.toUpperCase()==="Y") {
-        isNew = true;
+    // fallback: type column (BIT 등)
+    let typeStr = (colType >= 0 && row[colType] != null) ? String(row[colType]).trim() : "";
+
+    // visit classification (방문 단위)
+    let visitType = "재진"; // default
+    let isNewVisit = false;
+    let is90Visit = false;
+
+    if(hasNewCol){
+      // OSARANG rule
+      if(newFlag){
+        isNewVisit = true;
+        visitType = "신환";
+      } else {
+        visitType = "재진";
       }
+    } else if(typeStr){
+      const t = typeStr;
+      if(t.includes("90")) { is90Visit = true; visitType="90일초"; }
+      else if(t.includes("신환") || t.includes("신규") || t.includes("초진") || t==="1" || t.toUpperCase()==="Y") { isNewVisit=true; visitType="신환"; }
+      else { visitType="재진"; }
     } else {
-      if(!patientMap.has(chartNo)) isNew=true;
+      // last fallback: first seen chartNo is new
+      if(!patientMap.has(chartNo)) { isNewVisit=true; visitType="신환"; }
+      else { visitType="재진"; }
     }
 
-    if(patientMap.has(chartNo)){
-      const p = patientMap.get(chartNo);
-      p.visits++;
-      // 신환 고정: 한 번 신환은 영원한 신환
-      if(p.latestType==="신환") { /* Keep */ }
-      else if(isNew) p.latestType="신환";
-      else if(is90 && p.latestType!=="신환") p.latestType="90일초";
-    } else {
-      let type = "재진";
-      if(isNew) type="신환"; else if(is90) type="90일초";
-      patientMap.set(chartNo, { title: row[colName]||"미상", address: addr, latestType: type, age, visits: 1 });
+    // date/month parse if available
+    let visitDate = row[colDate];
+    let dt = null;
+    if(visitDate != null && visitDate !== ""){
+      const d = new Date(visitDate);
+      if(!isNaN(d)) dt = d;
     }
-  });
+
+    if(!patientMap.has(chartNo)){
+      patientMap.set(chartNo, {
+        title: (colName>=0? (row[colName]||"미상") : "미상"),
+        address: addr,
+        age: (colAge>=0? row[colAge] : ""),
+        visitsTotal: 0,
+        newVisits: 0,
+        return90Visits: 0,
+        oldVisits: 0,
+        rows: [], // 방문 row 유지
+        // 유지용(기존 UI 호환): 사람 기준 타입(표시용) — 통계엔 사용하지 않음
+        latestType: "재진"
+      });
+    }
+
+    const p = patientMap.get(chartNo);
+    p.visitsTotal += 1; p.visits = p.visitsTotal;
+
+    // 방문 row 저장 (통계의 근거)
+    p.rows.push({
+      chartNo,
+      address: addr,
+      visitType,
+      isNew: isNewVisit,
+      is90: is90Visit,
+      dt
+    });
+
+    if(isNewVisit) p.newVisits += 1;
+    else if(is90Visit) p.return90Visits += 1;
+    else p.oldVisits += 1;
+
+    // 표시용 latestType 업데이트(기존 UI 호환): 신환이 한번이라도 있으면 신환으로 고정
+    if(p.latestType === "신환") { /* keep */ }
+    else if(isNewVisit) p.latestType = "신환";
+    else if(is90Visit && p.latestType !== "신환") p.latestType = "90일초";
+  }
+
   return Array.from(patientMap.values());
 }
 
 function processDataAndMap(uniquePatients){
-  clusterer.clear(); patientRecords = []; 
+  clusterer.clear();
+  totalVisitCountAll = 0;
+  markerVisitWeight.clear(); patientRecords = []; 
   let success=0;
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
@@ -504,12 +779,8 @@ function processDataAndMap(uniquePatients){
           const char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
           
-          const marker = new kakao.maps.Marker({
-            position: coords,
-            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
-          });
-          
-          const iw = new kakao.maps.InfoWindow({ 
+          const marker = new kakao.maps.Marker({ position: coords });
+const iw = new kakao.maps.InfoWindow({ 
             content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>`,
             removable: true 
           });
@@ -536,25 +807,33 @@ function applyFilters(){
   let unique=0, visits=0;
   const dongMap = {};
   patientRecords.forEach(p=>{
-    let show = true;
-    if(p.latestType==="신환" && !state.patient_new) show=false;
-    if(p.latestType==="90일초" && !state.patient_90) show=false;
-    if(p.latestType==="재진" && !state.patient_return) show=false;
+    // 방문 기준: 토글은 "방문 카테고리 포함 여부"로 해석
+    const vNew = (state.patient_new && p.newVisits) ? p.newVisits : 0;
+    const v90  = (state.patient_90 && p.return90Visits) ? p.return90Visits : 0;
+    const vOld = (state.patient_return && p.oldVisits) ? p.oldVisits : 0;
+    const vTotal = vNew + v90 + vOld;
+
+    let show = vTotal > 0;
+
     if(show && radiusCircle && radiusCircle.getMap() && state.radius_enabled){
       const line = new kakao.maps.Polyline({ path:[radiusCenter, p.latlng] });
       if(line.getLength() > radiusCircle.getRadius()) show=false;
     }
+
     if(show){
       clusterer.addMarker(p.marker);
-      unique++; visits+=p.visits;
+      unique++;
+      visits += vTotal;
+
       const d = p.dong || "미상";
       if(!dongMap[d]) dongMap[d] = {n:0, d:0, r:0, t:0};
-      dongMap[d].t++;
-      if(p.latestType==="신환") dongMap[d].n++;
-      else if(p.latestType==="90일초") dongMap[d].d++;
-      else dongMap[d].r++;
+      dongMap[d].t += vTotal;   // 총 방문(회)
+      dongMap[d].n += vNew;     // 신환 방문(회)
+      dongMap[d].d += v90;      // 90일초 방문(회)
+      dongMap[d].r += vOld;     // 재진 방문(회)
     }
   });
+
   $("#statPatientsUnique").innerText = unique;
   $("#statPatientsVisits").innerText = visits;
   updateStats(dongMap, unique);
@@ -600,16 +879,8 @@ function clearTargetMarkers(kind){ targetMarkers[kind].forEach(m=>m.setMap(null)
 
 function addPlaceMarker(kind, place){
   const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
-  const marker=new kakao.maps.Marker({
-    position:pos, map, 
-    image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
-    zIndex: 20
-  });
-  const iw=new kakao.maps.InfoWindow({ 
-    content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>`,
-    removable: true
-  });
-  kakao.maps.event.addListener(marker,"click",()=>{
+  const marker = new kakao.maps.Marker({ position: pos, image: __pickFacilityImage(kind) });
+kakao.maps.event.addListener(marker,"click",()=>{
     closeAllInfoWindows(); 
     iw.open(map,marker);
     openedInfoWindows.push(iw);
@@ -651,7 +922,7 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
+    for(const kw of ["경쟁병원", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
       const cleanData = data.filter(p => 
         (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
