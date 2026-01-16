@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.3)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.4)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -75,7 +75,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.3</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.4</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -191,7 +191,7 @@
 
 <script>
 // =====================================================
-//  JINSUL 시스템 v1.2.3 (시설 검색 강화 + 페이지 순환)
+//  JINSUL 시스템 v1.2.4 (나이 계산 버그 수정)
 // =====================================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -200,19 +200,18 @@ let map, geocoder, places, boundsPatients, roadview, roadviewClient, clusterer;
 let patientRecords = [];
 let targetMarkers = [];
 
-// [키워드 매핑 및 아이콘 정의] v1.2.3
 const SEARCH_CONFIG = {
   "정형외과": {
     keywords: ["정형외과", "신경외과", "통증의학과", "재활의학과"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#2b8a3e" stroke-width="2"/><path d="M15 7v16M7 15h16" stroke="#2b8a3e" stroke-width="4" stroke-linecap="round"/></svg>` // 초록 십자가
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#2b8a3e" stroke-width="2"/><path d="M15 7v16M7 15h16" stroke="#2b8a3e" stroke-width="4" stroke-linecap="round"/></svg>`
   },
   "경로당": {
     keywords: ["경로당", "노인정", "마을회관"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#964b00" stroke-width="2"/><path d="M15 6l-9 8h18z M8 14v10h14v-10" fill="#964b00"/></svg>` // 갈색 집
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#964b00" stroke-width="2"/><path d="M15 6l-9 8h18z M8 14v10h14v-10" fill="#964b00"/></svg>`
   },
   "노인재가": {
     keywords: ["재가복지센터", "주간보호센터", "방문요양", "노인복지센터"],
-    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#845ef7" stroke-width="2"/><path d="M15 24s-9-5.5-9-11a5 5 0 0 1 9-2 5 5 0 0 1 9 2c0 5.5-9 11-9 11z" fill="#845ef7"/></svg>` // 보라 하트
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#845ef7" stroke-width="2"/><path d="M15 24s-9-5.5-9-11a5 5 0 0 1 9-2 5 5 0 0 1 9 2c0 5.5-9 11-9 11z" fill="#845ef7"/></svg>`
   }
 };
 
@@ -282,84 +281,41 @@ function initKakao(){
 
     kakao.maps.event.addListener(map, "rightclick", (e)=>{ if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); } });
 
-    toast("시스템 준비 완료 v1.2.3");
+    toast("시스템 준비 완료 v1.2.4");
   });
 }
 initKakao();
 
-// ============================================
-//  [시설 검색 로직 v1.2.3 - 광역 그물망]
-// ============================================
-let seenIds = new Set(); // 중복 제거용
-
+let seenIds = new Set(); 
 $$(".target-btn").forEach(btn => {
   btn.onclick = function(){
     const category = this.getAttribute("data-category");
     const config = SEARCH_CONFIG[category];
-    
-    $$(".target-btn").forEach(b=>b.classList.remove("active"));
-    this.classList.add("active");
-    
-    // 초기화
-    targetMarkers.forEach(m => m.setMap(null));
-    targetMarkers = [];
-    seenIds.clear();
-    
-    toast(`${category} 시설을 검색합니다... (화면 내 최대 검색)`);
-    
-    let totalFound = 0;
-    
-    // 키워드별 반복 검색
-    config.keywords.forEach(keyword => {
-      searchAllPages(keyword, config.icon, (count) => {
-        totalFound += count;
-      });
-    });
+    $$(".target-btn").forEach(b=>b.classList.remove("active")); this.classList.add("active");
+    targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; seenIds.clear();
+    toast(`${category} 시설 검색 중...`);
+    config.keywords.forEach(keyword => { searchAllPages(keyword, config.icon); });
   };
 });
 
-function searchAllPages(keyword, iconSvg, cb){
-  // 페이지네이션 검색 (1~3페이지 자동 순환)
+function searchAllPages(keyword, iconSvg){
   places.keywordSearch(keyword, (data, status, pagination)=>{
     if(status === kakao.maps.services.Status.OK){
       data.forEach(place => {
-        if(seenIds.has(place.id)) return; // 이미 찾은 곳 패스
-        seenIds.add(place.id);
-        
-        const image = new kakao.maps.MarkerImage(
-          "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg),
-          new kakao.maps.Size(30, 30)
-        );
-        
-        const marker = new kakao.maps.Marker({
-          map: map, position: new kakao.maps.LatLng(place.y, place.x),
-          title: place.place_name, image: image, zIndex: 20
-        });
-        
-        const iw = new kakao.maps.InfoWindow({
-          content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>`
-        });
+        if(seenIds.has(place.id)) return; seenIds.add(place.id);
+        const image = new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg), new kakao.maps.Size(30, 30));
+        const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: image, zIndex: 20 });
+        const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
         kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
         targetMarkers.push(marker);
       });
-      
-      cb(data.length);
-      
-      // 다음 페이지가 있으면 자동 실행 (최대 3페이지, 45개까지)
-      if(pagination.hasNextPage){
-        pagination.nextPage();
-      }
+      if(pagination.hasNextPage) pagination.nextPage();
     }
   }, { useMapBounds: true });
 }
 
-$("#btnClearTargets").onclick = () => {
-  targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
-  $$(".target-btn").forEach(b=>b.classList.remove("active"));
-  toast("검색 초기화");
-};
+$("#btnClearTargets").onclick = () => { targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; $$(".target-btn").forEach(b=>b.classList.remove("active")); toast("검색 초기화"); };
 
-// 파일 처리 및 나머지 로직 (v1.2.2 유지)
 const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
@@ -423,7 +379,14 @@ function mergePatientData(rows, headers){
     let age = 0;
     const ageRaw = findVal(item, ['나이','age','연령']);
     const juminRaw = findVal(item, ['주민','번호','주민등록']);
-    if(ageRaw) { age = parseInt(String(ageRaw).replace(/[^0-9]/g, "")) || 0; }
+    
+    // [나이 계산 버그 수정 v1.2.4]
+    if(ageRaw) {
+      // 52세2개월 -> 52만 추출. (세 앞에서 끊기)
+      const str = String(ageRaw);
+      if(str.includes("세")) age = parseInt(str.split("세")[0].replace(/[^0-9]/g, "")) || 0;
+      else age = parseInt(str.replace(/[^0-9]/g, "")) || 0; 
+    }
     else if(juminRaw) {
       const jumin = String(juminRaw).replace(/-/g,"").trim();
       if(jumin.length >= 7) {
