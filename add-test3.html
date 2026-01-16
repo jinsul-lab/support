@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.1)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing&autoload=false"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -59,7 +59,7 @@
     .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
     .number {font-weight:bold;color:#ee6152;}
 
-    /* v1.2.1 추가: 좌측 하단 범례 */
+    /* 범례 스타일 */
     #mapLegend {
       position: absolute; bottom: 20px; left: 20px; z-index: 20;
       background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 8px;
@@ -75,7 +75,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.1</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.2</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -167,9 +167,7 @@
     </div>
     <div class="modalBody" style="padding:20px;flex:1;overflow:auto;">
       <div id="tabSummary" class="tabPane">
-        <div style="height:350px; display:flex; justify-content:center;">
-           <canvas id="chartType_modal"></canvas>
-        </div>
+        <div style="height:350px; display:flex; justify-content:center;"><canvas id="chartType_modal"></canvas></div>
         <div class="statGrid" style="margin-top:20px;">
           <div class="stat"><div class="k">신환 비율</div><div class="v" id="kpiNewRate">0%</div></div>
           <div class="stat"><div class="k">재진 비율</div><div class="v" id="kpiRetRate">0%</div></div>
@@ -184,10 +182,7 @@
       </div>
       <div id="tabAge" class="tabPane" style="display:none;">
         <div style="height:300px;"><canvas id="chartAge_modal"></canvas></div>
-        <table class="miniTable" style="margin-top:20px;">
-          <thead><tr><th>연령대</th><th>인원수</th><th>비율</th></tr></thead>
-          <tbody id="tblAge"></tbody>
-        </table>
+        <table class="miniTable" style="margin-top:20px;"><thead><tr><th>연령대</th><th>인원수</th><th>비율</th></tr></thead><tbody id="tblAge"></tbody></table>
       </div>
     </div>
   </div>
@@ -196,123 +191,100 @@
 
 <script>
 // ==========================================
-//  JINSUL 시스템 v1.2.1 (통계/연령/범례 강화)
+//  JINSUL 시스템 v1.2.2 (마커 클러스터링 적용)
 // ==========================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-let map, geocoder, places, boundsPatients, roadview, roadviewClient;
+let map, geocoder, places, boundsPatients, roadview, roadviewClient, clusterer;
 let patientRecords = [];
 let targetMarkers = [];
 
-// 상태 변수
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
   tool_roadview:false, tool_distance:false, tool_radius_draw:false
 };
 
-// 그리기 도구 변수
 let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine, distMoveLine, distOverlay;
 
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
-    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665,126.9780), level: 5 });
+    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665,126.9780), level: 8 }); // 줌 레벨 조정 (넓게)
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
     boundsPatients = new kakao.maps.LatLngBounds();
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
     
+    // [클러스터러 생성] v1.2.2 핵심
+    clusterer = new kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 4, // 이 레벨보다 줌인하면 클러스터 풀림
+        styles: [{
+            width: '50px', height: '50px',
+            background: 'rgba(34, 139, 230, .8)',
+            borderRadius: '25px', color: '#fff',
+            textAlign: 'center', fontWeight: 'bold', lineHeight: '50px'
+        }]
+    });
+
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
-    
-    function toggleSidebar(open){
-      const sb = $("#sidebar"); const btn = $("#btnOpenSidebar");
-      if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; }
-      else { sb.classList.add("collapsed"); btn.style.display="flex"; }
-      setTimeout(() => map.relayout(), 310);
-    }
+    function toggleSidebar(open){ const sb = $("#sidebar"); const btn = $("#btnOpenSidebar"); if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; } else { sb.classList.add("collapsed"); btn.style.display="flex"; } setTimeout(() => map.relayout(), 310); }
     $("#btnCollapse").onclick = () => toggleSidebar(false);
     $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
 
-    // 통합 클릭 이벤트
     kakao.maps.event.addListener(map, "click", (e)=>{
-      // 반경 그리기
       if(state.tool_radius_draw){
         if(!radiusFlag){
           radiusFlag = true; radiusCenter = e.latLng;
-          if(radiusCircle) radiusCircle.setMap(null);
-          if(radiusOverlay) radiusOverlay.setMap(null);
+          if(radiusCircle) radiusCircle.setMap(null); if(radiusOverlay) radiusOverlay.setMap(null);
           radiusPolyline = new kakao.maps.Polyline({ map: map, path: [radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeOpacity:1, strokeStyle:'solid' });
           radiusCircle = new kakao.maps.Circle({ map: map, center: radiusCenter, radius: 0, strokeWeight:1, strokeColor:'#228be6', strokeOpacity:0.1, fillColor:'#228be6', fillOpacity:0.2 });
           toast("마우스를 움직여 크기 조절 후 클릭하세요.");
         } else {
-          radiusFlag = false;
-          if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
-          applyFilters();
-          toast("반경 설정 완료.");
+          radiusFlag = false; if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
+          applyFilters(); toast("반경 설정 완료.");
         }
         return;
       }
-      // 거리 재기
       if(state.tool_distance){
         const clickPos = e.latLng;
         if(!distFlag){
-          distFlag = true;
-          if(distClickLine) distClickLine.setMap(null);
-          if(distOverlay) distOverlay.setMap(null);
+          distFlag = true; if(distClickLine) distClickLine.setMap(null); if(distOverlay) distOverlay.setMap(null);
           distClickLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:1, strokeStyle:'solid'});
           distMoveLine = new kakao.maps.Polyline({ map:map, path:[clickPos], strokeWeight:3, strokeColor:'#db4040', strokeOpacity:0.5, strokeStyle:'solid'});
-        } else {
-          const path = distClickLine.getPath(); path.push(clickPos); distClickLine.setPath(path);
-        }
+        } else { const path = distClickLine.getPath(); path.push(clickPos); distClickLine.setPath(path); }
         return;
       }
-      // 로드뷰
-      if(state.tool_roadview){
-        roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{
-          if(panoId){ $("#roadviewPanel").style.display = "block"; roadview.setPanoId(panoId, e.latLng); }
-          else toast("주변에 로드뷰가 없습니다.");
-        });
-      }
+      if(state.tool_roadview){ roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{ if(panoId){ $("#roadviewPanel").style.display = "block"; roadview.setPanoId(panoId, e.latLng); } else toast("주변에 로드뷰가 없습니다."); }); }
     });
 
-    // 마우스 이동
     kakao.maps.event.addListener(map, "mousemove", (e)=>{
       if(state.tool_radius_draw && radiusFlag){
-        const path = [radiusCenter, e.latLng]; radiusPolyline.setPath(path);
-        const dist = Math.round(radiusPolyline.getLength());
-        radiusCircle.setRadius(dist);
+        const path = [radiusCenter, e.latLng]; radiusPolyline.setPath(path); const dist = Math.round(radiusPolyline.getLength()); radiusCircle.setRadius(dist);
         const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">반경 <span class="number">${dist}</span>m</div>`;
-        if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); }
-        else { radiusOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
+        if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); } else { radiusOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
       }
       if(state.tool_distance && distFlag){
-        const path = distClickLine.getPath(); const movePath = [path[path.length-1], e.latLng];
-        distMoveLine.setPath(movePath);
-        const dist = Math.round(distClickLine.getLength() + distMoveLine.getLength());
+        const path = distClickLine.getPath(); const movePath = [path[path.length-1], e.latLng]; distMoveLine.setPath(movePath); const dist = Math.round(distClickLine.getLength() + distMoveLine.getLength());
         const content = `<div class="dotOverlay" style="padding:5px;background:white;border:1px solid #ccc;border-radius:5px;">총거리 <span class="number">${dist}</span>m</div>`;
-        if(distOverlay) { distOverlay.setPosition(e.latLng); distOverlay.setContent(content); }
-        else { distOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
+        if(distOverlay) { distOverlay.setPosition(e.latLng); distOverlay.setContent(content); } else { distOverlay = new kakao.maps.CustomOverlay({map:map, content:content, position:e.latLng, zIndex:1}); }
       }
     });
 
-    // 우클릭 종료 (거리재기)
     kakao.maps.event.addListener(map, "rightclick", (e)=>{
-      if(state.tool_distance && distFlag){
-        distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
-        toast("거리 측정 완료");
-      }
+      if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); }
     });
 
-    toast("시스템 준비 완료 v1.2.1");
+    toast("시스템 준비 완료 v1.2.2 (클러스터링 적용)");
   });
 }
 initKakao();
 
-// 타겟 검색
 $$(".target-btn").forEach(btn => {
   btn.onclick = function(){
     const keyword = this.getAttribute("data-keyword");
@@ -332,13 +304,8 @@ $$(".target-btn").forEach(btn => {
     }, { useMapBounds: true });
   };
 });
-$("#btnClearTargets").onclick = () => {
-  targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
-  $$(".target-btn").forEach(b=>b.classList.remove("active"));
-  toast("검색 초기화");
-};
+$("#btnClearTargets").onclick = () => { targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; $$(".target-btn").forEach(b=>b.classList.remove("active")); toast("검색 초기화"); };
 
-// 파일 처리
 const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
@@ -388,7 +355,6 @@ function mergePatientData(rows, headers){
   const patientMap = new Map();
   const typeColName = headers.find(h => ["신규","신환","초진","구분","초재진"].some(k => String(h).includes(k)));
   let useTypeCol = false;
-  
   if(typeColName){
     if(rows.some(r => {
       const v = String(findVal(r, [typeColName,"신규","신환","초재진"])??"").trim();
@@ -400,18 +366,14 @@ function mergePatientData(rows, headers){
     const title = findVal(item, ['수진자','이름','name']);
     const address = findVal(item, ['주소','addr']);
     const chartNo = findVal(item, ['차트','환자번호','ID','등록번호']);
-    // 연령 계산 로직 추가
     let age = 0;
     const ageRaw = findVal(item, ['나이','age','연령']);
     const juminRaw = findVal(item, ['주민','번호','주민등록']);
-    
-    if(ageRaw) {
-      age = parseInt(String(ageRaw).replace(/[^0-9]/g, "")) || 0;
-    } else if(juminRaw) {
+    if(ageRaw) { age = parseInt(String(ageRaw).replace(/[^0-9]/g, "")) || 0; }
+    else if(juminRaw) {
       const jumin = String(juminRaw).replace(/-/g,"").trim();
       if(jumin.length >= 7) {
-        const yearPre = parseInt(jumin.substring(0,2));
-        const gender = parseInt(jumin.substring(6,7));
+        const yearPre = parseInt(jumin.substring(0,2)); const gender = parseInt(jumin.substring(6,7));
         let birthYear = (gender===1||gender===2) ? 1900+yearPre : 2000+yearPre;
         age = new Date().getFullYear() - birthYear;
       }
@@ -425,22 +387,15 @@ function mergePatientData(rows, headers){
       if(val==="1"||val==="Y"||val.includes("신규")||val.includes("신환")||val.includes("초진")&&!val.includes("90")) isNew=true;
       else if(val.includes("90") || val==="90일초") is90=true;
       else isRet=true; 
-    } else {
-      if(!patientMap.has(chartNo)) isNew=true; else isRet=true;
-    }
+    } else { if(!patientMap.has(chartNo)) isNew=true; else isRet=true; }
 
     if(patientMap.has(chartNo)){
-      const rec = patientMap.get(chartNo);
-      rec.visits++;
+      const rec = patientMap.get(chartNo); rec.visits++;
       if(rec.latestType==="신환") { isNew=true; isRet=false; }
       else if(rec.latestType==="90일초" && !isNew) is90=true;
-      
-      if(isNew) { rec.latestType="신환"; rec.types.new=true; }
-      else if(is90) { rec.latestType="90일초"; rec.types.d90=true; }
-      else { rec.latestType="재진"; rec.types.ret=true; }
+      if(isNew) { rec.latestType="신환"; rec.types.new=true; } else if(is90) { rec.latestType="90일초"; rec.types.d90=true; } else { rec.latestType="재진"; rec.types.ret=true; }
     } else {
-      let lType = "재진";
-      if(is90) lType="90일초"; else if(isNew) lType="신환";
+      let lType = "재진"; if(is90) lType="90일초"; else if(isNew) lType="신환";
       patientMap.set(chartNo, { key:chartNo, title, address, chartNo, age, visits:1, types:{new:isNew,d90:is90,ret:isRet}, latestType:lType, marker:null, latlng:null, dong:"미상" });
     }
   });
@@ -448,8 +403,13 @@ function mergePatientData(rows, headers){
 }
 
 function processDataAndMap(uniquePatients){
-  patientRecords.forEach(r => r.marker && r.marker.setMap(null)); patientRecords = []; boundsPatients = new kakao.maps.LatLngBounds();
+  // 기존 클러스터러 및 마커 초기화
+  clusterer.clear(); 
+  patientRecords = []; 
+  boundsPatients = new kakao.maps.LatLngBounds();
+  
   let success = 0;
+  // 배치 처리 (한번에 너무 많이 하면 멈춤)
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
       let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
@@ -461,22 +421,36 @@ function processDataAndMap(uniquePatients){
           const color = visitColor(item.visits);
           const iconChar = typeIcon(item.latestType);
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" /><text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text></svg>`;
-          const marker = new kakao.maps.Marker({ map: map, position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
+          
+          // 마커 생성 (맵에 바로 붙이지 않음 setMap(null))
+          const marker = new kakao.maps.Marker({ position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
           const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b> (${item.age>0?item.age+'세':''})<br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          item.marker = marker; item.latlng = coords; patientRecords.push(item); boundsPatients.extend(coords); success++;
+          
+          item.marker = marker; item.latlng = coords;
+          patientRecords.push(item);
+          boundsPatients.extend(coords);
+          clusterer.addMarker(marker); // 초기엔 모두 추가
+          success++;
         }
-        if(idx === uniquePatients.length-1){ if(success>0) map.setBounds(boundsPatients); applyFilters(); toast(`완료: ${success}명 지도 표시`); }
+        if(idx === uniquePatients.length-1){ 
+          if(success>0) map.setBounds(boundsPatients); 
+          applyFilters(); // 필터 적용하여 다시 그림
+          toast(`완료: ${success}명 분석 (클러스터링 적용)`); 
+        }
       });
-    }, idx * 30);
+    }, idx * 10); // 딜레이 단축 (10ms)
   });
 }
 
 function applyFilters(){
   let unique=0, visits=0;
-  // 통계 집계용 변수
-  const dongStats = {}; // { 동이름: {total, new, d90, ret} }
-  const ageStats = {};  // { 10: 5, 20: 10 ... }
+  const dongStats = {}; 
+  const ageStats = {};
+  
+  // 클러스터 초기화
+  clusterer.clear();
+  const visibleMarkers = [];
 
   patientRecords.forEach(r => {
     let show = true;
@@ -490,29 +464,23 @@ function applyFilters(){
       if(poly.getLength() > radius) show = false;
     }
 
-    if(r.marker) r.marker.setMap(show ? map : null);
+    // 마커 표시 관리 -> 클러스터러에 위임
+    if(show) visibleMarkers.push(r.marker);
     
     if(show){
       unique++; visits += r.visits;
-      
-      // 동별 통계 집계 (v1.2.1)
       const d = r.dong||"미상";
       if(!dongStats[d]) dongStats[d] = { total:0, new:0, d90:0, ret:0 };
       dongStats[d].total++;
-      if(r.latestType==="신환") dongStats[d].new++;
-      else if(r.latestType==="90일초") dongStats[d].d90++;
-      else dongStats[d].ret++;
-
-      // 연령별 통계 집계
-      if(r.age > 0){
-        const ageGroup = Math.floor(r.age/10)*10;
-        ageStats[ageGroup] = (ageStats[ageGroup]||0) + 1;
-      }
+      if(r.latestType==="신환") dongStats[d].new++; else if(r.latestType==="90일초") dongStats[d].d90++; else dongStats[d].ret++;
+      if(r.age > 0){ const ageGroup = Math.floor(r.age/10)*10; ageStats[ageGroup] = (ageStats[ageGroup]||0) + 1; }
     }
   });
 
+  // 필터링된 마커만 클러스터러에 추가
+  clusterer.addMarkers(visibleMarkers);
+
   $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits;
-  // 통계 갱신 함수 호출
   updateCharts(dongStats, ageStats, unique);
 }
 
@@ -520,30 +488,15 @@ $$(".toggle").forEach(t => t.onclick = function(){
   this.classList.toggle("on");
   const key = this.getAttribute("data-toggle");
   state[key] = this.classList.contains("on");
-  
   if(key==="tool_radius_draw"){
-    if(state.tool_radius_draw) {
-       toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성");
-       $("#radiusInfo").style.display = "block";
-       if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); }
-    } else {
-       $("#radiusInfo").style.display = "none"; radiusFlag=false;
-       if(radiusPolyline) radiusPolyline.setMap(null);
-       if(radiusCircle) radiusCircle.setMap(null);
-       if(radiusOverlay) radiusOverlay.setMap(null);
-       applyFilters();
-    }
+    if(state.tool_radius_draw) { toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성"); $("#radiusInfo").style.display = "block"; if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); } }
+    else { $("#radiusInfo").style.display = "none"; radiusFlag=false; if(radiusPolyline) radiusPolyline.setMap(null); if(radiusCircle) radiusCircle.setMap(null); if(radiusOverlay) radiusOverlay.setMap(null); applyFilters(); }
   }
   if(key==="tool_distance"){
-    if(state.tool_distance) {
-      toast("지도 클릭: 시작/경유, 우클릭: 종료");
-      if(state.tool_radius_draw) { state.tool_radius_draw=false; $(`[data-toggle="tool_radius_draw"]`).classList.remove("on"); }
-    } else {
-      distFlag=false; if(distClickLine) distClickLine.setMap(null); if(distMoveLine) distMoveLine.setMap(null); if(distOverlay) distOverlay.setMap(null);
-    }
+    if(state.tool_distance) { toast("지도 클릭: 시작/경유, 우클릭: 종료"); if(state.tool_radius_draw) { state.tool_radius_draw=false; $(`[data-toggle="tool_radius_draw"]`).classList.remove("on"); } }
+    else { distFlag=false; if(distClickLine) distClickLine.setMap(null); if(distMoveLine) distMoveLine.setMap(null); if(distOverlay) distOverlay.setMap(null); }
   }
   if(key==="tool_roadview") { if(!state.tool_roadview) $("#roadviewPanel").style.display="none"; else toast("지도에서 위치를 클릭하세요."); }
-  
   applyFilters();
 });
 
@@ -551,65 +504,28 @@ $("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; ap
 $("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
 $$(".tabBtn").forEach(btn => { btn.onclick = function(){ $$(".tabBtn").forEach(b=>b.classList.remove("active")); this.classList.add("active"); $$(".tabPane").forEach(p=>p.style.display="none"); $("#"+this.dataset.tab).style.display="block"; } });
 
-// 차트 및 테이블 업데이트 (v1.2.1 강화)
 let chartType, chartAge;
 function updateCharts(dongStats, ageStats, totalCount){
-  // 1. 행정동 테이블 (신환/90/재진 상세)
   const sortedDong = Object.entries(dongStats).sort((a,b)=>b[1].total - a[1].total);
-  const dongHtml = sortedDong.map(([d, s])=> `
-    <tr>
-      <td>${d}</td>
-      <td style="color:#db4040;font-weight:bold;">${s.new}</td>
-      <td style="color:#888;">${s.d90}</td>
-      <td style="color:#228be6;">${s.ret}</td>
-      <td style="font-weight:bold;">${s.total}</td>
-    </tr>
-  `).join("");
+  const dongHtml = sortedDong.map(([d, s])=> `<tr><td>${d}</td><td style="color:#db4040;font-weight:bold;">${s.new}</td><td style="color:#888;">${s.d90}</td><td style="color:#228be6;">${s.ret}</td><td style="font-weight:bold;">${s.total}</td></tr>`).join("");
   $("#tblDongType").innerHTML = dongHtml;
 
-  // 2. 요약 탭 - 도넛 차트 (전체 비율)
   let totalNew=0, total90=0, totalRet=0;
   Object.values(dongStats).forEach(s => { totalNew+=s.new; total90+=s.d90; totalRet+=s.ret; });
-  
   $("#kpiNewRate").innerText = totalCount>0 ? ((totalNew/totalCount)*100).toFixed(1)+"%" : "0%";
   $("#kpiRetRate").innerText = totalCount>0 ? (((totalRet+total90)/totalCount)*100).toFixed(1)+"%" : "0%";
 
   if(window.Chart){
-    // 도넛 차트
     const ctxType = $("#chartType_modal");
     if(chartType) chartType.destroy();
-    chartType = new Chart(ctxType, {
-      type: 'doughnut',
-      data: {
-        labels: ['신환', '90일초진', '재진'],
-        datasets: [{
-          data: [totalNew, total90, totalRet],
-          backgroundColor: ['#db4040', '#e9ecef', '#228be6']
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'right' } }
-      }
-    });
+    chartType = new Chart(ctxType, { type: 'doughnut', data: { labels: ['신환', '90일초진', '재진'], datasets: [{ data: [totalNew, total90, totalRet], backgroundColor: ['#db4040', '#e9ecef', '#228be6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
 
-    // 3. 연령별 차트 (Bar)
     const sortedAgeKeys = Object.keys(ageStats).sort((a,b)=>Number(a)-Number(b));
     const ageData = sortedAgeKeys.map(k=>ageStats[k]);
     const ageLabels = sortedAgeKeys.map(k=>k+"대");
-    
     const ctxAge = $("#chartAge_modal");
     if(chartAge) chartAge.destroy();
-    chartAge = new Chart(ctxAge, {
-      type: 'bar',
-      data: {
-        labels: ageLabels,
-        datasets: [{ label: '인원수', data: ageData, backgroundColor: '#228be6' }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
-
-    // 연령 테이블
+    chartAge = new Chart(ctxAge, { type: 'bar', data: { labels: ageLabels, datasets: [{ label: '인원수', data: ageData, backgroundColor: '#228be6' }] }, options: { responsive: true, maintainAspectRatio: false } });
     const ageHtml = sortedAgeKeys.map((k, i) => `<tr><td>${k}대</td><td>${ageData[i]}명</td><td>${((ageData[i]/totalCount)*100).toFixed(1)}%</td></tr>`).join("");
     $("#tblAge").innerHTML = ageHtml;
   }
