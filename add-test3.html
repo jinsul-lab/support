@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.2.2)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.2.3)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -59,7 +59,7 @@
     .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
     .number {font-weight:bold;color:#ee6152;}
 
-    /* 범례 스타일 */
+    /* 범례 */
     #mapLegend {
       position: absolute; bottom: 20px; left: 20px; z-index: 20;
       background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 8px;
@@ -75,7 +75,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.2</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.2.3</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -106,12 +106,12 @@
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>타겟 검색</h3><span class="pill">경쟁/시설</span></div>
-        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내에서 검색합니다</div>
+        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">최대 45개</span></div>
+        <div style="font-size:12px; color:#888; margin-bottom:5px;">* 현재 지도 화면 내 집중 검색</div>
         <div class="target-group">
-          <div class="target-btn" data-keyword="경로당">경로당</div>
-          <div class="target-btn" data-keyword="노인복지">노인복지</div>
-          <div class="target-btn" data-keyword="정형외과">정형외과</div>
+          <div class="target-btn" data-category="정형외과">🏥 정형외과</div>
+          <div class="target-btn" data-category="경로당">🏠 경로당</div>
+          <div class="target-btn" data-category="노인재가">💜 노인재가</div>
         </div>
         <button id="btnClearTargets" class="btn" style="margin-top:5px; font-size:12px; padding:5px;">검색 결과 지우기</button>
       </div>
@@ -190,15 +190,31 @@
 <div id="toast">알림</div>
 
 <script>
-// ==========================================
-//  JINSUL 시스템 v1.2.2 (마커 클러스터링 적용)
-// ==========================================
+// =====================================================
+//  JINSUL 시스템 v1.2.3 (시설 검색 강화 + 페이지 순환)
+// =====================================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, boundsPatients, roadview, roadviewClient, clusterer;
 let patientRecords = [];
 let targetMarkers = [];
+
+// [키워드 매핑 및 아이콘 정의] v1.2.3
+const SEARCH_CONFIG = {
+  "정형외과": {
+    keywords: ["정형외과", "신경외과", "통증의학과", "재활의학과"],
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#2b8a3e" stroke-width="2"/><path d="M15 7v16M7 15h16" stroke="#2b8a3e" stroke-width="4" stroke-linecap="round"/></svg>` // 초록 십자가
+  },
+  "경로당": {
+    keywords: ["경로당", "노인정", "마을회관"],
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#964b00" stroke-width="2"/><path d="M15 6l-9 8h18z M8 14v10h14v-10" fill="#964b00"/></svg>` // 갈색 집
+  },
+  "노인재가": {
+    keywords: ["재가복지센터", "주간보호센터", "방문요양", "노인복지센터"],
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#ffffff" stroke="#845ef7" stroke-width="2"/><path d="M15 24s-9-5.5-9-11a5 5 0 0 1 9-2 5 5 0 0 1 9 2c0 5.5-9 11-9 11z" fill="#845ef7"/></svg>` // 보라 하트
+  }
+};
 
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
@@ -211,25 +227,13 @@ let distFlag=false, distClickLine, distMoveLine, distOverlay;
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
-    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665,126.9780), level: 8 }); // 줌 레벨 조정 (넓게)
+    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665,126.9780), level: 8 });
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
     boundsPatients = new kakao.maps.LatLngBounds();
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
-    
-    // [클러스터러 생성] v1.2.2 핵심
-    clusterer = new kakao.maps.MarkerClusterer({
-        map: map,
-        averageCenter: true,
-        minLevel: 4, // 이 레벨보다 줌인하면 클러스터 풀림
-        styles: [{
-            width: '50px', height: '50px',
-            background: 'rgba(34, 139, 230, .8)',
-            borderRadius: '25px', color: '#fff',
-            textAlign: 'center', fontWeight: 'bold', lineHeight: '50px'
-        }]
-    });
+    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 4, styles: [{ width: '50px', height: '50px', background: 'rgba(34, 139, 230, .8)', borderRadius: '25px', color: '#fff', textAlign: 'center', fontWeight: 'bold', lineHeight: '50px' }] });
 
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
@@ -276,36 +280,86 @@ function initKakao(){
       }
     });
 
-    kakao.maps.event.addListener(map, "rightclick", (e)=>{
-      if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); }
-    });
+    kakao.maps.event.addListener(map, "rightclick", (e)=>{ if(state.tool_distance && distFlag){ distFlag = false; if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; } toast("거리 측정 완료"); } });
 
-    toast("시스템 준비 완료 v1.2.2 (클러스터링 적용)");
+    toast("시스템 준비 완료 v1.2.3");
   });
 }
 initKakao();
 
+// ============================================
+//  [시설 검색 로직 v1.2.3 - 광역 그물망]
+// ============================================
+let seenIds = new Set(); // 중복 제거용
+
 $$(".target-btn").forEach(btn => {
   btn.onclick = function(){
-    const keyword = this.getAttribute("data-keyword");
-    $$(".target-btn").forEach(b=>b.classList.remove("active")); this.classList.add("active");
-    targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
-    toast(`'${keyword}' 검색 중...`);
-    places.keywordSearch(keyword, (data, status)=>{
-      if(status === kakao.maps.services.Status.OK){
-        data.forEach(place => {
-          const marker = new kakao.maps.Marker({ map: map, position: new kakao.maps.LatLng(place.y, place.x), title: place.place_name, image: new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png", new kakao.maps.Size(24, 35)) });
-          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;">${place.place_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>` });
-          kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          targetMarkers.push(marker);
-        });
-        toast(`${data.length}개 발견!`);
-      } else toast("결과가 없습니다.");
-    }, { useMapBounds: true });
+    const category = this.getAttribute("data-category");
+    const config = SEARCH_CONFIG[category];
+    
+    $$(".target-btn").forEach(b=>b.classList.remove("active"));
+    this.classList.add("active");
+    
+    // 초기화
+    targetMarkers.forEach(m => m.setMap(null));
+    targetMarkers = [];
+    seenIds.clear();
+    
+    toast(`${category} 시설을 검색합니다... (화면 내 최대 검색)`);
+    
+    let totalFound = 0;
+    
+    // 키워드별 반복 검색
+    config.keywords.forEach(keyword => {
+      searchAllPages(keyword, config.icon, (count) => {
+        totalFound += count;
+      });
+    });
   };
 });
-$("#btnClearTargets").onclick = () => { targetMarkers.forEach(m => m.setMap(null)); targetMarkers = []; $$(".target-btn").forEach(b=>b.classList.remove("active")); toast("검색 초기화"); };
 
+function searchAllPages(keyword, iconSvg, cb){
+  // 페이지네이션 검색 (1~3페이지 자동 순환)
+  places.keywordSearch(keyword, (data, status, pagination)=>{
+    if(status === kakao.maps.services.Status.OK){
+      data.forEach(place => {
+        if(seenIds.has(place.id)) return; // 이미 찾은 곳 패스
+        seenIds.add(place.id);
+        
+        const image = new kakao.maps.MarkerImage(
+          "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg),
+          new kakao.maps.Size(30, 30)
+        );
+        
+        const marker = new kakao.maps.Marker({
+          map: map, position: new kakao.maps.LatLng(place.y, place.x),
+          title: place.place_name, image: image, zIndex: 20
+        });
+        
+        const iw = new kakao.maps.InfoWindow({
+          content: `<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}<br><a href="${place.place_url}" target="_blank">상세보기</a></div>`
+        });
+        kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
+        targetMarkers.push(marker);
+      });
+      
+      cb(data.length);
+      
+      // 다음 페이지가 있으면 자동 실행 (최대 3페이지, 45개까지)
+      if(pagination.hasNextPage){
+        pagination.nextPage();
+      }
+    }
+  }, { useMapBounds: true });
+}
+
+$("#btnClearTargets").onclick = () => {
+  targetMarkers.forEach(m => m.setMap(null)); targetMarkers = [];
+  $$(".target-btn").forEach(b=>b.classList.remove("active"));
+  toast("검색 초기화");
+};
+
+// 파일 처리 및 나머지 로직 (v1.2.2 유지)
 const fileInput = $("#fileInput"); const uploadBox = $("#uploadBox");
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
@@ -403,13 +457,8 @@ function mergePatientData(rows, headers){
 }
 
 function processDataAndMap(uniquePatients){
-  // 기존 클러스터러 및 마커 초기화
-  clusterer.clear(); 
-  patientRecords = []; 
-  boundsPatients = new kakao.maps.LatLngBounds();
-  
+  clusterer.clear(); patientRecords = []; boundsPatients = new kakao.maps.LatLngBounds();
   let success = 0;
-  // 배치 처리 (한번에 너무 많이 하면 멈춤)
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
       let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
@@ -421,73 +470,46 @@ function processDataAndMap(uniquePatients){
           const color = visitColor(item.visits);
           const iconChar = typeIcon(item.latestType);
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" /><text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text></svg>`;
-          
-          // 마커 생성 (맵에 바로 붙이지 않음 setMap(null))
           const marker = new kakao.maps.Marker({ position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
           const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b> (${item.age>0?item.age+'세':''})<br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          
-          item.marker = marker; item.latlng = coords;
-          patientRecords.push(item);
-          boundsPatients.extend(coords);
-          clusterer.addMarker(marker); // 초기엔 모두 추가
-          success++;
+          item.marker = marker; item.latlng = coords; patientRecords.push(item); boundsPatients.extend(coords); clusterer.addMarker(marker); success++;
         }
-        if(idx === uniquePatients.length-1){ 
-          if(success>0) map.setBounds(boundsPatients); 
-          applyFilters(); // 필터 적용하여 다시 그림
-          toast(`완료: ${success}명 분석 (클러스터링 적용)`); 
-        }
+        if(idx === uniquePatients.length-1){ if(success>0) map.setBounds(boundsPatients); applyFilters(); toast(`완료: ${success}명 분석`); }
       });
-    }, idx * 10); // 딜레이 단축 (10ms)
+    }, idx * 10);
   });
 }
 
 function applyFilters(){
-  let unique=0, visits=0;
-  const dongStats = {}; 
-  const ageStats = {};
-  
-  // 클러스터 초기화
-  clusterer.clear();
-  const visibleMarkers = [];
-
+  let unique=0, visits=0; const dongStats = {}; const ageStats = {};
+  clusterer.clear(); const visibleMarkers = [];
   patientRecords.forEach(r => {
     let show = true;
     if(r.latestType==="신환" && !state.patient_new) show=false;
     if(r.latestType==="90일초" && !state.patient_90) show=false;
     if(r.latestType==="재진" && !state.patient_return) show=false;
     if(show && radiusCircle && radiusCircle.getMap()){
-      const center = radiusCircle.getCenter();
-      const radius = radiusCircle.getRadius();
+      const center = radiusCircle.getCenter(); const radius = radiusCircle.getRadius();
       const poly = new kakao.maps.Polyline({ path: [center, r.latlng] });
       if(poly.getLength() > radius) show = false;
     }
-
-    // 마커 표시 관리 -> 클러스터러에 위임
     if(show) visibleMarkers.push(r.marker);
-    
     if(show){
-      unique++; visits += r.visits;
-      const d = r.dong||"미상";
+      unique++; visits += r.visits; const d = r.dong||"미상";
       if(!dongStats[d]) dongStats[d] = { total:0, new:0, d90:0, ret:0 };
       dongStats[d].total++;
       if(r.latestType==="신환") dongStats[d].new++; else if(r.latestType==="90일초") dongStats[d].d90++; else dongStats[d].ret++;
       if(r.age > 0){ const ageGroup = Math.floor(r.age/10)*10; ageStats[ageGroup] = (ageStats[ageGroup]||0) + 1; }
     }
   });
-
-  // 필터링된 마커만 클러스터러에 추가
   clusterer.addMarkers(visibleMarkers);
-
   $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits;
   updateCharts(dongStats, ageStats, unique);
 }
 
 $$(".toggle").forEach(t => t.onclick = function(){
-  this.classList.toggle("on");
-  const key = this.getAttribute("data-toggle");
-  state[key] = this.classList.contains("on");
+  this.classList.toggle("on"); const key = this.getAttribute("data-toggle"); state[key] = this.classList.contains("on");
   if(key==="tool_radius_draw"){
     if(state.tool_radius_draw) { toast("지도 클릭: 중심점, 이동: 크기조절, 클릭: 완성"); $("#radiusInfo").style.display = "block"; if(state.tool_distance) { state.tool_distance=false; $(`[data-toggle="tool_distance"]`).classList.remove("on"); } }
     else { $("#radiusInfo").style.display = "none"; radiusFlag=false; if(radiusPolyline) radiusPolyline.setMap(null); if(radiusCircle) radiusCircle.setMap(null); if(radiusOverlay) radiusOverlay.setMap(null); applyFilters(); }
@@ -509,17 +531,14 @@ function updateCharts(dongStats, ageStats, totalCount){
   const sortedDong = Object.entries(dongStats).sort((a,b)=>b[1].total - a[1].total);
   const dongHtml = sortedDong.map(([d, s])=> `<tr><td>${d}</td><td style="color:#db4040;font-weight:bold;">${s.new}</td><td style="color:#888;">${s.d90}</td><td style="color:#228be6;">${s.ret}</td><td style="font-weight:bold;">${s.total}</td></tr>`).join("");
   $("#tblDongType").innerHTML = dongHtml;
-
   let totalNew=0, total90=0, totalRet=0;
   Object.values(dongStats).forEach(s => { totalNew+=s.new; total90+=s.d90; totalRet+=s.ret; });
   $("#kpiNewRate").innerText = totalCount>0 ? ((totalNew/totalCount)*100).toFixed(1)+"%" : "0%";
   $("#kpiRetRate").innerText = totalCount>0 ? (((totalRet+total90)/totalCount)*100).toFixed(1)+"%" : "0%";
-
   if(window.Chart){
     const ctxType = $("#chartType_modal");
     if(chartType) chartType.destroy();
     chartType = new Chart(ctxType, { type: 'doughnut', data: { labels: ['신환', '90일초진', '재진'], datasets: [{ data: [totalNew, total90, totalRet], backgroundColor: ['#db4040', '#e9ecef', '#228be6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
-
     const sortedAgeKeys = Object.keys(ageStats).sort((a,b)=>Number(a)-Number(b));
     const ageData = sortedAgeKeys.map(k=>ageStats[k]);
     const ageLabels = sortedAgeKeys.map(k=>k+"대");
