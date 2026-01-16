@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.1.3)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.1.5)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -14,8 +14,10 @@
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
     .app{height:100%;width:100%;display:flex}
-    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;position:relative;transition:transform 0.3s ease;}
-    .sidebar.collapsed{transform:translateX(-360px)}
+    
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);box-shadow:var(--shadow);z-index:20;display:flex;flex-direction:column;position:relative;transition:margin-left 0.3s ease;}
+    .sidebar.collapsed{margin-left:-360px;}
+
     .sidebarHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.9);}
     .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem;}
     .sidebarBody{flex:1;overflow-y:auto;padding:14px;}
@@ -70,7 +72,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.3</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.5</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -183,7 +185,6 @@ const state = {
   tool_roadview:false, radius_enabled:false
 };
 
-// 1. 초기화
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
@@ -191,14 +192,21 @@ function initKakao(){
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
     boundsPatients = new kakao.maps.LatLngBounds();
-    
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
     
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
-    $("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
-    $("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
+    
+    function toggleSidebar(open){
+      const sb = $("#sidebar");
+      const btn = $("#btnOpenSidebar");
+      if(open){ sb.classList.remove("collapsed"); btn.style.display="none"; }
+      else { sb.classList.add("collapsed"); btn.style.display="flex"; }
+      setTimeout(() => map.relayout(), 310);
+    }
+    $("#btnCollapse").onclick = () => toggleSidebar(false);
+    $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
     
     kakao.maps.event.addListener(map, "click", (e)=>{
       if(radiusPickMode){
@@ -217,15 +225,13 @@ function initKakao(){
         });
       }
     });
-    toast("시스템 준비 완료 v1.1.3");
+    toast("시스템 준비 완료 v1.1.5");
   });
 }
 initKakao();
 
-// 2. 파일 처리 (강력한 파서 적용)
 const fileInput = $("#fileInput");
 const uploadBox = $("#uploadBox");
-
 fileInput.addEventListener("change", (e)=>{ if(e.target.files.length) handleFile(e.target.files[0]); e.target.value=""; });
 uploadBox.addEventListener("dragover", (e)=> e.preventDefault());
 uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
@@ -233,11 +239,10 @@ uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer
 async function handleFile(file){
   toast("파일 분석 중...");
   try {
-    const workbook = await parseWorkbookFromFile(file); // 개선된 파서 호출
+    const workbook = await parseWorkbookFromFile(file);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
     
-    // 헤더 찾기
     let headerRow = [];
     let headerIdx = -1;
     for(let i=0; i<Math.min(rawData.length, 30); i++){
@@ -245,63 +250,43 @@ async function handleFile(file){
       const hasAddr = rowStr.includes("주소") || rowStr.includes("도로명");
       const hasName = rowStr.includes("이름") || rowStr.includes("수진자");
       const hasChart = rowStr.includes("차트") || rowStr.includes("등록번호") || rowStr.includes("ID");
-      
-      if(hasAddr && (hasName || hasChart)){
-        headerIdx = i; headerRow = rawData[i]; break;
-      }
+      if(hasAddr && (hasName || hasChart)){ headerIdx = i; headerRow = rawData[i]; break; }
     }
     
-    if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다. (인코딩 또는 형식 문제)");
-
+    if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다.");
     const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
     const patients = mergePatientData(bodyRows, headerRow);
     processDataAndMap(patients);
-
   } catch(e){
     console.error(e);
     toast("오류: " + e.message);
   }
 }
 
-// 3. 강력한 파일 파서 (의사랑 Binary/Text/HTML 자동 판별)
 async function parseWorkbookFromFile(file){
   return new Promise((resolve, reject)=>{
     const fr = new FileReader();
     fr.onload = (e)=>{
       const data = new Uint8Array(e.target.result);
-      
-      // 시그니처 체크
-      const isZip = (data[0]===0x50 && data[1]===0x4B); // .xlsx
-      const isOle = (data[0]===0xD0 && data[1]===0xCF && data[2]===0x11 && data[3]===0xE0); // .xls (Binary)
-      
-      if(isZip || isOle) {
-        // 진짜 엑셀 파일
-        resolve(XLSX.read(data, {type:'array'}));
-      } else {
-        // 가짜 엑셀 (Text/CSV) - 인코딩 경합 (UTF-8 vs EUC-KR)
-        // 차트, 주소, 수진자 등의 키워드가 더 많이 보이는 인코딩을 선택
-        const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규", "등록번호"];
-        
+      const isZip = (data[0]===0x50 && data[1]===0x4B); 
+      const isOle = (data[0]===0xD0 && data[1]===0xCF && data[2]===0x11 && data[3]===0xE0);
+      if(isZip || isOle) { resolve(XLSX.read(data, {type:'array'})); }
+      else {
+        const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규"];
         let textUTF8 = "", textEUC = "";
         try { textUTF8 = new TextDecoder("utf-8").decode(data); } catch(e){}
         try { textEUC = new TextDecoder("euc-kr").decode(data); } catch(e){}
-        
         const scoreUTF8 = keywords.filter(k => textUTF8.includes(k)).length;
         const scoreEUC = keywords.filter(k => textEUC.includes(k)).length;
-        
-        // 승자 결정
-        if(scoreEUC > scoreUTF8) {
-          resolve(XLSX.read(textEUC, {type:'string'}));
-        } else {
-          resolve(XLSX.read(textUTF8, {type:'string'}));
-        }
+        if(scoreEUC > scoreUTF8) resolve(XLSX.read(textEUC, {type:'string'}));
+        else resolve(XLSX.read(textUTF8, {type:'string'}));
       }
     };
     fr.readAsArrayBuffer(file);
   });
 }
 
-// 4. 데이터 병합
+// [핵심 수정: mergePatientData]
 function mergePatientData(rows, headers){
   const patientMap = new Map();
   const typeCol = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
@@ -329,6 +314,7 @@ function mergePatientData(rows, headers){
       else if(val.includes("90") || val==="90일초") is90=true;
       else isRet=true;
     } else {
+      // 비트 방식 등 헤더가 없으면 첫 등장시 신환
       const key = chartNo;
       if(!patientMap.has(key)) isNew=true; else isRet=true;
     }
@@ -337,13 +323,20 @@ function mergePatientData(rows, headers){
     if(patientMap.has(key)){
       const rec = patientMap.get(key);
       rec.visits++;
-      if(is90) rec.latestType="90일초";
-      else if(isNew) rec.latestType="신환";
-      else rec.latestType="재진";
       
-      if(isNew) rec.types.new=true;
-      if(is90) rec.types.d90=true;
-      if(isRet) rec.types.ret=true;
+      // [신환 강등 방지 로직]
+      // 기존에 이미 '신환'이었으면, 이번 줄이 재진이어도 '신환' 유지
+      if(rec.latestType === "신환") {
+        isNew = true; // 강제로 현재 상태도 신환으로 간주
+        isRet = false;
+      } else if(rec.latestType === "90일초") {
+         if(!isNew) is90 = true; // 90일초도 유지 노력 (단 신환이 오면 신환 승격)
+      }
+
+      if(isNew) { rec.latestType="신환"; rec.types.new=true; }
+      else if(is90) { rec.latestType="90일초"; rec.types.d90=true; }
+      else { rec.latestType="재진"; rec.types.ret=true; }
+
     } else {
       let lType = "재진";
       if(is90) lType="90일초"; else if(isNew) lType="신환";
@@ -359,7 +352,6 @@ function mergePatientData(rows, headers){
   return Array.from(patientMap.values());
 }
 
-// 5. 지도 표시
 function processDataAndMap(uniquePatients){
   patientRecords.forEach(r => r.marker && r.marker.setMap(null));
   patientRecords = [];
@@ -373,7 +365,6 @@ function processDataAndMap(uniquePatients){
       geocoder.addressSearch(cleanAddr, (res, status)=>{
         if(status===kakao.maps.services.Status.OK && res[0]){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
-          
           if(res[0].address?.region_3depth_name) item.dong = res[0].address.region_3depth_name;
           else if(res[0].road_address?.region_3depth_name) item.dong = res[0].road_address.region_3depth_name;
 
@@ -446,12 +437,10 @@ function applyFilters(){
   $("#statPatientsVisits").innerText = visits;
   $("#kpiUnique").innerText = unique + "명";
   $("#kpiVisits").innerText = visits + "회";
-
   updateDongTable(dongMap);
   updateCharts(dongMap);
 }
 
-// UI 헬퍼
 $$(".toggle").forEach(t => t.onclick = function(){
   this.classList.toggle("on");
   const key = this.getAttribute("data-toggle");
@@ -479,7 +468,6 @@ $("#btnCloseRoadview").onclick = () => { $("#roadviewPanel").style.display="none
 function renderRadius(){
   if(radiusCircle) radiusCircle.setMap(null);
   if(radiusCenterMarker) radiusCenterMarker.setMap(null);
-  
   if(state.radius_enabled && radiusCenterLatLng){
     radiusCircle = new kakao.maps.Circle({
       center: radiusCenterLatLng, radius: radiusMeters,
