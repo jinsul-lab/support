@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v0.1.4.7</title>
+  <title>jinsul-add v0.1.4.16</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false">
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer,drawing&autoload=false">
 // === SAFE GPS (waits for map init) ===
 (function(){
   function bind(){
@@ -101,7 +101,22 @@
     table.miniTable{width:100%;border-collapse:collapse;font-size:12px;}
     table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
-  </style>
+  
+/* ===== Cluster gradient 5-step (density) ===== */
+.cluster-lv0,.cluster-lv1,.cluster-lv2,.cluster-lv3,.cluster-lv4{
+  display:flex;align-items:center;justify-content:center;
+  border-radius:999px;
+  color:#fff;font-weight:800;
+  border:2px solid rgba(255,255,255,.6);
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+.cluster-lv0{background:linear-gradient(135deg,#4dabf7,#228be6);}
+.cluster-lv1{background:linear-gradient(135deg,#69db7c,#37b24d);}
+.cluster-lv2{background:linear-gradient(135deg,#ffe066,#f59f00);}
+.cluster-lv3{background:linear-gradient(135deg,#ffa94d,#f76707);}
+.cluster-lv4{background:linear-gradient(135deg,#ff6b6b,#e03131);}
+
+</style>
 
 <style>
 .version-badge{
@@ -111,14 +126,44 @@
 }
 </style>
 
+
+<script>
+
+// __fallbackInitKakao
+document.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(()=>{
+    try{
+      if(!window.map && window.kakao && kakao.maps && kakao.maps.load && typeof window.initKakao === 'function'){
+        kakao.maps.load(window.initKakao);
+      }
+    }catch(e){}
+  }, 300);
+});
+
+
+// window.__KAKAO_READY_GUARD__
+(function(){
+  function whenReady(cb){
+    let tries=0;
+    (function tick(){
+      tries++;
+      if(window.kakao && kakao.maps && kakao.maps.load) return cb();
+      if(tries<60) return setTimeout(tick,100);
+      console.warn('Kakao SDK not ready');
+    })();
+  }
+  window.__whenKakaoReady = whenReady;
+})();
+</script>
+
 </head>
 <body>
-<div class="version-badge">jinsul-add v0.1.4.7</div>
+<div class="version-badge">jinsul-add v0.1.4.16</div>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.4</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v0.1.4.8</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -153,7 +198,7 @@
         <div class="search-grid">
           <div class="search-btn" data-target="target_senior"><span class="search-icon">🏠</span> 경로당</div>
           <div class="search-btn" data-target="target_welfare"><span class="search-icon">💜</span> 노인재가</div>
-          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 정형외과+</div>
+          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 경쟁병원+</div>
           <div class="search-btn" id="btnResetTargets" style="background:#fff0f0; border-color:#ffc9c9; color:#fa5252;"><span class="search-icon">🗑️</span> 지우기</div>
         </div>
         <div class="btnRow">
@@ -260,6 +305,13 @@ function __syncLabels(){
       __overlayLabels.delete(ov);
     }
   }
+}
+
+
+function __pickFacilityImage(kind){
+  if(kind==='senior') return __facilityMarkerImages.senior;
+  if(kind==='welfare') return __facilityMarkerImages.welfare;
+  return __facilityMarkerImages.ortho; // 경쟁병원
 }
 
 function __initDrawingTool(){
@@ -436,14 +488,51 @@ $$(".search-btn").forEach(btn => {
 });
 
 // Map Init
+
+function clusterGradientCalculator(markers){
+  if(!markers || typeof markers.length !== "number") return 0;
+  let sumVisits = 0;
+  for(let i=0;i<markers.length;i++){
+    sumVisits += (markerVisitWeight.get(markers[i]) || 1);
+  }
+  const denom = totalVisitCountAll || 1;
+  const ratio = sumVisits / denom; // 전체 방문 대비 비중
+
+  // 5단계 상대 구간
+  if(ratio >= 0.15) return 4;
+  if(ratio >= 0.07) return 3;
+  if(ratio >= 0.03) return 2;
+  if(ratio >= 0.01) return 1;
+  return 0;
+}
+
+
 function initKakao(){
   if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
   kakao.maps.load(()=>{
+
+// === Facility marker images (no halo) ===
+var __facilityMarkerImages = {
+  senior: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%23868e96' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M9 7h6v2H9zM9 10h6v2H9z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)}),
+  welfare: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%232f9e44' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M8.5 8.5h7v7h-7z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)}),
+  ortho: new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 24 24'> <path fill='%23845ef7' d='M12 2c-3.3 0-6 2.7-6 6 0 4.6 6 14 6 14s6-9.4 6-14c0-3.3-2.7-6-6-6z'/> <path fill='white' fill-opacity='0.95' d='M12 6l4 4h-3v4h-2v-4H8z'/> </svg>", new kakao.maps.Size(34,34), {offset:new kakao.maps.Point(17,32)})
+};
+
+
     map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     geocoder = new kakao.maps.services.Geocoder();
     __initDrawingTool();
     places = new kakao.maps.services.Places();
-    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
+    clusterer = new kakao.maps.MarkerClusterer({
+      calculator: clusterGradientCalculator,
+      styles: [
+        {width:'44px', height:'44px', className:'cluster-lv0'},
+        {width:'46px', height:'46px', className:'cluster-lv1'},
+        {width:'50px', height:'50px', className:'cluster-lv2'},
+        {width:'54px', height:'54px', className:'cluster-lv3'},
+        {width:'60px', height:'60px', className:'cluster-lv4'}
+      ],
+ map: map, averageCenter: true, minLevel: 5 });
     roadview = new kakao.maps.Roadview($("#roadview"));
     roadviewClient = new kakao.maps.RoadviewClient();
 
@@ -483,7 +572,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.4.4");
+    toast("시스템 준비 완료 v0.1.4.8");
   });
 }
 initKakao();
@@ -675,115 +764,43 @@ function mergePatientData(rows){
 
 function processDataAndMap(uniquePatients){
   clusterer.clear();
-  patientRecords = [];
-
-  let success = 0;
-  let done = 0;
-
-  const delay = ms => new Promise(r => setTimeout(r, ms));
-
-  // 주소에서 시/구만 뽑기 (fallback용)
-  function extractSigungu(addr){
-    const m = addr.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[^\s]*\s+[^\s]+구/);
-    return m ? m[0] : null;
-  }
-
-  async function geocodeWithRetry(item, idx){
-    let addr = String(item.address)
-      .replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c) ? " "+c : "")
-      .trim();
-
-    // 1️⃣ 1차 시도
-    let res = await geocode(addr);
-    if(!res){
-      // 2️⃣ 리트라이
-      await delay(150);
-      res = await geocode(addr);
-    }
-
-    if(!res){
-      // 3️⃣ 시군구 fallback
-      const sg = extractSigungu(addr);
-      if(sg){
-        await delay(200);
-        res = await geocode(sg);
-      }
-    }
-
-    if(res){
-      const coords = new kakao.maps.LatLng(res.y, res.x);
-      const dong = res.address?.region_3depth_name || "";
-
-      const color =
-        item.visits>=5?'#db4040':
-        item.visits===4?'orange':
-        item.visits===3?'#CCCC00':
-        item.visits===2?'green':'#228be6';
-
-      const char =
-        item.latestType==='신환'?'♥':
-        item.latestType==='90일초'?'♡':'📍';
-
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30">
-        <circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/>
-        <text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text>
-      </svg>`;
-
-      const marker = new kakao.maps.Marker({
-        position: coords,
-        image: new kakao.maps.MarkerImage(
-          "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),
-          new kakao.maps.Size(30,30)
-        )
+  totalVisitCountAll = 0;
+  markerVisitWeight.clear(); patientRecords = []; 
+  let success=0;
+  uniquePatients.forEach((item, idx) => {
+    setTimeout(()=>{
+      let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
+      geocoder.addressSearch(cleanAddr, (res, status)=>{
+        if(status===kakao.maps.services.Status.OK){
+          const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
+          const dong = res[0].address?.region_3depth_name || "";
+          
+          const color = item.visits>=5?'#db4040': item.visits===4?'orange': item.visits===3?'#CCCC00': item.visits===2?'green':'#228be6';
+          const char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
+          
+          const marker = new kakao.maps.Marker({ position: coords });
+const iw = new kakao.maps.InfoWindow({ 
+            content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>`,
+            removable: true 
+          });
+          
+          kakao.maps.event.addListener(marker, 'click', ()=> {
+            closeAllInfoWindows(); 
+            iw.open(map, marker);
+            openedInfoWindows.push(iw);
+          });
+          
+          item.marker = marker; item.latlng = coords; item.dong = dong;
+          patientRecords.push(item);
+          clusterer.addMarker(marker);
+          success++;
+        }
+        if(idx === uniquePatients.length-1){ applyFilters(); toast(`${success}명 분석 완료`); }
       });
-
-      const iw = new kakao.maps.InfoWindow({
-        content: `<div style="padding:5px;font-size:12px;">
-          <b>${item.title}</b> (${item.age}세)<br>
-          ${item.latestType} / ${item.visits}회
-        </div>`,
-        removable:true
-      });
-
-      kakao.maps.event.addListener(marker,'click',()=>{
-        closeAllInfoWindows();
-        iw.open(map,marker);
-        openedInfoWindows.push(iw);
-      });
-
-      item.marker = marker;
-      item.latlng = coords;
-      item.dong = dong;
-
-      patientRecords.push(item);
-      clusterer.addMarker(marker);
-      success++;
-    }
-
-    done++;
-    if(done === uniquePatients.length){
-      applyFilters();
-      toast(`${success}명 분석 완료 (보정 포함)`);
-    }
-  }
-
-  function geocode(addr){
-    return new Promise(resolve=>{
-      geocoder.addressSearch(addr,(r,s)=>{
-        if(s===kakao.maps.services.Status.OK && r[0]) resolve(r[0]);
-        else resolve(null);
-      });
-    });
-  }
-
-  (async ()=>{
-    for(let i=0;i<uniquePatients.length;i++){
-      await geocodeWithRetry(uniquePatients[i], i);
-      await delay(60); // 전체 속도 조절 (중요)
-    }
-  })();
+    }, idx * 10);
+  });
 }
-
 
 function applyFilters(){
   clusterer.clear();
@@ -862,16 +879,8 @@ function clearTargetMarkers(kind){ targetMarkers[kind].forEach(m=>m.setMap(null)
 
 function addPlaceMarker(kind, place){
   const pos=new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
-  const marker=new kakao.maps.Marker({
-    position:pos, map, 
-    image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
-    zIndex: 20
-  });
-  const iw=new kakao.maps.InfoWindow({ 
-    content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>`,
-    removable: true
-  });
-  kakao.maps.event.addListener(marker,"click",()=>{
+  const marker = new kakao.maps.Marker({ position: pos, image: __pickFacilityImage(kind) });
+kakao.maps.event.addListener(marker,"click",()=>{
     closeAllInfoWindows(); 
     iw.open(map,marker);
     openedInfoWindows.push(iw);
@@ -913,7 +922,7 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
+    for(const kw of ["경쟁병원", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
       const cleanData = data.filter(p => 
         (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
