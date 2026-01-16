@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v0.1.4.6</title>
+  <title>jinsul-add v0.1.4.7</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false">
@@ -113,7 +113,7 @@
 
 </head>
 <body>
-<div class="version-badge">jinsul-add v0.1.4.6</div>
+<div class="version-badge">jinsul-add v0.1.4.7</div>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
@@ -226,6 +226,116 @@
 <div id="toast">알림</div>
 
 <script>
+
+// === Drawing Toolbox (Kakao native) : multi-circle + multi-distance, removable X, labels, multi-tools ===
+let __drawManager, __drawToolbox;
+let __circlePalette = ['#20c997','#339af0','#845ef7','#f59f00','#e03131','#12b886','#228be6'];
+let __circleIdx = 0;
+const __overlayLabels = new Map(); // overlay -> label overlay
+
+function __formatMeters(m){
+  if(!isFinite(m)) return '';
+  if(m >= 1000) return (m/1000).toFixed(2) + ' km';
+  return Math.round(m) + ' m';
+}
+
+function __makeLabel(latlng, text){
+  const content = '<div style="padding:4px 8px;background:rgba(17,17,17,.85);color:#fff;border-radius:8px;font-size:12px;white-space:nowrap;">'+
+                  text +'</div>';
+  return new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1.2, zIndex: 9999 });
+}
+
+function __syncLabels(){
+  if(!__drawManager) return;
+  const ovs = __drawManager.getOverlays ? __drawManager.getOverlays() : null;
+  if(!ovs) return;
+  const live = new Set();
+  Object.keys(ovs).forEach(k=>{
+    (ovs[k]||[]).forEach(o=>live.add(o));
+  });
+  // remove labels for deleted overlays
+  for(const [ov, lab] of __overlayLabels.entries()){
+    if(!live.has(ov)){
+      try{ lab.setMap(null); }catch(e){}
+      __overlayLabels.delete(ov);
+    }
+  }
+}
+
+function __initDrawingTool(){
+  __drawManager = new kakao.maps.drawing.DrawingManager({
+    map: map,
+    drawingMode: [
+      kakao.maps.drawing.OverlayType.CIRCLE,
+      kakao.maps.drawing.OverlayType.POLYLINE
+    ],
+    circleOptions: {
+      draggable: true,
+      removable: true,
+      strokeWeight: 2,
+      fillOpacity: 0.12
+    },
+    polylineOptions: {
+      draggable: true,
+      removable: true,
+      strokeWeight: 3
+    }
+  });
+
+  // Kakao native toolbox UI
+  __drawToolbox = new kakao.maps.drawing.Toolbox({ drawingManager: __drawManager });
+  map.addControl(__drawToolbox.getElement(), kakao.maps.ControlPosition.TOPRIGHT);
+
+  // When a circle/polyline is drawn, recolor circles and add labels
+  kakao.maps.event.addListener(__drawManager, 'drawend', function(e){
+    const ov = e.overlay;
+    const type = e.type;
+
+    if(type === kakao.maps.drawing.OverlayType.CIRCLE){
+      const color = __circlePalette[__circleIdx % __circlePalette.length];
+      __circleIdx++;
+      // set circle color
+      try{
+        if(ov.setOptions){
+          ov.setOptions({ strokeColor: color, fillColor: color });
+        }else{
+          if(ov.setStrokeColor) ov.setStrokeColor(color);
+          if(ov.setFillColor) ov.setFillColor(color);
+        }
+      }catch(err){}
+      // radius label
+      try{
+        const center = ov.getPosition ? ov.getPosition() : ov.getCenter();
+        const r = ov.getRadius ? ov.getRadius() : null;
+        if(center && r!=null){
+          const lab = __makeLabel(center, '반경 ' + __formatMeters(r));
+          lab.setMap(map);
+          __overlayLabels.set(ov, lab);
+        }
+      }catch(err){}
+    }
+
+    if(type === kakao.maps.drawing.OverlayType.POLYLINE){
+      // length label at last point
+      try{
+        const path = ov.getPath && ov.getPath();
+        const last = path && path.length ? path[path.length-1] : null;
+        const len = ov.getLength ? ov.getLength() : null;
+        if(last && len!=null){
+          const lab = __makeLabel(last, '거리 ' + __formatMeters(len));
+          lab.setMap(map);
+          __overlayLabels.set(ov, lab);
+        }
+      }catch(err){}
+    }
+    __syncLabels();
+  });
+
+  // periodic cleanup for X removals
+  setInterval(__syncLabels, 800);
+}
+
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -331,6 +441,7 @@ function initKakao(){
   kakao.maps.load(()=>{
     map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     geocoder = new kakao.maps.services.Geocoder();
+    __initDrawingTool();
     places = new kakao.maps.services.Places();
     clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
     roadview = new kakao.maps.Roadview($("#roadview"));
