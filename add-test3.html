@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.0.6)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.1.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -66,13 +66,13 @@
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
     .iwBox{padding:5px;font-size:13px;}
   </style>
-</head>
+  </head>
 <body>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.0.6</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.2</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -173,7 +173,6 @@
 </div>
 
 <div id="toast">알림</div>
-
 <script>
 // 전역 변수
 const $ = (s) => document.querySelector(s);
@@ -225,12 +224,12 @@ function initKakao(){
       }
     });
 
-    toast("시스템 준비 완료 v1.0.6");
+    toast("시스템 준비 완료 v1.1.2");
   });
 }
 initKakao();
 
-// 2. 파일 처리 (스마트 헤더 탐지 Fix)
+// 2. 파일 처리 (스마트 헤더 탐지 + 인코딩 자동 보정)
 const fileInput = $("#fileInput");
 const uploadBox = $("#uploadBox");
 
@@ -241,11 +240,11 @@ uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer
 async function handleFile(file){
   toast("파일 분석 중...");
   try {
-    const workbook = await parseWorkbookFromFile(file); // v1.0.6 스마트 파싱
+    const workbook = await parseWorkbookFromFile(file);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
     
-    // 헤더 찾기 (의사랑 호환성 강화: 주소+차트번호 조합 허용)
+    // 헤더 찾기 (의사랑 호환성 강화)
     let headerRow = [];
     let headerIdx = -1;
     for(let i=0; i<Math.min(rawData.length, 30); i++){
@@ -272,7 +271,7 @@ async function handleFile(file){
   }
 }
 
-// 3. 데이터 병합
+// 3. 데이터 병합 (지능형 EMR 구분)
 function mergePatientData(rows, headers){
   const patientMap = new Map();
   
@@ -331,7 +330,7 @@ function mergePatientData(rows, headers){
   return Array.from(patientMap.values());
 }
 
-// 4. 지도 표시
+// 4. 지도 표시 (마커 로직)
 function processDataAndMap(uniquePatients){
   patientRecords.forEach(r => r.marker && r.marker.setMap(null));
   patientRecords = [];
@@ -509,7 +508,7 @@ function toast(msg){
   setTimeout(()=>t.classList.remove("show"), 2500);
 }
 
-// 6. 비트/의사랑 파일 스마트 파싱 (v1.0.6)
+// 6. 비트/의사랑 파일 스마트 파싱 (인코딩 자동 보정)
 async function parseWorkbookFromFile(file){
   return new Promise((resolve, reject)=>{
     const fr = new FileReader();
@@ -521,24 +520,18 @@ async function parseWorkbookFromFile(file){
         resolve(XLSX.read(data, {type:'array'}));
       } else {
         // [스마트 인코딩 감지]
-        // 1. UTF-8로 먼저 시도
         const utf8Decoder = new TextDecoder("utf-8", {fatal: false});
         const utf8Text = utf8Decoder.decode(data);
-        
-        // 2. 한글 키워드가 정상적으로 보이는지 확인
         const keywords = ["주소", "차트", "이름", "수진자", "신환", "신규", "등록번호"];
         const matchCount = keywords.filter(k => utf8Text.includes(k)).length;
 
         if(matchCount >= 1) {
-          // UTF-8 정상
           resolve(XLSX.read(utf8Text, {type:'string'}));
         } else {
-          // 깨짐 감지 -> EUC-KR로 강제 변환 (의사랑/비트 호환)
           try {
             const str = Encoding.convert(data, {to:'UNICODE', from:'EUC-KR', type:'string'});
             resolve(XLSX.read(str, {type:'string'}));
           } catch(err) { 
-            // 변환 실패 시 그냥 UTF-8로 던짐
             resolve(XLSX.read(utf8Text, {type:'string'})); 
           }
         }
