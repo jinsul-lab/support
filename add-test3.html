@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.0.5)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.0.6)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
@@ -61,12 +61,9 @@
     .tabBtn{padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:white;cursor:pointer;}
     .tabBtn.active{background:#333;color:white;border-color:#333;}
     
-    /* 테이블 */
     table.miniTable{width:100%;border-collapse:collapse;font-size:12px;}
     table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
-    
-    /* 인포윈도우 */
     .iwBox{padding:5px;font-size:13px;}
   </style>
 </head>
@@ -75,7 +72,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.0.5</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.0.6</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -185,7 +182,6 @@ let map, geocoder, places, boundsPatients, roadview, roadviewClient;
 let patientRecords = [];
 let radiusCircle=null, radiusCenterMarker=null, radiusCenterLatLng=null, radiusMeters=1000, radiusPickMode=false;
 
-// 상태값
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
   tool_roadview:false, radius_enabled:false
@@ -229,12 +225,12 @@ function initKakao(){
       }
     });
 
-    toast("시스템 준비 완료 v1.0.5");
+    toast("시스템 준비 완료 v1.0.6");
   });
 }
 initKakao();
 
-// 2. 파일 처리 (비트 EMR 호환 Fix)
+// 2. 파일 처리 (스마트 헤더 탐지 Fix)
 const fileInput = $("#fileInput");
 const uploadBox = $("#uploadBox");
 
@@ -245,24 +241,30 @@ uploadBox.addEventListener("drop", (e)=> { e.preventDefault(); if(e.dataTransfer
 async function handleFile(file){
   toast("파일 분석 중...");
   try {
-    const workbook = await parseWorkbookFromFile(file);
+    const workbook = await parseWorkbookFromFile(file); // v1.0.6 스마트 파싱
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
     
-    // 헤더 찾기
+    // 헤더 찾기 (의사랑 호환성 강화: 주소+차트번호 조합 허용)
     let headerRow = [];
     let headerIdx = -1;
     for(let i=0; i<Math.min(rawData.length, 30); i++){
       const rowStr = rawData[i].join(" ");
-      if((rowStr.includes("주소")||rowStr.includes("도로명")) && (rowStr.includes("이름")||rowStr.includes("수진자"))){
+      const hasAddr = rowStr.includes("주소") || rowStr.includes("도로명");
+      const hasName = rowStr.includes("이름") || rowStr.includes("수진자");
+      const hasChart = rowStr.includes("차트") || rowStr.includes("등록번호");
+      
+      // 이름이 없더라도 주소와 차트번호가 있으면 헤더로 인정
+      if(hasAddr && (hasName || hasChart)){
         headerIdx = i; headerRow = rawData[i]; break;
       }
     }
-    if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다.");
+    
+    if(headerIdx<0) throw new Error("유효한 데이터 헤더(주소, 차트번호 등)를 찾을 수 없습니다. 인코딩 상태를 확인해주세요.");
 
     const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
-    const patients = mergePatientData(bodyRows, headerRow); // 개선된 로직 호출
-    processDataAndMap(patients); // 개선된 마커 호출
+    const patients = mergePatientData(bodyRows, headerRow);
+    processDataAndMap(patients);
 
   } catch(e){
     console.error(e);
@@ -270,16 +272,14 @@ async function handleFile(file){
   }
 }
 
-// 3. 데이터 병합 로직 (지능형 신환 분류 Fix)
+// 3. 데이터 병합
 function mergePatientData(rows, headers){
   const patientMap = new Map();
   
-  // EMR 타입 감지 (헤더 + 데이터 내용 확인)
   const typeCol = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
   let useTypeCol = false;
   
   if(typeCol){
-    // 데이터 중에 실제로 '신규/1/Y' 같은 값이 있는지 확인
     const hasValue = rows.some(r => {
       const v = String(r[typeCol]??"").trim();
       return ["1","Y","신규","신환","초진"].some(k => v.includes(k));
@@ -294,7 +294,6 @@ function mergePatientData(rows, headers){
     
     if(!chartNo || !address) return;
 
-    // 분류 판단
     let isNew=false, is90=false, isRet=false;
     if(useTypeCol){
       const val = String(item[typeCol]??"").trim();
@@ -302,7 +301,6 @@ function mergePatientData(rows, headers){
       else if(val.includes("90") || val==="90일초") is90=true;
       else isRet=true;
     } else {
-      // 비트 방식: 첫 등장이면 신환으로 가정
       const key = chartNo;
       if(!patientMap.has(key)) isNew=true; else isRet=true;
     }
@@ -311,7 +309,6 @@ function mergePatientData(rows, headers){
     if(patientMap.has(key)){
       const rec = patientMap.get(key);
       rec.visits++;
-      // 최신 상태 갱신
       if(is90) rec.latestType="90일초";
       else if(isNew) rec.latestType="신환";
       else rec.latestType="재진";
@@ -334,9 +331,8 @@ function mergePatientData(rows, headers){
   return Array.from(patientMap.values());
 }
 
-// 4. 지도 표시 (마커 아이콘 Fix)
+// 4. 지도 표시
 function processDataAndMap(uniquePatients){
-  // 초기화
   patientRecords.forEach(r => r.marker && r.marker.setMap(null));
   patientRecords = [];
   boundsPatients = new kakao.maps.LatLngBounds();
@@ -344,18 +340,15 @@ function processDataAndMap(uniquePatients){
   let success = 0;
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
-      // 주소 정제 (괄호 속 동 정보 살리기)
       let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
       
       geocoder.addressSearch(cleanAddr, (res, status)=>{
         if(status===kakao.maps.services.Status.OK && res[0]){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
           
-          // 동 정보 추출
           if(res[0].address?.region_3depth_name) item.dong = res[0].address.region_3depth_name;
           else if(res[0].road_address?.region_3depth_name) item.dong = res[0].road_address.region_3depth_name;
 
-          // 마커 생성 (SVG 아이콘 적용)
           const color = visitColor(item.visits);
           const iconChar = typeIcon(item.latestType);
           const svg = `
@@ -374,7 +367,6 @@ function processDataAndMap(uniquePatients){
             zIndex: item.latestType==="신환" ? 99 : 1
           });
 
-          // 인포윈도우
           const iwContent = `<div class="iwBox"><b>${item.title}</b><br>${item.address}<br>
              <span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`;
           const iw = new kakao.maps.InfoWindow({ content: iwContent, removable:true });
@@ -393,11 +385,11 @@ function processDataAndMap(uniquePatients){
           toast(`완료: ${success}명 지도 표시`);
         }
       });
-    }, idx * 30); // 딜레이
+    }, idx * 30);
   });
 }
 
-// 5. 필터 및 통계 (UI 연결)
+// 5. 필터 및 통계
 function applyFilters(){
   let unique=0, visits=0;
   const dongMap = {};
@@ -408,7 +400,6 @@ function applyFilters(){
     if(r.latestType==="90일초" && !state.patient_90) show=false;
     if(r.latestType==="재진" && !state.patient_return) show=false;
     
-    // 반경 필터
     if(show && state.radius_enabled && radiusCenterLatLng){
       const poly = new kakao.maps.Polyline({ path: [radiusCenterLatLng, r.latlng] });
       if(poly.getLength() > radiusMeters) show=false;
@@ -424,29 +415,25 @@ function applyFilters(){
     }
   });
 
-  // 사이드바 통계 갱신
   $("#statPatientsUnique").innerText = unique;
   $("#statPatientsVisits").innerText = visits;
   $("#kpiUnique").innerText = unique + "명";
   $("#kpiVisits").innerText = visits + "회";
 
-  // 동별 테이블 갱신 (모달용)
   updateDongTable(dongMap);
   updateCharts(dongMap);
 }
 
-// UI 헬퍼들
+// UI 헬퍼
 $$(".toggle").forEach(t => t.onclick = function(){
   this.classList.toggle("on");
   const key = this.getAttribute("data-toggle");
   state[key] = this.classList.contains("on");
-  
   if(key==="radius_enabled") renderRadius();
   if(key==="tool_roadview") {
     if(!state.tool_roadview) $("#roadviewPanel").style.display="none";
     else toast("지도에서 위치를 클릭하세요.");
   }
-  
   applyFilters();
 });
 
@@ -462,7 +449,6 @@ $("#btnClearPatients").onclick = () => { patientRecords.forEach(r=>r.marker?.set
 $("#btnFitPatients").onclick = () => { if(boundsPatients) map.setBounds(boundsPatients); };
 $("#btnCloseRoadview").onclick = () => { $("#roadviewPanel").style.display="none"; };
 
-// 반경 그리기
 function renderRadius(){
   if(radiusCircle) radiusCircle.setMap(null);
   if(radiusCenterMarker) radiusCenterMarker.setMap(null);
@@ -477,14 +463,9 @@ function renderRadius(){
   }
 }
 
-// 통계 모달 관련
-$("#btnOpenStats").onclick = () => {
-  $("#statsModal").style.display = "flex";
-  applyFilters(); // 차트 갱신 트리거
-};
+$("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; applyFilters(); };
 $("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
 
-// 탭 전환
 $$(".tabBtn").forEach(btn => {
   btn.onclick = function(){
     $$(".tabBtn").forEach(b=>b.classList.remove("active"));
@@ -496,32 +477,23 @@ $$(".tabBtn").forEach(btn => {
 
 function updateDongTable(mapData){
   const sorted = Object.entries(mapData).sort((a,b)=>b[1]-a[1]);
-  const html = sorted.map(([d,c])=> 
-    `<tr><td>${d}</td><td>-</td><td>-</td><td>-</td><td><b>${c}</b></td></tr>`
-  ).join("");
+  const html = sorted.map(([d,c])=> `<tr><td>${d}</td><td>-</td><td>-</td><td>-</td><td><b>${c}</b></td></tr>`).join("");
   $("#tblDongType").innerHTML = html;
 }
 
-// 차트 (Chart.js)
-let chartDong, chartAge;
+let chartDong;
 function updateCharts(dongMap){
   if(!window.Chart) return;
-  
-  // 동별 차트
   const sorted = Object.entries(dongMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const ctxD = $("#chartDong_modal");
   if(chartDong) chartDong.destroy();
   chartDong = new Chart(ctxD, {
     type: 'bar',
-    data: {
-      labels: sorted.map(x=>x[0]),
-      datasets: [{ label:'환자수', data: sorted.map(x=>x[1]), backgroundColor: '#228be6' }]
-    },
+    data: { labels: sorted.map(x=>x[0]), datasets: [{ label:'환자수', data: sorted.map(x=>x[1]), backgroundColor: '#228be6' }] },
     options: { maintainAspectRatio: false }
   });
 }
 
-// 유틸 함수
 function findVal(obj, keys){
   const kFound = Object.keys(obj).find(k => keys.some(wk => k.replace(/\s/g,'').includes(wk)));
   return kFound ? obj[kFound] : null;
@@ -537,19 +509,39 @@ function toast(msg){
   setTimeout(()=>t.classList.remove("show"), 2500);
 }
 
-// 비트 파일 파싱 (Hex 체크)
+// 6. 비트/의사랑 파일 스마트 파싱 (v1.0.6)
 async function parseWorkbookFromFile(file){
   return new Promise((resolve, reject)=>{
     const fr = new FileReader();
     fr.onload = (e)=>{
       const data = new Uint8Array(e.target.result);
       const isXlsx = (data[0]===0x50 && data[1]===0x4B);
-      if(isXlsx) resolve(XLSX.read(data, {type:'array'}));
-      else {
-        try {
-          const str = Encoding.convert(data, {to:'UNICODE', from:'EUC-KR', type:'string'});
-          resolve(XLSX.read(str, {type:'string'}));
-        } catch(err) { reject(err); }
+      
+      if(isXlsx) {
+        resolve(XLSX.read(data, {type:'array'}));
+      } else {
+        // [스마트 인코딩 감지]
+        // 1. UTF-8로 먼저 시도
+        const utf8Decoder = new TextDecoder("utf-8", {fatal: false});
+        const utf8Text = utf8Decoder.decode(data);
+        
+        // 2. 한글 키워드가 정상적으로 보이는지 확인
+        const keywords = ["주소", "차트", "이름", "수진자", "신환", "신규", "등록번호"];
+        const matchCount = keywords.filter(k => utf8Text.includes(k)).length;
+
+        if(matchCount >= 1) {
+          // UTF-8 정상
+          resolve(XLSX.read(utf8Text, {type:'string'}));
+        } else {
+          // 깨짐 감지 -> EUC-KR로 강제 변환 (의사랑/비트 호환)
+          try {
+            const str = Encoding.convert(data, {to:'UNICODE', from:'EUC-KR', type:'string'});
+            resolve(XLSX.read(str, {type:'string'}));
+          } catch(err) { 
+            // 변환 실패 시 그냥 UTF-8로 던짐
+            resolve(XLSX.read(utf8Text, {type:'string'})); 
+          }
+        }
       }
     };
     fr.readAsArrayBuffer(file);
