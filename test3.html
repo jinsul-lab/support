@@ -102,6 +102,27 @@ function attachHospitalTooltip(marker, name){
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 function showClusterSummary(cluster){
@@ -178,6 +199,27 @@ function attachHospitalTooltip(marker, name){
   });
   kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
 }
 
 </script>
@@ -258,6 +300,27 @@ function attachHospitalTooltip(marker, name){
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
 function showClusterSummary(cluster){
@@ -336,6 +399,27 @@ function attachHospitalTooltip(marker, name){
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
 }
 
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
 function showClusterSummary(cluster){
@@ -412,6 +496,27 @@ function attachHospitalTooltip(marker, name){
   });
   kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
 }
 
 </script>
@@ -1314,7 +1419,7 @@ function onDistClick(latlng){
 function onDistMove(latlng){
   if(distFlag && distClickLine){
     const dist = Math.round(distClickLine.getLength());
-    if(distOverlay){ distOverlay.setContent(`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist/67))}</b>분</div>`);} else { distOverlay=new kakao.maps.CustomOverlay({map:map,position:latlng,content:`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist/67))}</b>분</div>`}); }
+    if(distOverlay){ distOverlay.setContent(`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist / getTravelSpeed()))}</b>분</div>`);} else { distOverlay=new kakao.maps.CustomOverlay({map:map,position:latlng,content:`<div class='dotOverlay'>거리 <span class='number'>${dist}</span>m<br/>도보 약 <b>${Math.max(1, Math.round(dist / getTravelSpeed()))}</b>분</div>`}); }
   }
 }
 function onDistEnd(){ distFlag=false; toast("거리 측정 종료"); }
@@ -1450,6 +1555,27 @@ function attachHospitalTooltip(marker, name){
   });
   kakao.maps.event.addListener(marker,'mouseover',()=>overlay.setMap(map));
   kakao.maps.event.addListener(marker,'mouseout',()=>overlay.setMap(null));
+}
+
+
+function getTravelSpeed(){
+  const mode = document.querySelector('input[name="travelMode"]:checked')?.value || 'walk';
+  return mode === 'car' ? 300 : 67; // m per minute (car approx city)
+}
+
+
+function attachCircleTimeOverlay(circle){
+  const r = circle.getRadius();
+  const mins = Math.max(1, Math.round(r / getTravelSpeed()));
+  const center = circle.getPosition();
+  const overlay = new kakao.maps.CustomOverlay({
+    content: `<div style="background:rgba(255,255,255,0.9);padding:4px 6px;border-radius:4px;font-size:12px;">
+      반경 ${Math.round(r)}m<br/>약 ${mins}분
+    </div>`,
+    position: center
+  });
+  overlay.setMap(map);
+  circle.__timeOverlay = overlay;
 }
 
 </script>
