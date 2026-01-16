@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.3.6)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.3.7)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
-    /* UI 스타일 유지 */
+    /* UI 스타일: add-kakao.html 100% 이식 */
     :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040; }
     *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
@@ -88,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.6</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.7</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -140,7 +140,7 @@
         <div class="row"><span>🔵 반경 그리기</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
         <div class="row"><span>📏 거리 측정</span> <div class="toggle" data-toggle="tool_distance"></div></div>
         <div class="row"><span>📷 로드뷰</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
-        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 그림 지우기</button>
+        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 및 지도 그림 싹 지우기 (통합)</button>
       </div>
     </div>
   </aside>
@@ -217,11 +217,10 @@ function toast(msg, ms=2000){ const t=$("#toast"); t.innerText=msg; t.classList.
 $("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
 $("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
 
-// [핵심] 토글 핸들러 수정 (도구 독점 모드)
+// [핵심] 토글 핸들러 수정 (도구 독점 모드 + 반경 끄면 즉시 삭제)
 $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
   const name = t.getAttribute("data-toggle");
   
-  // 1. 환자 필터는 독립적
   if(name.startsWith("patient_")){
     state[name] = !state[name];
     t.classList.toggle("on", state[name]);
@@ -229,31 +228,29 @@ $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
     return;
   }
 
-  // 2. 도구(Tool)는 배타적 (하나만 켜짐)
   if(name === "radius_enabled" || name.startsWith("tool_")){
-    // 이미 켜진거면 끄기
     if(state[name]) {
+      // 끄기 (OFF)
       state[name] = false;
       t.classList.remove("on");
+      // 반경 끄면 즉시 삭제 (v1.3.7)
+      if(name === "radius_enabled") clearRadiusObjects();
+      resetTools(); 
       toast("도구 해제");
-      resetTools(); // 도구 관련 UI 초기화
     } else {
-      // 켜는 경우: 다른 도구 다 끄기
-      resetAllToolsState();
+      // 켜기 (ON)
+      resetAllToolsState(); // 다른거 다 끔
       state[name] = true;
       t.classList.add("on");
-      
       if(name==="radius_enabled") toast("지도 클릭: 중심점 -> 이동 -> 클릭: 확정");
       if(name==="tool_distance") toast("클릭: 시작/경유 -> 우클릭: 종료");
       if(name==="tool_roadview") toast("지도 위를 클릭하여 로드뷰 확인");
     }
-    // 반경 필터 적용 여부 갱신
     applyFilters();
   }
 }));
 
 function resetAllToolsState(){
-  // 모든 도구 상태 false, UI 끔
   ["radius_enabled", "tool_distance", "tool_roadview"].forEach(k => {
     state[k] = false;
     const btn = $(`[data-toggle="${k}"]`);
@@ -263,7 +260,6 @@ function resetAllToolsState(){
 }
 
 function resetTools(){
-  // 그리기 관련 변수 초기화 (지도 객체는 유지하거나 삭제 선택 - 여기선 유지하고 새로 그릴때 삭제)
   radiusFlag = false;
   distFlag = false;
   $("#roadviewPanel").style.display = "none";
@@ -293,38 +289,28 @@ function initKakao(){
     $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
 
-    // Click Event
     kakao.maps.event.addListener(map, "click", (e)=>{
       if(state.radius_enabled){
         if(!radiusFlag){
-          // [핵심] 새로 그리기 시작하면 기존 것 싹 지움
           clearRadiusObjects();
-          
-          radiusFlag = true;
-          radiusCenter = e.latLng;
+          radiusFlag = true; radiusCenter = e.latLng;
           radiusCircle = new kakao.maps.Circle({ map:map, center:radiusCenter, radius:0, strokeWeight:1, strokeColor:'#228be6', fillOpacity:0.2 });
           radiusPolyline = new kakao.maps.Polyline({ map:map, path:[radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeStyle:'dash' });
         } else {
-          // 확정
-          radiusFlag = false;
-          if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
-          applyFilters(); // 원 안에 환자 필터링
-          toast("반경 설정 완료");
+          radiusFlag = false; if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
+          applyFilters(); toast("반경 설정 완료");
         }
       }
-      
       if(state.tool_distance) onDistClick(e.latLng);
       if(state.tool_roadview) openRoadview(e.latLng);
     });
 
-    // Move Event
     kakao.maps.event.addListener(map, "mousemove", (e)=>{
       if(state.radius_enabled && radiusFlag && radiusCenter){
         const path = [radiusCenter, e.latLng];
         if(radiusPolyline) radiusPolyline.setPath(path);
         const dist = Math.round(new kakao.maps.Polyline({path:path}).getLength());
         radiusCircle.setRadius(dist);
-        
         const content = `<div class="dotOverlay">반경 <span class="number">${dist}</span>m</div>`;
         if(radiusOverlay) { radiusOverlay.setPosition(e.latLng); radiusOverlay.setContent(content); }
         else { radiusOverlay = new kakao.maps.CustomOverlay({ map:map, position:e.latLng, content:content, zIndex:1 }); }
@@ -333,7 +319,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.3.6");
+    toast("시스템 준비 완료 v1.3.7");
   });
 }
 initKakao();
@@ -344,19 +330,32 @@ function clearRadiusObjects(){
   if(radiusOverlay) { radiusOverlay.setMap(null); radiusOverlay=null; }
 }
 
-// [도구 초기화 버튼]
+// [통합 초기화 버튼] v1.3.7
 $("#btnClearTools").onclick = () => {
   clearRadiusObjects();
   radiusFlag = false;
+  state.radius_enabled = false; 
+  $(`[data-toggle="radius_enabled"]`).classList.remove("on"); // 토글 UI 끄기
   
   if(distClickLine) { distClickLine.setMap(null); distClickLine=null; }
   if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
   if(distOverlay) { distOverlay.setMap(null); distOverlay=null; }
   distFlag = false;
+  state.tool_distance = false;
+  $(`[data-toggle="tool_distance"]`).classList.remove("on");
 
+  state.tool_roadview = false;
+  $(`[data-toggle="tool_roadview"]`).classList.remove("on");
   $("#roadviewPanel").style.display = "none";
+
+  // 타겟 마커도 초기화 (요청사항 반영)
+  clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
+  $$(".search-btn").forEach(b => b.classList.remove("active"));
+  state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
+  $("#statTargetsTotal").innerText = "0";
+
   applyFilters();
-  toast("모든 도구 그림 삭제됨");
+  toast("모든 도구 및 검색 결과 초기화 완료");
 };
 
 // =========================================================================
@@ -522,7 +521,7 @@ function applyFilters(){
 }
 
 // =========================================================================
-//  [2] 시설 검색: 순수 의료기관만 검색 (정형/신경/통증/재활)
+//  [2] 시설 검색: 순수 의료기관만 검색 + 스포츠 제외
 // =========================================================================
 const TARGET_SVGS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
@@ -609,11 +608,18 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    // 의료기관(병원) 명칭만 엄선하여 검색
+    // [의료기관 인증 필터 적용] v1.3.7
     for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
-      data.forEach(p => addPlaceMarker("ortho", p));
-      total += data.length;
+      
+      // 강력 필터: "병원/의원" 카테고리만 허용 & 이름에 "스포츠" 있으면 제외
+      const cleanData = data.filter(p => 
+        (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
+        !p.place_name.includes("스포츠")
+      );
+      
+      cleanData.forEach(p => addPlaceMarker("ortho", p));
+      total += cleanData.length;
     }
   }
 
@@ -630,7 +636,7 @@ $("#btnResetTargets").onclick = () => {
   toast("초기화 완료");
 };
 
-// [3] Tool Logic Helpers
+// [3] Tool Logic
 function toggleTool(name){
   if(name==="tool_roadview") {
     if(state.tool_roadview) $("#roadviewPanel").style.display="block";
