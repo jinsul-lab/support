@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.3.7)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.3.8)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -88,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.7</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.8</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -140,7 +140,7 @@
         <div class="row"><span>🔵 반경 그리기</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
         <div class="row"><span>📏 거리 측정</span> <div class="toggle" data-toggle="tool_distance"></div></div>
         <div class="row"><span>📷 로드뷰</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
-        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 및 지도 그림 싹 지우기 (통합)</button>
+        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 그림 지우기</button>
       </div>
     </div>
   </aside>
@@ -201,7 +201,6 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, clusterer, roadview, roadviewClient;
 let patientRecords = [], targetMarkers = { senior:[], welfare:[], ortho:[] };
-// 도구 변수
 let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine=null, distMoveLine=null, distOverlay=null;
 
@@ -217,7 +216,7 @@ function toast(msg, ms=2000){ const t=$("#toast"); t.innerText=msg; t.classList.
 $("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
 $("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
 
-// [핵심] 토글 핸들러 수정 (도구 독점 모드 + 반경 끄면 즉시 삭제)
+// [토글 수정: 도구 그림은 끄지 않음, 모드만 OFF] v1.3.8
 $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
   const name = t.getAttribute("data-toggle");
   
@@ -230,21 +229,18 @@ $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
 
   if(name === "radius_enabled" || name.startsWith("tool_")){
     if(state[name]) {
-      // 끄기 (OFF)
       state[name] = false;
       t.classList.remove("on");
-      // 반경 끄면 즉시 삭제 (v1.3.7)
-      if(name === "radius_enabled") clearRadiusObjects();
-      resetTools(); 
-      toast("도구 해제");
+      // 여기! 기존 clear 로직 제거 -> 그림 유지
+      resetToolsInteraction(); 
+      toast("도구 모드 종료 (그림 유지됨)");
     } else {
-      // 켜기 (ON)
-      resetAllToolsState(); // 다른거 다 끔
+      resetAllToolsState();
       state[name] = true;
       t.classList.add("on");
-      if(name==="radius_enabled") toast("지도 클릭: 중심점 -> 이동 -> 클릭: 확정");
-      if(name==="tool_distance") toast("클릭: 시작/경유 -> 우클릭: 종료");
-      if(name==="tool_roadview") toast("지도 위를 클릭하여 로드뷰 확인");
+      if(name==="radius_enabled") toast("클릭: 중심점 -> 이동 -> 클릭: 확정");
+      if(name==="tool_distance") toast("클릭: 시작 -> 우클릭: 종료");
+      if(name==="tool_roadview") toast("지도 클릭 -> 로드뷰");
     }
     applyFilters();
   }
@@ -256,16 +252,15 @@ function resetAllToolsState(){
     const btn = $(`[data-toggle="${k}"]`);
     if(btn) btn.classList.remove("on");
   });
-  resetTools();
+  resetToolsInteraction();
 }
 
-function resetTools(){
-  radiusFlag = false;
+function resetToolsInteraction(){
+  radiusFlag = false; // 그리기 중단
   distFlag = false;
   $("#roadviewPanel").style.display = "none";
 }
 
-// 검색 버튼
 $$(".search-btn").forEach(btn => {
   if(btn.id === "btnResetTargets") return;
   btn.addEventListener("click", () => {
@@ -290,14 +285,16 @@ function initKakao(){
     $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
 
     kakao.maps.event.addListener(map, "click", (e)=>{
+      // 반경 그리기 (새로 그릴 때만 기존 것 삭제)
       if(state.radius_enabled){
         if(!radiusFlag){
-          clearRadiusObjects();
+          clearRadiusObjects(); // New Start -> Clear Old
           radiusFlag = true; radiusCenter = e.latLng;
           radiusCircle = new kakao.maps.Circle({ map:map, center:radiusCenter, radius:0, strokeWeight:1, strokeColor:'#228be6', fillOpacity:0.2 });
           radiusPolyline = new kakao.maps.Polyline({ map:map, path:[radiusCenter, radiusCenter], strokeWeight:3, strokeColor:'#228be6', strokeStyle:'dash' });
         } else {
-          radiusFlag = false; if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
+          radiusFlag = false; 
+          if(radiusPolyline) { radiusPolyline.setMap(null); radiusPolyline=null; }
           applyFilters(); toast("반경 설정 완료");
         }
       }
@@ -319,7 +316,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.3.7");
+    toast("시스템 준비 완료 v1.3.8");
   });
 }
 initKakao();
@@ -330,12 +327,12 @@ function clearRadiusObjects(){
   if(radiusOverlay) { radiusOverlay.setMap(null); radiusOverlay=null; }
 }
 
-// [통합 초기화 버튼] v1.3.7
+// [통합 지우기 버튼] v1.3.8
 $("#btnClearTools").onclick = () => {
   clearRadiusObjects();
   radiusFlag = false;
-  state.radius_enabled = false; 
-  $(`[data-toggle="radius_enabled"]`).classList.remove("on"); // 토글 UI 끄기
+  state.radius_enabled = false;
+  $(`[data-toggle="radius_enabled"]`).classList.remove("on");
   
   if(distClickLine) { distClickLine.setMap(null); distClickLine=null; }
   if(distMoveLine) { distMoveLine.setMap(null); distMoveLine=null; }
@@ -348,18 +345,12 @@ $("#btnClearTools").onclick = () => {
   $(`[data-toggle="tool_roadview"]`).classList.remove("on");
   $("#roadviewPanel").style.display = "none";
 
-  // 타겟 마커도 초기화 (요청사항 반영)
-  clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
-  $$(".search-btn").forEach(b => b.classList.remove("active"));
-  state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
-  $("#statTargetsTotal").innerText = "0";
-
   applyFilters();
-  toast("모든 도구 및 검색 결과 초기화 완료");
+  toast("모든 도구 그림 삭제됨");
 };
 
 // =========================================================================
-//  [1] 환자 데이터 처리: v1.2.5 로직 (가장 안정적)
+//  [1] 환자 데이터 처리: v1.2.5 로직
 // =========================================================================
 const uploadBox=$("#uploadBox");
 const fileInput=$("#fileInput");
@@ -463,18 +454,15 @@ function processDataAndMap(uniquePatients){
         if(status===kakao.maps.services.Status.OK){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
           const dong = res[0].address?.region_3depth_name || "";
-          
           const color = item.visits>=5?'#db4040': item.visits===4?'orange': item.visits===3?'#CCCC00': item.visits===2?'green':'#228be6';
           const char = item.latestType==='신환'?'♥': item.latestType==='90일초'?'♡':'📍';
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="20" font-size="16" fill="white" text-anchor="middle">${char}</text></svg>`;
-          
           const marker = new kakao.maps.Marker({
             position: coords,
             image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
           });
           const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>` });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          
           item.marker = marker; item.latlng = coords; item.dong = dong;
           patientRecords.push(item);
           clusterer.addMarker(marker);
@@ -490,19 +478,15 @@ function applyFilters(){
   clusterer.clear();
   let unique=0, visits=0;
   const dongMap = {};
-  
   patientRecords.forEach(p=>{
     let show = true;
     if(p.latestType==="신환" && !state.patient_new) show=false;
     if(p.latestType==="90일초" && !state.patient_90) show=false;
     if(p.latestType==="재진" && !state.patient_return) show=false;
-    
-    // 반경 필터 (그려진 원이 있으면 적용)
     if(show && radiusCircle && radiusCircle.getMap()){
       const line = new kakao.maps.Polyline({ path:[radiusCenter, p.latlng] });
       if(line.getLength() > radiusCircle.getRadius()) show=false;
     }
-
     if(show){
       clusterer.addMarker(p.marker);
       unique++; visits+=p.visits;
@@ -514,14 +498,13 @@ function applyFilters(){
       else dongMap[d].r++;
     }
   });
-  
   $("#statPatientsUnique").innerText = unique;
   $("#statPatientsVisits").innerText = visits;
   updateStats(dongMap, unique);
 }
 
 // =========================================================================
-//  [2] 시설 검색: 순수 의료기관만 검색 + 스포츠 제외
+//  [2] 시설 검색: 의료기관 인증 필터 + 스포츠 제외 (v1.3.7)
 // =========================================================================
 const TARGET_SVGS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
@@ -529,7 +512,6 @@ const TARGET_SVGS = {
   ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%232b8a3e%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A5%3C/text%3E%3C/svg%3E"
 };
 
-// 타일링 함수 (무한 스캔 핵심)
 function tileBounds(bounds){
   const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
   const midLat = (sw.getLat() + ne.getLat()) / 2;
@@ -608,16 +590,11 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    // [의료기관 인증 필터 적용] v1.3.7
+    // 의료기관(병원) 명칭만 엄선하여 검색
     for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
-      
       // 강력 필터: "병원/의원" 카테고리만 허용 & 이름에 "스포츠" 있으면 제외
-      const cleanData = data.filter(p => 
-        (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
-        !p.place_name.includes("스포츠")
-      );
-      
+      const cleanData = data.filter(p => (p.category_name.includes("병원") || p.category_name.includes("의원")) && !p.place_name.includes("스포츠"));
       cleanData.forEach(p => addPlaceMarker("ortho", p));
       total += cleanData.length;
     }
@@ -628,6 +605,7 @@ $("#btnSearchTargets").onclick = async () => {
   toast(`검색 완료: 총 ${total}개 시설`);
 };
 
+// [초기화 버튼] 타겟 검색 결과도 초기화
 $("#btnResetTargets").onclick = () => {
   clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
   $$(".search-btn").forEach(b => b.classList.remove("active"));
