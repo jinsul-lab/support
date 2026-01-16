@@ -697,7 +697,7 @@ function processDataAndMap(uniquePatients){
     let res = await geocode(addr);
     if(!res){
       // 2️⃣ 리트라이
-      await delay(350);
+      await delay(150);
       res = await geocode(addr);
     }
 
@@ -705,7 +705,7 @@ function processDataAndMap(uniquePatients){
       // 3️⃣ 시군구 fallback
       const sg = extractSigungu(addr);
       if(sg){
-        await delay(500);
+        await delay(200);
         res = await geocode(sg);
       }
     }
@@ -779,7 +779,7 @@ function processDataAndMap(uniquePatients){
   (async ()=>{
     for(let i=0;i<uniquePatients.length;i++){
       await geocodeWithRetry(uniquePatients[i], i);
-      await delay(120); // 전체 속도 조절 (중요)
+      await delay(60); // 전체 속도 조절 (중요)
     }
   })();
 }
