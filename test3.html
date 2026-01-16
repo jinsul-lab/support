@@ -25,11 +25,341 @@
   document.addEventListener('DOMContentLoaded', ()=>setTimeout(bind,500));
 })();
 
+
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
 </script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js">
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
+</script>
 
   <style>
     /* UI 스타일: add-kakao.html 100% 이식 */
@@ -984,6 +1314,72 @@ function updateStats(dongMap, total){
     $("#tblAge").innerHTML = keys.map(k=>`<tr><td>${k}대</td><td>${ageMap[k]}</td><td>${((ageMap[k]/total)*100).toFixed(1)}%</td></tr>`).join("");
   }
 }
+
+function showClusterSummary(cluster){
+  const markers = cluster.getMarkers();
+  let cnt = {신환:0,'90일초':0,재진:0};
+  markers.forEach(m=>{
+    if(m.__type && cnt[m.__type]!==undefined) cnt[m.__type]++;
+  });
+  const total = markers.length;
+  if(total===0) return;
+  const pct = k => ((cnt[k]/total)*100).toFixed(1);
+
+  const competitors = getNearbyCompetitors(cluster.getCenter(), 300);
+  const compHtml = competitors.length
+    ? `🏥 경쟁병원 ${competitors.length}곳<br/>- ${competitors.join('<br/>- ')}`
+    : '🏥 경쟁병원 없음';
+
+  const html = `
+  <div style="padding:8px;font-size:12px;max-width:220px;">
+    <b>클러스터 요약</b><br/>
+    총 ${total}명<br/>
+    신환 ${cnt['신환']} (${pct('신환')}%)<br/>
+    90일초 ${cnt['90일초']} (${pct('90일초')}%)<br/>
+    재진 ${cnt['재진']} (${pct('재진')}%)<hr style="margin:6px 0"/>
+    ${compHtml}
+  </div>`;
+
+  const iw = new kakao.maps.InfoWindow({
+    content: html,
+    position: cluster.getCenter(),
+    removable:true
+  });
+  iw.open(map);
+}
+
+
+function attachDeleteOverlay(target, position){
+  const btn = document.createElement('div');
+  btn.innerHTML = '✕';
+  btn.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;text-align:center;cursor:pointer;font-size:12px;line-height:18px;';
+  const overlay = new kakao.maps.CustomOverlay({
+    content: btn,
+    position: position,
+    yAnchor: 1
+  });
+  overlay.setMap(map);
+  btn.onclick = ()=>{
+    if(target.setMap) target.setMap(null);
+    overlay.setMap(null);
+  };
+}
+
+
+function getNearbyCompetitors(center, radiusMeters=300){
+  const results = [];
+  if(!window.facilityMarkers) return results;
+  facilityMarkers.forEach(f=>{
+    if(f.kind==='competitor'){
+      const d = kakao.maps.geometry.getDistance(center, f.getPosition());
+      if(d <= radiusMeters){
+        results.push(f.__name || '병원');
+      }
+    }
+  });
+  return results;
+}
+
 </script>
 </body>
 </html>
