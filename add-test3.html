@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.1.6)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.1.7)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services&autoload=false"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -65,6 +65,14 @@
     table.miniTable th{background:#f8f9fa;padding:8px;text-align:left;position:sticky;top:0;}
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
     .iwBox{padding:5px;font-size:13px;}
+    
+    /* 거리재기 오버레이 스타일 */
+    .dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
+    .dotOverlay:nth-of-type(n) {border:0; box-shadow:0px 1px 2px #888;}
+    .number {font-weight:bold;color:#ee6152;}
+    .distanceInfo {position:relative;top:5px;left:5px;list-style:none;margin:0;}
+    .distanceInfo .label {display:inline-block;width:50px;}
+    .distanceInfo:after {content:none;}
   </style>
 </head>
 <body>
@@ -72,7 +80,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.6</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;font-weight:normal;">v1.1.7</span></div>
       <button id="btnCollapse" style="border:none;background:none;font-size:20px;cursor:pointer;">☰</button>
     </div>
 
@@ -103,23 +111,23 @@
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>반경 분석</h3><span class="pill">거리 제한</span></div>
-        <div class="row"><span>반경 활성화</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
-        <div style="margin-top:10px;">
+        <div class="sectionTitle"><h3>지도 도구</h3><span class="pill">측정/분석</span></div>
+        
+        <div class="row"><span>🔵 반경 분석 (원)</span> <div class="toggle" data-toggle="radius_enabled"></div></div>
+        <div id="radiusControl" style="margin-top:5px; display:none; background:#f8f9fa; padding:10px; border-radius:8px;">
           <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-bottom:5px;">
-            <span>거리 설정</span> <span id="radiusLabel" style="color:var(--blue)">1000m</span>
+            <span>반경(m)</span> <span id="radiusLabel" style="color:var(--blue)">1000m</span>
           </div>
           <input type="range" id="radiusSlider" min="100" max="5000" step="100" value="1000" style="width:100%">
           <div style="display:flex;gap:5px;margin-top:10px;">
             <button id="btnPickRadiusCenter" class="btn">중심점 찍기</button>
-            <button id="btnClearRadius" class="btn danger">해제</button>
+            <button id="btnClearRadius" class="btn danger">지우기</button>
           </div>
         </div>
-      </div>
-      
-      <div class="section">
-        <div class="sectionTitle"><h3>지도 도구</h3></div>
-        <div class="row"><span>로드뷰 보기</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
+        
+        <div class="row" style="margin-top:5px;"><span>📏 거리 재기 (선)</span> <div class="toggle" data-toggle="tool_distance"></div></div>
+        
+        <div class="row"><span>📷 로드뷰 보기</span> <div class="toggle" data-toggle="tool_roadview"></div></div>
       </div>
     </div>
   </aside>
@@ -178,11 +186,15 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 let map, geocoder, places, boundsPatients, roadview, roadviewClient;
 let patientRecords = [];
+
+// 도구별 상태 변수
 let radiusCircle=null, radiusCenterMarker=null, radiusCenterLatLng=null, radiusMeters=1000, radiusPickMode=false;
+let drawingFlag = false; // 거리재기 상태
+let moveLine, clickLine, distanceOverlay, dots = []; // 거리재기 객체들
 
 const state = {
   patient_new:true, patient_90:true, patient_return:true,
-  tool_roadview:false, radius_enabled:false
+  tool_roadview:false, radius_enabled:false, tool_distance:false
 };
 
 function initKakao(){
@@ -208,7 +220,9 @@ function initKakao(){
     $("#btnCollapse").onclick = () => toggleSidebar(false);
     $("#btnOpenSidebar").onclick = () => toggleSidebar(true);
     
+    // [지도 클릭 이벤트 통합 관리]
     kakao.maps.event.addListener(map, "click", (e)=>{
+      // 1. 반경 중심 찍기 모드
       if(radiusPickMode){
         radiusCenterLatLng = e.latLng;
         radiusPickMode = false;
@@ -216,6 +230,33 @@ function initKakao(){
         toast("반경 중심이 설정되었습니다.");
         return;
       }
+      
+      // 2. 거리재기 모드 (시작/경유)
+      if(state.tool_distance){
+        const clickPosition = e.latLng;
+        if (!drawingFlag) {
+            drawingFlag = true;
+            deleteClickLine();
+            deleteDistnce();
+            deleteCircleDot();
+            clickLine = new kakao.maps.Polyline({
+                map: map, path: [clickPosition], strokeWeight: 3, strokeColor: '#db4040', strokeOpacity: 1, strokeStyle: 'solid'
+            });
+            moveLine = new kakao.maps.Polyline({
+                map: map, path: [clickPosition], strokeWeight: 3, strokeColor: '#db4040', strokeOpacity: 0.5, strokeStyle: 'solid'
+            });
+            displayCircleDot(clickPosition, 0);
+        } else {
+            const path = clickLine.getPath();
+            path.push(clickPosition);
+            clickLine.setPath(path);
+            const distance = Math.round(clickLine.getLength());
+            displayCircleDot(clickPosition, distance);
+        }
+        return;
+      }
+
+      // 3. 로드뷰 모드
       if(state.tool_roadview){
         roadviewClient.getNearestPanoId(e.latLng, 50, (panoId)=>{
           if(panoId){
@@ -225,7 +266,44 @@ function initKakao(){
         });
       }
     });
-    toast("시스템 준비 완료 v1.1.6");
+
+    // [거리재기] 마우스 이동 이벤트
+    kakao.maps.event.addListener(map, 'mousemove', function (mouseEvent) {
+        if (drawingFlag){
+            const mousePosition = mouseEvent.latLng; 
+            const path = clickLine.getPath();
+            const movepath = [path[path.length-1], mousePosition];
+            moveLine.setPath(movepath);    
+            const distance = Math.round(clickLine.getLength() + moveLine.getLength());
+            const content = '<div class="dotOverlay distanceInfo">총거리 <span class="number">' + distance + '</span>m</div>';
+            showDistance(content, mousePosition);
+        }             
+    });
+
+    // [거리재기] 우클릭 이벤트 (종료)
+    kakao.maps.event.addListener(map, 'rightclick', function (mouseEvent) {
+        if (drawingFlag) {
+            moveLine.setMap(null);
+            moveLine = null;  
+            const path = clickLine.getPath();
+            if (path.length > 1) {
+                if (dots[dots.length-1].distance) {
+                    dots[dots.length-1].distance.setMap(null);
+                    dots[dots.length-1].distance = null;    
+                }
+                const distance = Math.round(clickLine.getLength());
+                const content = '<div class="dotOverlay distanceInfo">총거리 <span class="number">' + distance + '</span>m</div>';
+                showDistance(content, path[path.length-1]);  
+            } else {
+                deleteClickLine();
+                deleteCircleDot(); 
+                deleteDistnce();
+            }
+            drawingFlag = false;          
+        }  
+    });
+
+    toast("시스템 준비 완료 v1.1.7");
   });
 }
 initKakao();
@@ -242,25 +320,16 @@ async function handleFile(file){
     const workbook = await parseWorkbookFromFile(file);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawData = XLSX.utils.sheet_to_json(sheet, {header:1});
-    
-    let headerRow = [];
-    let headerIdx = -1;
+    let headerRow = [], headerIdx = -1;
     for(let i=0; i<Math.min(rawData.length, 30); i++){
       const rowStr = rawData[i].join(" ");
-      const hasAddr = rowStr.includes("주소") || rowStr.includes("도로명");
-      const hasName = rowStr.includes("이름") || rowStr.includes("수진자");
-      const hasChart = rowStr.includes("차트") || rowStr.includes("등록번호") || rowStr.includes("ID");
-      if(hasAddr && (hasName || hasChart)){ headerIdx = i; headerRow = rawData[i]; break; }
+      if((rowStr.includes("주소")||rowStr.includes("도로명")) && (rowStr.includes("이름")||rowStr.includes("수진자")||rowStr.includes("차트"))){ headerIdx = i; headerRow = rawData[i]; break; }
     }
-    
     if(headerIdx<0) throw new Error("유효한 데이터 헤더를 찾을 수 없습니다.");
     const bodyRows = XLSX.utils.sheet_to_json(sheet, {range:headerIdx});
     const patients = mergePatientData(bodyRows, headerRow);
     processDataAndMap(patients);
-  } catch(e){
-    console.error(e);
-    toast("오류: " + e.message);
-  }
+  } catch(e){ console.error(e); toast("오류: " + e.message); }
 }
 
 async function parseWorkbookFromFile(file){
@@ -268,42 +337,28 @@ async function parseWorkbookFromFile(file){
     const fr = new FileReader();
     fr.onload = (e)=>{
       const data = new Uint8Array(e.target.result);
-      const isZip = (data[0]===0x50 && data[1]===0x4B); 
-      const isOle = (data[0]===0xD0 && data[1]===0xCF && data[2]===0x11 && data[3]===0xE0);
-      if(isZip || isOle) { resolve(XLSX.read(data, {type:'array'})); }
+      const isBin = (data[0]===0x50&&data[1]===0x4B) || (data[0]===0xD0&&data[1]===0xCF);
+      if(isBin) resolve(XLSX.read(data, {type:'array'}));
       else {
-        const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규"];
-        let textUTF8 = "", textEUC = "";
-        try { textUTF8 = new TextDecoder("utf-8").decode(data); } catch(e){}
-        try { textEUC = new TextDecoder("euc-kr").decode(data); } catch(e){}
-        const scoreUTF8 = keywords.filter(k => textUTF8.includes(k)).length;
-        const scoreEUC = keywords.filter(k => textEUC.includes(k)).length;
-        if(scoreEUC > scoreUTF8) resolve(XLSX.read(textEUC, {type:'string'}));
-        else resolve(XLSX.read(textUTF8, {type:'string'}));
+        const k = ["차트","주소","수진자","신환","신규"];
+        let u8="", ek=""; try{u8=new TextDecoder("utf-8").decode(data);}catch(e){} try{ek=new TextDecoder("euc-kr").decode(data);}catch(e){}
+        resolve(XLSX.read(ek.split(k[1]).length > u8.split(k[1]).length ? ek : u8, {type:'string'}));
       }
     };
     fr.readAsArrayBuffer(file);
   });
 }
 
-// [핵심 수정: mergePatientData - 유연한 키 매칭]
 function mergePatientData(rows, headers){
   const patientMap = new Map();
-  
-  // 1. 헤더에서 '신규환자' 같은 컬럼명 찾기
-  // (예: typeCol = " 신규환자")
   const typeColName = headers.find(h => ["신규","신환","초진","구분"].some(k => String(h).includes(k)));
   let useTypeCol = false;
   
-  // 2. 실제 데이터가 있는지 검사 (유연한 매칭 사용)
   if(typeColName){
-    const hasValue = rows.some(r => {
-      // ★ 여기가 수정됨: item[typeColName] 대신 findVal 사용
-      const val = findVal(r, [typeColName, "신규", "신환", "구분"]); 
-      const v = String(val??"").trim();
-      return ["1","Y","신규","신환","초진"].some(k => v.includes(k));
-    });
-    if(hasValue) useTypeCol = true;
+    if(rows.some(r => {
+      const v = String(findVal(r, [typeColName,"신규","신환"])??"").trim();
+      return ["1","Y","신규","신환"].some(k=>v.includes(k));
+    })) useTypeCol = true;
   }
 
   rows.forEach(item => {
@@ -314,48 +369,29 @@ function mergePatientData(rows, headers){
     if(!chartNo || !address) return;
 
     let isNew=false, is90=false, isRet=false;
-    
     if(useTypeCol){
-      // ★ 데이터를 꺼낼 때도 유연하게 찾음
-      const valRaw = findVal(item, [typeColName, "신규", "신환", "구분"]);
-      const val = String(valRaw??"").trim();
-      
-      if(val==="1"||val==="Y"||val.includes("신규")||val.includes("신환")||val.includes("초진")) isNew=true;
-      else if(val.includes("90") || val==="90일초") is90=true;
+      const v = String(findVal(item, [typeColName,"신규","신환"])??"").trim();
+      if(v==="1"||v==="Y"||v.includes("신규")||v.includes("신환")||v.includes("초진")) isNew=true;
+      else if(v.includes("90") || v==="90일초") is90=true;
       else isRet=true;
     } else {
-      // fallback
-      const key = chartNo;
-      if(!patientMap.has(key)) isNew=true; else isRet=true;
+      if(!patientMap.has(chartNo)) isNew=true; else isRet=true;
     }
 
-    const key = chartNo;
-    if(patientMap.has(key)){
-      const rec = patientMap.get(key);
+    if(patientMap.has(chartNo)){
+      const rec = patientMap.get(chartNo);
       rec.visits++;
+      // 신환 보존 로직
+      if(rec.latestType==="신환") { isNew=true; isRet=false; }
+      else if(rec.latestType==="90일초" && !isNew) is90=true;
       
-      // [신환 유지 로직]
-      if(rec.latestType === "신환") {
-        isNew = true; 
-        isRet = false;
-      } else if(rec.latestType === "90일초") {
-         if(!isNew) is90 = true; 
-      }
-
       if(isNew) { rec.latestType="신환"; rec.types.new=true; }
       else if(is90) { rec.latestType="90일초"; rec.types.d90=true; }
       else { rec.latestType="재진"; rec.types.ret=true; }
-
     } else {
       let lType = "재진";
       if(is90) lType="90일초"; else if(isNew) lType="신환";
-      
-      patientMap.set(key, {
-        key, title, address, chartNo, visits:1,
-        types: { new:isNew, d90:is90, ret:isRet },
-        latestType: lType,
-        marker: null, latlng: null, dong: "미상"
-      });
+      patientMap.set(chartNo, { key:chartNo, title, address, chartNo, visits:1, types:{new:isNew,d90:is90,ret:isRet}, latestType:lType, marker:null, latlng:null, dong:"미상" });
     }
   });
   return Array.from(patientMap.values());
@@ -370,7 +406,6 @@ function processDataAndMap(uniquePatients){
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
       let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
-      
       geocoder.addressSearch(cleanAddr, (res, status)=>{
         if(status===kakao.maps.services.Status.OK && res[0]){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
@@ -379,34 +414,17 @@ function processDataAndMap(uniquePatients){
 
           const color = visitColor(item.visits);
           const iconChar = typeIcon(item.latestType);
-          const svg = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-              <circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" />
-              <text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text>
-            </svg>`;
-          
-          const markerImage = new kakao.maps.MarkerImage(
-            "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg),
-            new kakao.maps.Size(30, 30)
-          );
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="${color}" stroke="white" stroke-width="2" /><text x="15" y="20" font-size="16" text-anchor="middle" fill="white" font-weight="bold">${iconChar}</text></svg>`;
+          const marker = new kakao.maps.Marker({ map: map, position: coords, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30)), title: item.title, zIndex: item.latestType==="신환"?99:1 });
 
-          const marker = new kakao.maps.Marker({
-            map: map, position: coords, image: markerImage, title: item.title,
-            zIndex: item.latestType==="신환" ? 99 : 1
-          });
-
-          const iwContent = `<div class="iwBox"><b>${item.title}</b><br>${item.address}<br>
-             <span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`;
-          const iw = new kakao.maps.InfoWindow({ content: iwContent, removable:true });
+          const iw = new kakao.maps.InfoWindow({ content: `<div class="iwBox"><b>${item.title}</b><br>${item.address}<br><span style="color:${color}">${item.latestType}</span> (${item.visits}회)</div>`, removable:true });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
 
-          item.marker = marker;
-          item.latlng = coords;
+          item.marker = marker; item.latlng = coords;
           patientRecords.push(item);
           boundsPatients.extend(coords);
           success++;
         }
-        
         if(idx === uniquePatients.length-1){
           if(success>0) map.setBounds(boundsPatients);
           applyFilters();
@@ -420,44 +438,59 @@ function processDataAndMap(uniquePatients){
 function applyFilters(){
   let unique=0, visits=0;
   const dongMap = {};
-
   patientRecords.forEach(r => {
     let show = true;
     if(r.latestType==="신환" && !state.patient_new) show=false;
     if(r.latestType==="90일초" && !state.patient_90) show=false;
     if(r.latestType==="재진" && !state.patient_return) show=false;
-    
     if(show && state.radius_enabled && radiusCenterLatLng){
       const poly = new kakao.maps.Polyline({ path: [radiusCenterLatLng, r.latlng] });
       if(poly.getLength() > radiusMeters) show=false;
     }
-
     if(r.marker) r.marker.setMap(show ? map : null);
-
-    if(show){
-      unique++;
-      visits += r.visits;
-      const d = r.dong || "미상";
-      dongMap[d] = (dongMap[d]||0) + 1;
-    }
+    if(show){ unique++; visits += r.visits; const d = r.dong||"미상"; dongMap[d] = (dongMap[d]||0)+1; }
   });
-
-  $("#statPatientsUnique").innerText = unique;
-  $("#statPatientsVisits").innerText = visits;
-  $("#kpiUnique").innerText = unique + "명";
-  $("#kpiVisits").innerText = visits + "회";
-  updateDongTable(dongMap);
-  updateCharts(dongMap);
+  $("#statPatientsUnique").innerText = unique; $("#statPatientsVisits").innerText = visits;
+  $("#kpiUnique").innerText = unique+"명"; $("#kpiVisits").innerText = visits+"회";
+  updateDongTable(dongMap); updateCharts(dongMap);
 }
 
+// 거리재기 헬퍼 함수
+function deleteClickLine() { if(clickLine){ clickLine.setMap(null); clickLine=null; } }
+function deleteDistnce() { if(distanceOverlay){ distanceOverlay.setMap(null); distanceOverlay=null; } }
+function deleteCircleDot() { for(var i=0; i<dots.length; i++){ if(dots[i].circle) dots[i].circle.setMap(null); if(dots[i].distance) dots[i].distance.setMap(null); } dots=[]; }
+function showDistance(content, position) {
+    if(distanceOverlay) { distanceOverlay.setPosition(position); distanceOverlay.setContent(content); }
+    else { distanceOverlay = new kakao.maps.CustomOverlay({ map: map, content: content, position: position, xAnchor: 0, yAnchor: 0, zIndex: 3 }); }
+}
+function displayCircleDot(position, distance) {
+    var circleOverlay = new kakao.maps.CustomOverlay({ content: '<span class="dot"></span>', position: position, zIndex: 1 });
+    circleOverlay.setMap(map);
+    if(distance > 0) {
+        var distanceOverlay = new kakao.maps.CustomOverlay({ content: '<div class="dotOverlay">거리 <span class="number">' + distance + '</span>m</div>', position: position, yAnchor: 1, zIndex: 2 });
+        distanceOverlay.setMap(map);
+    }
+    dots.push({circle:circleOverlay, distance: distanceOverlay});
+}
+
+// UI 이벤트 연결
 $$(".toggle").forEach(t => t.onclick = function(){
   this.classList.toggle("on");
   const key = this.getAttribute("data-toggle");
   state[key] = this.classList.contains("on");
-  if(key==="radius_enabled") renderRadius();
+  
+  if(key==="radius_enabled") {
+    renderRadius();
+    $("#radiusControl").style.display = state.radius_enabled ? "block" : "none";
+    if(!state.radius_enabled) { radiusCenterLatLng=null; renderRadius(); applyFilters(); }
+  }
   if(key==="tool_roadview") {
     if(!state.tool_roadview) $("#roadviewPanel").style.display="none";
     else toast("지도에서 위치를 클릭하세요.");
+  }
+  if(key==="tool_distance"){
+    if(state.tool_distance) toast("지도 클릭: 시작/경유, 우클릭: 종료");
+    else { deleteClickLine(); deleteDistnce(); deleteCircleDot(); drawingFlag=false; }
   }
   applyFilters();
 });
@@ -467,7 +500,6 @@ $("#radiusSlider").oninput = function(){
   $("#radiusLabel").innerText = radiusMeters + "m";
   if(state.radius_enabled) { renderRadius(); applyFilters(); }
 };
-
 $("#btnPickRadiusCenter").onclick = () => { radiusPickMode=true; toast("지도에서 중심점을 클릭하세요"); };
 $("#btnClearRadius").onclick = () => { radiusCenterLatLng=null; renderRadius(); applyFilters(); };
 $("#btnClearPatients").onclick = () => { patientRecords.forEach(r=>r.marker?.setMap(null)); patientRecords=[]; applyFilters(); };
@@ -478,10 +510,7 @@ function renderRadius(){
   if(radiusCircle) radiusCircle.setMap(null);
   if(radiusCenterMarker) radiusCenterMarker.setMap(null);
   if(state.radius_enabled && radiusCenterLatLng){
-    radiusCircle = new kakao.maps.Circle({
-      center: radiusCenterLatLng, radius: radiusMeters,
-      strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.7, fillColor: '#228be6', fillOpacity: 0.1
-    });
+    radiusCircle = new kakao.maps.Circle({ center: radiusCenterLatLng, radius: radiusMeters, strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.7, fillColor: '#228be6', fillOpacity: 0.1 });
     radiusCircle.setMap(map);
     radiusCenterMarker = new kakao.maps.Marker({ position: radiusCenterLatLng, map: map });
   }
@@ -489,7 +518,6 @@ function renderRadius(){
 
 $("#btnOpenStats").onclick = () => { $("#statsModal").style.display = "flex"; applyFilters(); };
 $("#btnCloseStats").onclick = () => $("#statsModal").style.display = "none";
-
 $$(".tabBtn").forEach(btn => {
   btn.onclick = function(){
     $$(".tabBtn").forEach(b=>b.classList.remove("active"));
@@ -498,40 +526,23 @@ $$(".tabBtn").forEach(btn => {
     $("#"+this.dataset.tab).style.display="block";
   }
 });
-
 function updateDongTable(mapData){
   const sorted = Object.entries(mapData).sort((a,b)=>b[1]-a[1]);
   const html = sorted.map(([d,c])=> `<tr><td>${d}</td><td>-</td><td>-</td><td>-</td><td><b>${c}</b></td></tr>`).join("");
   $("#tblDongType").innerHTML = html;
 }
-
 let chartDong;
 function updateCharts(dongMap){
   if(!window.Chart) return;
   const sorted = Object.entries(dongMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const ctxD = $("#chartDong_modal");
   if(chartDong) chartDong.destroy();
-  chartDong = new Chart(ctxD, {
-    type: 'bar',
-    data: { labels: sorted.map(x=>x[0]), datasets: [{ label:'환자수', data: sorted.map(x=>x[1]), backgroundColor: '#228be6' }] },
-    options: { maintainAspectRatio: false }
-  });
+  chartDong = new Chart(ctxD, { type: 'bar', data: { labels: sorted.map(x=>x[0]), datasets: [{ label:'환자수', data: sorted.map(x=>x[1]), backgroundColor: '#228be6' }] }, options: { maintainAspectRatio: false } });
 }
-
-function findVal(obj, keys){
-  const kFound = Object.keys(obj).find(k => keys.some(wk => k.replace(/\s/g,'').includes(wk)));
-  return kFound ? obj[kFound] : null;
-}
-function visitColor(v){
-  if(v>=5) return "#db4040"; if(v===4) return "orange"; if(v===3) return "#CCCC00"; if(v===2) return "green"; return "#228be6";
-}
-function typeIcon(t){
-  if(t==="신환") return "♥"; if(t==="90일초") return "♡"; return "📍";
-}
-function toast(msg){
-  const t = $("#toast"); t.innerText=msg; t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"), 2500);
-}
+function findVal(obj, keys){ const kFound = Object.keys(obj).find(k => keys.some(wk => k.replace(/\s/g,'').includes(wk))); return kFound ? obj[kFound] : null; }
+function visitColor(v){ if(v>=5) return "#db4040"; if(v===4) return "orange"; if(v===3) return "#CCCC00"; if(v===2) return "green"; return "#228be6"; }
+function typeIcon(t){ if(t==="신환") return "♥"; if(t==="90일초") return "♡"; return "📍"; }
+function toast(msg){ const t = $("#toast"); t.innerText=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2500); }
 </script>
 </body>
 </html>
