@@ -2,16 +2,17 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.3.0)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.3.3)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
-    /* [UI 스타일: add-kakao.html 100% 이식] */
+    /* UI 스타일: add-kakao.html 100% 이식 */
     :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; --danger:#db4040; }
     *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
@@ -38,7 +39,7 @@
     .toggle.on{background:var(--blue);}
     .toggle.on::after{transform:translateX(18px);}
     
-    /* 타겟 검색 버튼 */
+    /* 시설 검색 버튼 (3개로 원복) */
     .search-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
     .search-btn { padding: 12px; border: 1px solid #dee2e6; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; text-align: center; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 5px; transition:0.2s; }
     .search-btn:hover { background: #f8f9fa; border-color: var(--blue); }
@@ -87,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.0</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.3.3</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -125,7 +126,9 @@
           <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 정형외과+</div>
           <div class="search-btn" id="btnResetTargets" style="background:#fff0f0; border-color:#ffc9c9; color:#fa5252;"><span class="search-icon">🗑️</span> 지우기</div>
         </div>
-        <div class="btnRow"><button id="btnSearchTargets" class="btn primary">화면 내 정밀 검색</button></div>
+        <div class="btnRow">
+          <button id="btnSearchTargets" class="btn primary">화면 내 검색</button>
+        </div>
         <div class="statGrid">
           <div class="stat"><div class="k">검색된 시설</div><div id="statTargetsTotal" class="v">0</div></div>
           <div class="stat"><div class="k">상태</div><div id="statTargetsUpdated" class="v" style="font-size:12px;">대기</div></div>
@@ -266,7 +269,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.3.0");
+    toast("시스템 준비 완료 v1.3.3");
   });
 }
 initKakao();
@@ -291,31 +294,20 @@ fileInput.addEventListener("change", (e)=>{
 
 async function handleFile(file){
   toast("파일 분석 중...");
-  // v1.2.5의 강력한 파싱 로직 사용
   const fr = new FileReader();
   fr.onload = (e)=>{
     const data = new Uint8Array(e.target.result);
-    // ZIP/OLE 확인
-    const isBin = (data[0]===0x50&&data[1]===0x4B) || (data[0]===0xD0&&data[1]===0xCF);
+    // 스마트 인코딩
     let workbook;
-    if(isBin) {
+    try {
       workbook = XLSX.read(data, {type:'array'});
-    } else {
-      // 텍스트(CSV) 인코딩 자동 판별
-      const keywords = ["차트", "주소", "수진자", "이름", "진료", "보험", "신환", "신규", "초재진구분"];
-      let textUTF8="", textEUC="";
-      try{textUTF8=new TextDecoder("utf-8").decode(data);}catch(e){}
-      try{textEUC=new TextDecoder("euc-kr").decode(data);}catch(e){}
-      const scoreUTF8 = keywords.filter(k => textUTF8.includes(k)).length;
-      const scoreEUC = keywords.filter(k => textEUC.includes(k)).length;
-      if(scoreEUC > scoreUTF8) workbook = XLSX.read(textEUC, {type:'string'});
-      else workbook = XLSX.read(textUTF8, {type:'string'});
+    } catch(err) {
+      const unicodeArr = Encoding.convert(data, {to:"UNICODE", from:"AUTO"});
+      const str = Encoding.codeToString(unicodeArr);
+      workbook = XLSX.read(str, {type:'string'});
     }
-    
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-    
-    // v1.2.5 데이터 처리 로직 호출
     const patients = mergePatientData(rows);
     processDataAndMap(patients);
   };
@@ -323,7 +315,6 @@ async function handleFile(file){
 }
 
 function mergePatientData(rows){
-  // 헤더 찾기
   let headerIdx = -1, headers = [];
   for(let i=0; i<Math.min(rows.length, 30); i++){
     const str = (rows[i]||[]).join(" ");
@@ -332,7 +323,6 @@ function mergePatientData(rows){
   if(headerIdx<0) { toast("유효한 헤더를 찾을 수 없습니다."); return []; }
 
   const patientMap = new Map();
-  // 컬럼 매핑
   const findCol = (keys) => headers.findIndex(h => keys.some(k => String(h).includes(k)));
   const colName = findCol(['이름','수진자']);
   const colAddr = findCol(['주소']);
@@ -369,7 +359,7 @@ function mergePatientData(rows){
     if(patientMap.has(chartNo)){
       const p = patientMap.get(chartNo);
       p.visits++;
-      if(p.latestType==="신환") {} // 유지
+      if(p.latestType==="신환") {} 
       else if(isNew) p.latestType="신환";
       else if(is90 && p.latestType!=="신환") p.latestType="90일초";
     } else {
@@ -384,12 +374,9 @@ function mergePatientData(rows){
 function processDataAndMap(uniquePatients){
   clusterer.clear(); patientRecords = []; 
   let success=0;
-  
   uniquePatients.forEach((item, idx) => {
     setTimeout(()=>{
-      // 주소 정제
       let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
-      
       geocoder.addressSearch(cleanAddr, (res, status)=>{
         if(status===kakao.maps.services.Status.OK){
           const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
@@ -403,16 +390,10 @@ function processDataAndMap(uniquePatients){
             position: coords,
             image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
           });
-          const iw = new kakao.maps.InfoWindow({ 
-            content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>` 
-          });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>` });
           kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
           
-          // 데이터 객체 통합
-          item.marker = marker;
-          item.latlng = coords;
-          item.dong = dong;
-          
+          item.marker = marker; item.latlng = coords; item.dong = dong;
           patientRecords.push(item);
           clusterer.addMarker(marker);
           success++;
@@ -457,7 +438,7 @@ function applyFilters(){
 }
 
 // =========================================================================
-//  [2] 시설 검색: add-kakao.html 로직 100% 이식 (Tiling 재귀)
+//  [2] 시설 검색: 순수 의료기관만 검색 (정형/신경/통증/재활)
 // =========================================================================
 const TARGET_SVGS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
@@ -465,7 +446,7 @@ const TARGET_SVGS = {
   ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%232b8a3e%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A5%3C/text%3E%3C/svg%3E"
 };
 
-// 타일링 함수 (지도 4등분)
+// 타일링 함수 (무한 스캔 핵심)
 function tileBounds(bounds){
   const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
   const midLat = (sw.getLat() + ne.getLat()) / 2;
@@ -478,7 +459,6 @@ function tileBounds(bounds){
   ];
 }
 
-// 재귀 검색 함수 (무한 스캔 비결)
 async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   return new Promise((resolve)=>{
     const collected = [];
@@ -487,13 +467,10 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
         collected.push(...data);
         if(pagination.hasNextPage) pagination.nextPage();
         else {
-          // 45개 꽉 찼으면 쪼개서 다시 검색 (핵심)
           if(collected.length >= 45 && depth < 2){
             Promise.all(tileBounds(bounds).map(b => keywordSearchAllEnhanced(keyword, b, depth+1)))
               .then(results => resolve([...collected, ...results.flat()]));
-          } else {
-            resolve(collected);
-          }
+          } else resolve(collected);
         }
       } else resolve(collected);
     }, { bounds: bounds, useMapBounds: false });
@@ -509,7 +486,7 @@ function addPlaceMarker(kind, place){
     image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
-  const iw=new kakao.maps.InfoWindow({ content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b></div>` });
+  const iw=new kakao.maps.InfoWindow({ content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>` });
   kakao.maps.event.addListener(marker,"click",()=>iw.open(map,marker));
   targetMarkers[kind].push(marker);
 }
@@ -533,7 +510,6 @@ $("#btnSearchTargets").onclick = async () => {
 
   let total = 0;
   
-  // 요청하신 키워드 조합 + 강력한 재귀 엔진
   if(doSenior){
     for(const kw of ["경로당", "노인정", "마을회관"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
@@ -549,7 +525,8 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "관절", "척추"]) {
+    // 의료기관(병원) 명칭만 엄선하여 검색
+    for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
       data.forEach(p => addPlaceMarker("ortho", p));
       total += data.length;
@@ -636,7 +613,7 @@ function updateStats(dongMap, total){
     $("#kpiNewRate").innerText = total ? ((n/total)*100).toFixed(1)+"%" : "0%";
     $("#kpiRetRate").innerText = total ? (((d+r)/total)*100).toFixed(1)+"%" : "0%";
     
-    // 연령 차트 (v1.2.5 로직)
+    // 연령 차트
     const ageMap={};
     patientRecords.forEach(p=>{ if(p.age>0) { const g=Math.floor(p.age/10)*10; ageMap[g]=(ageMap[g]||0)+1; } });
     const keys=Object.keys(ageMap).sort((a,b)=>a-b);
