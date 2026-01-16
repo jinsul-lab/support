@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.4.0)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.4.1)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -88,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.0</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.1</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -201,8 +201,7 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, clusterer, roadview, roadviewClient;
 let patientRecords = [], targetMarkers = { senior:[], welfare:[], ortho:[] };
-// [NEW] 열린 인포윈도우 관리 배열 (말풍선 지우기용)
-let openedInfoWindows = [];
+let openedInfoWindows = []; // 말풍선 관리
 
 let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine=null, distMoveLine=null, distOverlay=null;
@@ -231,13 +230,11 @@ $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
 
   if(name === "radius_enabled" || name.startsWith("tool_")){
     if(state[name]) {
-      // 끄기 (OFF)
       state[name] = false;
       t.classList.remove("on");
       resetToolsInteraction(); 
       toast("도구 모드 종료 (그림 유지됨)");
     } else {
-      // 켜기 (ON)
       resetAllToolsState();
       state[name] = true;
       t.classList.add("on");
@@ -320,7 +317,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.4.0");
+    toast("시스템 준비 완료 v1.4.1");
   });
 }
 initKakao();
@@ -331,7 +328,6 @@ function clearRadiusObjects(){
   if(radiusOverlay) { radiusOverlay.setMap(null); radiusOverlay=null; }
 }
 
-// [모든 인포윈도우(말풍선) 닫기 함수] v1.4.0
 function closeAllInfoWindows() {
   openedInfoWindows.forEach(iw => iw.close());
   openedInfoWindows = [];
@@ -360,7 +356,7 @@ $("#btnClearTools").onclick = () => {
   state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
   $("#statTargetsTotal").innerText = "0";
 
-  closeAllInfoWindows(); // 말풍선도 싹 지움
+  closeAllInfoWindows(); // 텍스트박스 제거
 
   applyFilters();
   toast("모든 도구 및 검색 결과 초기화 완료");
@@ -434,6 +430,7 @@ function mergePatientData(rows){
       } else age = parseInt(val.replace(/[^0-9]/g,""))||0;
     }
 
+    // [의사랑 신환 고정 룰] v1.4.1
     let isNew=false, is90=false;
     if(colType > -1){
       const valRaw = row[colType];
@@ -447,7 +444,8 @@ function mergePatientData(rows){
     if(patientMap.has(chartNo)){
       const p = patientMap.get(chartNo);
       p.visits++;
-      if(p.latestType==="신환") {} 
+      // 중요: 기존이 '신환'이면 절대 변경 X
+      if(p.latestType==="신환") { /* Keep New */ }
       else if(isNew) p.latestType="신환";
       else if(is90 && p.latestType!=="신환") p.latestType="90일초";
     } else {
@@ -478,11 +476,17 @@ function processDataAndMap(uniquePatients){
             position: coords,
             image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
           });
-          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>` });
+          
+          // [UI Fix] 닫기 버튼(removable:true) 추가
+          const iw = new kakao.maps.InfoWindow({ 
+            content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>`,
+            removable: true 
+          });
+          
           kakao.maps.event.addListener(marker, 'click', ()=> {
-            closeAllInfoWindows(); // 다른거 닫고
+            closeAllInfoWindows(); 
             iw.open(map, marker);
-            openedInfoWindows.push(iw); // 관리 목록에 추가
+            openedInfoWindows.push(iw);
           });
           
           item.marker = marker; item.latlng = coords; item.dong = dong;
@@ -500,19 +504,15 @@ function applyFilters(){
   clusterer.clear();
   let unique=0, visits=0;
   const dongMap = {};
-  
   patientRecords.forEach(p=>{
     let show = true;
     if(p.latestType==="신환" && !state.patient_new) show=false;
     if(p.latestType==="90일초" && !state.patient_90) show=false;
     if(p.latestType==="재진" && !state.patient_return) show=false;
-    
-    // 반경 필터
-    if(show && radiusCircle && radiusCircle.getMap()){
+    if(show && radiusCircle && radiusCircle.getMap() && state.radius_enabled){
       const line = new kakao.maps.Polyline({ path:[radiusCenter, p.latlng] });
       if(line.getLength() > radiusCircle.getRadius()) show=false;
     }
-
     if(show){
       clusterer.addMarker(p.marker);
       unique++; visits+=p.visits;
@@ -524,15 +524,11 @@ function applyFilters(){
       else dongMap[d].r++;
     }
   });
-  
   $("#statPatientsUnique").innerText = unique;
   $("#statPatientsVisits").innerText = visits;
   updateStats(dongMap, unique);
 }
 
-// =========================================================================
-//  [2] 시설 검색: 순수 의료기관만 검색 + 스포츠 제외
-// =========================================================================
 const TARGET_SVGS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
   welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
@@ -578,11 +574,14 @@ function addPlaceMarker(kind, place){
     image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
-  const iw=new kakao.maps.InfoWindow({ content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>` });
+  const iw=new kakao.maps.InfoWindow({ 
+    content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>`,
+    removable: true
+  });
   kakao.maps.event.addListener(marker,"click",()=>{
-    closeAllInfoWindows(); // 기존 말풍선 제거
+    closeAllInfoWindows(); 
     iw.open(map,marker);
-    openedInfoWindows.push(iw); // 리스트 추가
+    openedInfoWindows.push(iw);
   });
   targetMarkers[kind].push(marker);
 }
@@ -621,12 +620,11 @@ $("#btnSearchTargets").onclick = async () => {
     }
   }
   if(doOrtho){
-    // [의료기관 인증 필터]
     for(const kw of ["정형외과", "신경외과", "통증의학과", "재활의학과", "마취통증의학과"]) {
       const data = await keywordSearchAllEnhanced(kw, b);
       const cleanData = data.filter(p => 
         (p.category_name.includes("병원") || p.category_name.includes("의원")) && 
-        !p.place_name.includes("스포츠") // 스포츠 제외
+        !p.place_name.includes("스포츠") 
       );
       cleanData.forEach(p => addPlaceMarker("ortho", p));
       total += cleanData.length;
@@ -638,17 +636,15 @@ $("#btnSearchTargets").onclick = async () => {
   toast(`검색 완료: 총 ${total}개 시설`);
 };
 
-// [초기화 버튼] 인포윈도우(말풍선)까지 삭제
 $("#btnResetTargets").onclick = () => {
   clearTargetMarkers("senior"); clearTargetMarkers("welfare"); clearTargetMarkers("ortho");
   $$(".search-btn").forEach(b => b.classList.remove("active"));
   state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
   $("#statTargetsTotal").innerText = "0";
-  closeAllInfoWindows(); // [중요] 말풍선 삭제
+  closeAllInfoWindows(); 
   toast("초기화 완료");
 };
 
-// [3] Tool Logic
 function toggleTool(name){
   if(name==="tool_roadview") {
     if(state.tool_roadview) $("#roadviewPanel").style.display="block";
@@ -681,7 +677,7 @@ $("#btnCloseRoadview").onclick = () => $("#roadviewPanel").style.display="none";
 $("#btnClearPatients").onclick = () => {
   clusterer.clear(); patientRecords=[];
   $("#statPatientsUnique").innerText=0; $("#statPatientsVisits").innerText=0;
-  closeAllInfoWindows(); // 환자 마커 말풍선도 닫기
+  closeAllInfoWindows(); 
 };
 $("#btnFitPatients").onclick = () => {
   if(!patientRecords.length) return;
