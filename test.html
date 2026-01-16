@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL-주소 분석 시스템 (v1.4.1)</title>
+  <title>JINSUL-주소 분석 시스템 (v1.4.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -88,7 +88,7 @@
 <div class="app">
   <aside id="sidebar" class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.1</span></div>
+      <div class="brand">JINSUL 분석 시스템 <span style="font-size:0.8rem;color:#888;">v1.4.2</span></div>
       <button id="btnCollapse" class="iconBtn">☰</button>
     </div>
 
@@ -201,7 +201,8 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let map, geocoder, places, clusterer, roadview, roadviewClient;
 let patientRecords = [], targetMarkers = { senior:[], welfare:[], ortho:[] };
-let openedInfoWindows = []; // 말풍선 관리
+// [말풍선 관리 배열]
+let openedInfoWindows = [];
 
 let radiusFlag=false, radiusCenter=null, radiusPolyline=null, radiusCircle=null, radiusOverlay=null;
 let distFlag=false, distClickLine=null, distMoveLine=null, distOverlay=null;
@@ -230,11 +231,13 @@ $$(".toggle").forEach(t => t.addEventListener("click", ()=>{
 
   if(name === "radius_enabled" || name.startsWith("tool_")){
     if(state[name]) {
+      // 끄기 (OFF)
       state[name] = false;
       t.classList.remove("on");
       resetToolsInteraction(); 
       toast("도구 모드 종료 (그림 유지됨)");
     } else {
+      // 켜기 (ON)
       resetAllToolsState();
       state[name] = true;
       t.classList.add("on");
@@ -317,7 +320,7 @@ function initKakao(){
     });
 
     kakao.maps.event.addListener(map, "rightclick", ()=>{ if(state.tool_distance) onDistEnd(); });
-    toast("시스템 준비 완료 v1.4.1");
+    toast("시스템 준비 완료 v1.4.2");
   });
 }
 initKakao();
@@ -356,7 +359,7 @@ $("#btnClearTools").onclick = () => {
   state.target_senior=false; state.target_welfare=false; state.target_ortho=false;
   $("#statTargetsTotal").innerText = "0";
 
-  closeAllInfoWindows(); // 텍스트박스 제거
+  closeAllInfoWindows(); // [모두 닫기]
 
   applyFilters();
   toast("모든 도구 및 검색 결과 초기화 완료");
@@ -430,7 +433,6 @@ function mergePatientData(rows){
       } else age = parseInt(val.replace(/[^0-9]/g,""))||0;
     }
 
-    // [의사랑 신환 고정 룰] v1.4.1
     let isNew=false, is90=false;
     if(colType > -1){
       const valRaw = row[colType];
@@ -444,8 +446,7 @@ function mergePatientData(rows){
     if(patientMap.has(chartNo)){
       const p = patientMap.get(chartNo);
       p.visits++;
-      // 중요: 기존이 '신환'이면 절대 변경 X
-      if(p.latestType==="신환") { /* Keep New */ }
+      if(p.latestType==="신환") {} 
       else if(isNew) p.latestType="신환";
       else if(is90 && p.latestType!=="신환") p.latestType="90일초";
     } else {
@@ -477,7 +478,7 @@ function processDataAndMap(uniquePatients){
             image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(30,30))
           });
           
-          // [UI Fix] 닫기 버튼(removable:true) 추가
+          // [UI Fix] 닫기 버튼 추가
           const iw = new kakao.maps.InfoWindow({ 
             content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br>${item.latestType} / ${item.visits}회</div>`,
             removable: true 
@@ -574,6 +575,7 @@ function addPlaceMarker(kind, place){
     image: new kakao.maps.MarkerImage(TARGET_SVGS[kind], new kakao.maps.Size(30,30)),
     zIndex: 20
   });
+  // [UI Fix] 시설 마커에도 닫기 버튼(removable:true) 적용
   const iw=new kakao.maps.InfoWindow({ 
     content:`<div style="padding:5px;font-size:12px;"><b>${place.place_name}</b><br>${place.category_name}</div>`,
     removable: true
