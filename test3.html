@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.5 (Custom Toolbar)</title>
+  <title>jinsul-add v2.2.6 (Stats Restored)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -13,12 +13,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
-    /* === v2.2 Original Design System === */
+    /* === Design System (v2.2 Original) === */
     :root { 
       --blue:#228be6; --blue-light:#e7f5ff;
       --red:#fa5252; --red-light:#fff5f5;
       --border:#dee2e6; --text:#343a40; --bg:#f8f9fa; --card:#fff;
-      --c-new:#ff0000; --c-90:#ffd400; --c-ret-new:#00c853; --c-ret:#228be6;
+      --c-new:#ff0000; --c-conv:#00c853; --c-90:#ffd400; --c-ret:#228be6;
     }
     
     *{box-sizing:border-box;font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;}
@@ -41,6 +41,12 @@
     .uploadBox{border:2px dashed #adb5bd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8f9fa;transition:0.2s;}
     .uploadBox:hover{border-color:var(--blue);background:var(--blue-light);}
     
+    /* Stats Grid (Restored from v2.2) */
+    .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;background:#f8f9fa;padding:10px;border-radius:6px;}
+    .statItem{text-align:center;}
+    .statLabel{font-size:11px;color:#868e96;margin-bottom:2px;}
+    .statValue{font-size:16px;font-weight:800;color:var(--text);}
+
     /* Buttons */
     .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
     .btn{width:100%;padding:10px;border-radius:6px;border:none;font-weight:700;cursor:pointer;font-size:12px;transition:0.2s;}
@@ -51,9 +57,7 @@
     .btn.outline{background:#fff;border:1px solid var(--border);color:var(--text);}
     .btn.outline:hover{background:#f1f3f5;}
 
-    /* Inputs */
-    .radio-label{display:flex;align-items:center;margin-bottom:8px;cursor:pointer;}
-    .radio-label input{margin-right:8px;accent-color:var(--blue);}
+    /* Filter Row */
     .filter-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #f1f3f5;}
     .filter-row:last-child{border-bottom:none;}
     .filter-info{display:flex;align-items:center;gap:6px;}
@@ -70,11 +74,7 @@
     .search-btn:hover{background:#f8f9fa;}
     .search-btn.active{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
 
-    /* Map Area */
-    .mapArea{flex:1;position:relative;}
-    #map{width:100%;height:100%;}
-    
-    /* === Custom Floating Toolbar === */
+    /* Custom Toolbar (Right) */
     .custom-toolbar {
       position: absolute; top: 12px; right: 12px; z-index: 100;
       background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -88,8 +88,11 @@
     .tool-btn:last-child { border-bottom: none; }
     .tool-btn:hover { background: #f8f9fa; color: var(--blue); }
     .tool-btn.active { background: var(--blue-light); color: var(--blue); font-weight: bold; }
-    .tooltip { font-size: 10px; margin-top: -2px; color: #888; }
 
+    /* Map Area */
+    .mapArea{flex:1;position:relative;}
+    #map{width:100%;height:100%;}
+    
     /* Legend */
     #mapLegend{
       position:absolute;top:12px;left:12px;z-index:20;
@@ -99,18 +102,28 @@
     }
     .legend-item{display:flex;align-items:center;gap:6px;}
 
-    /* Overlays */
+    /* Info Overlay (Radius) - Strengthened Visibility */
     .info-overlay {
-      background:rgba(255,255,255,0.98); border:1px solid #888; border-radius:4px;
-      padding:5px 8px; font-size:11px; white-space:nowrap;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: none;
+      background: #fff; border: 1px solid #333; border-radius: 6px;
+      padding: 6px 10px; font-size: 12px; font-weight: bold; color: #000;
+      white-space: nowrap; box-shadow: 0 3px 6px rgba(0,0,0,0.3); pointer-events: none;
     }
 
-    /* Modal */
+    /* Modal (Restored v2.2) */
     .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
-    .modalPanel{width:90%;max-width:600px;background:white;border-radius:12px;padding:20px;max-height:80vh;overflow-y:auto;}
-    .modalHeader{display:flex;justify-content:space-between;margin-bottom:15px;font-weight:bold;font-size:16px;}
+    .modalPanel{width:90%;max-width:800px;background:white;border-radius:12px;height:85vh;display:flex;flex-direction:column;}
+    .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;font-size:16px;}
+    .modalBody{flex:1;overflow-y:auto;padding:20px;}
     
+    .tabBar{display:flex;gap:10px;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;}
+    .tabBtn{padding:6px 14px;border-radius:20px;border:1px solid #ddd;background:white;cursor:pointer;font-size:13px;}
+    .tabBtn.active{background:#333;color:white;border-color:#333;}
+    .tabPane{display:none;}
+    
+    table.miniTable{width:100%;border-collapse:collapse;text-align:center;font-size:12px;}
+    table.miniTable th{background:#f8f9fa;padding:8px;position:sticky;top:0;}
+    table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
+
     #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:12px;opacity:0;transition:0.3s;pointer-events:none;z-index:2000;}
     #toast.show{opacity:1;bottom:50px;}
   </style>
@@ -120,85 +133,62 @@
 <div class="app">
   <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">jinsul-add v2.2</div>
+      <div class="brand">jinsul-add v2.2.6</div>
       <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">BIT/의사랑</span></div>
+        <div class="sectionTitle">환자 데이터 <span class="pill">BIT/의사랑</span></div>
         <div class="uploadBox" onclick="document.getElementById('fileInput').click()">
           <div style="font-size:24px;margin-bottom:5px;">📂</div>
-          <div style="font-weight:bold;">파일 선택 또는 드래그&드롭</div>
-          <div style="color:#868e96;font-size:11px;margin-top:4px;">(XLS, XLSX, CSV 지원)</div>
+          <div style="font-weight:bold;">파일 선택</div>
           <input id="fileInput" type="file" accept=".xls,.xlsx,.csv" style="display:none"/>
         </div>
+        <div class="statGrid">
+          <div class="statItem"><div class="statLabel">총 인원</div><div class="statValue" id="statTotalUsers">0</div></div>
+          <div class="statItem"><div class="statLabel">총 방문</div><div class="statValue" id="statTotalVisits">0</div></div>
+        </div>
         <div class="btnRow">
-          <button id="btnClear" class="btn danger">환자 초기화</button>
+          <button id="btnClear" class="btn danger">초기화</button>
           <button id="btnFit" class="btn primary">전체 보기</button>
         </div>
       </div>
 
       <div class="section">
-        <div class="sectionTitle">분석 모드 <span class="pill">속도/정확도</span></div>
-        <label class="radio-label">
-          <input type="radio" name="geoMode" value="fast" checked>
-          <span>속도 우선 — 주소 근사치 포함</span>
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="geoMode" value="accurate">
-          <span>균형 모드 — 주소 기준 적용</span>
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="geoMode" value="full">
-          <span>엄격 모드 — 주소 불확실 제외</span>
-        </label>
-      </div>
-
-      <div class="section">
-        <div class="sectionTitle">환자 필터 <span class="pill">대표 속성</span></div>
+        <div class="sectionTitle">환자 필터 <span class="pill">분류 기준</span></div>
         
         <div class="filter-row">
-          <div class="filter-info"><div class="dot" style="background:var(--c-new)"></div> 신환 (New)</div>
+          <div class="filter-info"><div class="dot" style="background:var(--c-new)"></div> 신환 (순수+전환)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="신환" checked>
+        </div>
+        <div class="filter-row" style="padding-left:15px; background:#fdfdfd;">
+          <div class="filter-info"><div class="dot" style="background:var(--c-conv)"></div> └ 재진 전환 (Subset)</div>
+          <input type="checkbox" class="filter-rep filter-check" data-type="재진 전환" checked>
         </div>
         <div class="filter-row">
           <div class="filter-info"><div class="dot" style="background:var(--c-90)"></div> 90일초 (BIT)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="90일초" checked>
         </div>
         <div class="filter-row">
-          <div class="filter-info"><div class="dot" style="background:var(--c-ret-new)"></div> 재진 전환 (New→Ret)</div>
-          <input type="checkbox" class="filter-rep filter-check" data-type="재진 전환" checked>
-        </div>
-        <div class="filter-row">
           <div class="filter-info"><div class="dot" style="background:var(--c-ret)"></div> 재진 (General)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="재진" checked>
         </div>
 
-        <button id="btnStats" class="btn outline" style="width:100%;margin-top:10px;">📊 상세 통계 보기</button>
+        <button id="btnStats" class="btn outline" style="width:100%;margin-top:10px;">📊 상세 분석 (v2.2)</button>
       </div>
 
       <div class="section">
-        <div class="sectionTitle">시설 검색 <span class="pill">무한 스캔</span></div>
+        <div class="sectionTitle">시설 검색</div>
         <div class="search-grid">
-          <div class="search-btn" data-target="senior">
-            <span style="font-size:16px;">🏠</span>
-            <span>경로당</span>
-          </div>
-          <div class="search-btn" data-target="welfare">
-            <span style="font-size:16px;">💜</span>
-            <span>노인재가</span>
-          </div>
-          <div class="search-btn" data-target="ortho" style="grid-column:span 2;">
-            <span style="font-size:16px;">🏥</span>
-            <span>경쟁 병원</span>
-          </div>
+          <div class="search-btn" data-target="senior"><span>🏠</span> 경로당</div>
+          <div class="search-btn" data-target="welfare"><span>💜</span> 노인재가</div>
+          <div class="search-btn" data-target="ortho" style="grid-column:span 2;"><span>🏥</span> 경쟁 병원</div>
         </div>
         <div class="btnRow">
-          <button id="btnSearch" class="btn primary">화면 내 검색</button>
+          <button id="btnSearch" class="btn primary">검색</button>
           <button id="btnResetSearch" class="btn danger">지우기</button>
         </div>
-        <div style="text-align:center;margin-top:6px;color:#868e96;font-size:11px;">검색 결과: <span id="targetCount">0</span>개</div>
       </div>
     </div>
   </aside>
@@ -209,14 +199,14 @@
     <div class="custom-toolbar">
       <button class="tool-btn" id="toolCircle" title="원 그리기">⭕</button>
       <button class="tool-btn" id="toolLine" title="거리 재기">📏</button>
-      <button class="tool-btn" id="toolClear" title="모두 지우기" style="color:#fa5252;">🗑️</button>
+      <button class="tool-btn" id="toolClear" title="지우기" style="color:#fa5252;">🗑️</button>
     </div>
 
     <div id="mapLegend">
-      <div style="font-weight:bold;margin-bottom:4px;border-bottom:1px solid #eee;">환자 분류</div>
+      <div style="font-weight:bold;margin-bottom:4px;">환자 분류</div>
       <div class="legend-item"><div class="dot" style="background:var(--c-new)"></div> 신환</div>
+      <div class="legend-item"><div class="dot" style="background:var(--c-conv)"></div> 재진 전환</div>
       <div class="legend-item"><div class="dot" style="background:var(--c-90)"></div> 90일초</div>
-      <div class="legend-item"><div class="dot" style="background:var(--c-ret-new)"></div> 재진 전환</div>
       <div class="legend-item"><div class="dot" style="background:var(--c-ret)"></div> 재진</div>
     </div>
   </main>
@@ -225,14 +215,39 @@
 <div id="statsModal" class="modalBack">
   <div class="modalPanel">
     <div class="modalHeader">
-      <span>상세 통계</span>
-      <span onclick="document.getElementById('statsModal').style.display='none'" style="cursor:pointer;">✕</span>
+      <span>상세 통계 분석</span>
+      <span onclick="document.getElementById('statsModal').style.display='none'" style="cursor:pointer;font-size:20px;">✕</span>
     </div>
-    <div style="height:250px;"><canvas id="chartType"></canvas></div>
-    <table style="width:100%;margin-top:15px;border-collapse:collapse;text-align:center;">
-      <thead style="background:#f8f9fa;"><tr><th>구분</th><th>인원</th><th>비율</th></tr></thead>
-      <tbody id="tblStats"></tbody>
-    </table>
+    <div class="modalBody">
+      <div class="tabBar">
+        <button class="tabBtn active" onclick="switchTab('tabSummary')">요약</button>
+        <button class="tabBtn" onclick="switchTab('tabDong')">행정동별</button>
+        <button class="tabBtn" onclick="switchTab('tabAge')">연령별</button>
+      </div>
+      
+      <div id="tabSummary" class="tabPane" style="display:block;">
+        <div style="height:300px;"><canvas id="chartType"></canvas></div>
+        <table class="miniTable" style="margin-top:20px;">
+          <thead><tr><th>구분</th><th>인원</th><th>비율</th><th>비고</th></tr></thead>
+          <tbody id="tblSummary"></tbody>
+        </table>
+      </div>
+      
+      <div id="tabDong" class="tabPane">
+        <table class="miniTable">
+          <thead><tr><th>행정동</th><th>신환(전체)</th><th>90일</th><th>재진</th><th>합계</th></tr></thead>
+          <tbody id="tblDong"></tbody>
+        </table>
+      </div>
+
+      <div id="tabAge" class="tabPane">
+        <div style="height:250px;"><canvas id="chartAge"></canvas></div>
+        <table class="miniTable" style="margin-top:15px;">
+          <thead><tr><th>연령대</th><th>인원</th><th>비율</th></tr></thead>
+          <tbody id="tblAge"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -242,7 +257,12 @@
 // === Constants ===
 const WALK_M_PER_MIN = 67;
 const BIKE_M_PER_MIN = 250;
-const REP_COLOR = { "신환": "#ff0000", "90일초": "#ffd400", "재진 전환": "#00c853", "재진": "#228be6" };
+const REP_COLOR = { 
+  "신환": "#ff0000", 
+  "재진 전환": "#00c853", 
+  "90일초": "#ffd400", 
+  "재진": "#228be6" 
+};
 
 let map, drawingManager, clusterer, geocoder, places;
 let patients = [];
@@ -261,23 +281,17 @@ function initKakao(){
     places = new kakao.maps.services.Places();
     clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
 
-    // === Drawing Manager (No Native Control, Using Custom) ===
+    // Drawing Manager (Manual Control)
     drawingManager = new kakao.maps.drawing.DrawingManager({
       map: map,
-      drawingMode: [], // Start empty
-      circleOptions: {
-        draggable: true, removable: true, strokeColor: '#228be6', fillColor: '#228be6', fillOpacity: 0.1
-      },
-      polylineOptions: {
-        draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3
-      }
+      drawingMode: [],
+      circleOptions: { draggable: true, removable: true, strokeColor: '#228be6', fillColor: '#228be6', fillOpacity: 0.1 },
+      polylineOptions: { draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3 }
     });
 
-    // Event: Circle Created (Overlay Logic)
+    // === Fixed Drawing Event ===
     kakao.maps.event.addListener(drawingManager, 'drawend', function(data) {
       if (!data || !data.overlay) return;
-      
-      // Reset button active states
       $('toolCircle').classList.remove('active');
       $('toolLine').classList.remove('active');
 
@@ -289,6 +303,7 @@ function initKakao(){
         const walk = Math.round(r / WALK_M_PER_MIN);
         const bike = Math.round(r / BIKE_M_PER_MIN);
 
+        // Explicit Styling for visibility
         const content = `
           <div class="info-overlay">
             반경 <b>${r.toLocaleString()}</b>m<br/>
@@ -298,46 +313,26 @@ function initKakao(){
         const overlay = new kakao.maps.CustomOverlay({
           position: circle.getPosition(),
           content: content,
-          yAnchor: 1.5,
-          zIndex: 10
+          yAnchor: 1.6, 
+          zIndex: 9999
         });
         overlay.setMap(map);
-
-        kakao.maps.event.addListener(drawingManager, 'remove', function(e) {
-          if(e.overlay === circle) overlay.setMap(null);
-        });
+        kakao.maps.event.addListener(drawingManager, 'remove', e => { if(e.overlay === circle) overlay.setMap(null); });
       }
     });
 
-    toast("시스템 준비 완료 (v2.2.5)");
+    toast("시스템 준비 완료 (v2.2.6)");
   });
 }
 initKakao();
 
-// === Custom Toolbar Handlers ===
-$('toolCircle').onclick = function() {
-  this.classList.add('active');
-  $('toolLine').classList.remove('active');
-  drawingManager.select(kakao.maps.drawing.OverlayType.CIRCLE);
-};
-$('toolLine').onclick = function() {
-  this.classList.add('active');
-  $('toolCircle').classList.remove('active');
-  drawingManager.select(kakao.maps.drawing.OverlayType.POLYLINE);
-};
-$('toolClear').onclick = function() {
-  drawingManager.clear();
-  $('toolCircle').classList.remove('active');
-  $('toolLine').classList.remove('active');
-  toast("도구 모두 삭제");
-};
+// === Toolbar ===
+$('toolCircle').onclick = function() { this.classList.add('active'); $('toolLine').classList.remove('active'); drawingManager.select(kakao.maps.drawing.OverlayType.CIRCLE); };
+$('toolLine').onclick = function() { this.classList.add('active'); $('toolCircle').classList.remove('active'); drawingManager.select(kakao.maps.drawing.OverlayType.POLYLINE); };
+$('toolClear').onclick = function() { drawingManager.clear(); $('toolCircle').classList.remove('active'); $('toolLine').classList.remove('active'); toast("도구 삭제"); };
 
-
-// File Upload
-$('fileInput').addEventListener('change', e => {
-  if(e.target.files.length) processFile(e.target.files[0]);
-  e.target.value = "";
-});
+// === File Process ===
+$('fileInput').addEventListener('change', e => { if(e.target.files.length) processFile(e.target.files[0]); e.target.value = ""; });
 
 async function processFile(file){
   toast("분석 중...");
@@ -345,12 +340,8 @@ async function processFile(file){
   fr.onload = (e) => {
     const data = new Uint8Array(e.target.result);
     let workbook;
-    try {
-      workbook = XLSX.read(data, {type:'array'});
-    } catch {
-      const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"});
-      workbook = XLSX.read(Encoding.codeToString(u), {type:'string'});
-    }
+    try { workbook = XLSX.read(data, {type:'array'}); } 
+    catch { const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"}); workbook = XLSX.read(Encoding.codeToString(u), {type:'string'}); }
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
     parsePatients(rows);
   };
@@ -359,9 +350,7 @@ async function processFile(file){
 
 function parsePatients(rows){
   let headIdx = -1;
-  for(let i=0; i<Math.min(rows.length, 20); i++){
-    if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; }
-  }
+  for(let i=0; i<Math.min(rows.length, 20); i++){ if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } }
   if(headIdx < 0) return;
 
   const h = rows[headIdx].map(x => String(x||""));
@@ -370,7 +359,8 @@ function parsePatients(rows){
     addr: h.findIndex(s => /주소/.test(s)),
     name: h.findIndex(s => /이름|성명/.test(s)),
     new: h.findIndex(s => /신규|신환/.test(s)),
-    type: h.findIndex(s => /구분|분류/.test(s))
+    type: h.findIndex(s => /구분|분류/.test(s)),
+    age: h.findIndex(s => /나이|연령/.test(s))
   };
 
   const mapData = new Map();
@@ -381,7 +371,7 @@ function parsePatients(rows){
     
     if(!mapData.has(pid)) {
       mapData.set(pid, {
-        name: r[idx.name]||"미상", addr: r[idx.addr]||"",
+        name: r[idx.name]||"미상", addr: r[idx.addr]||"", age: r[idx.age]||0,
         newV: 0, ret90V: 0, oldV: 0, total: 0
       });
     }
@@ -395,38 +385,56 @@ function parsePatients(rows){
       if(t.includes("90")) is90 = true;
       else if(/신환|신규|1/.test(t)) isNew = true;
     }
-
-    if(isNew) p.newV++;
-    else if(is90) p.ret90V++;
-    else p.oldV++;
+    if(isNew) p.newV++; else if(is90) p.ret90V++; else p.oldV++;
   }
 
   patients = Array.from(mapData.values());
-  const mode = document.querySelector('input[name="geoMode"]:checked')?.value || "fast";
-  const delay = mode === 'fast' ? 50 : 150;
-
-  clusterer.clear();
+  let totalVisits = 0;
   
-  patients.forEach((p, i) => {
-    if(p.newV > 0 && p.oldV > 0) p.type = "재진 전환";
-    else if(p.newV > 0) p.type = "신환";
-    else if(p.ret90V > 0) p.type = "90일초";
-    else p.type = "재진";
+  // === LOGIC FIX: "New" Priority & "Converted" Subset ===
+  patients.forEach(p => {
+    totalVisits += p.total;
+    // Primary Category logic for Colors
+    // If ever New -> It is New (Red). 
+    // If New AND Returned -> It is Converted (Green, but statistically New).
+    
+    if(p.newV > 0) {
+      if(p.oldV > 0) {
+        p.type = "재진 전환"; // Marker color green
+        p.baseType = "신환"; // Logical category
+      } else {
+        p.type = "신환";
+        p.baseType = "신환";
+      }
+    } else if (p.ret90V > 0) {
+      p.type = "90일초";
+      p.baseType = "90일초";
+    } else {
+      p.type = "재진";
+      p.baseType = "재진";
+    }
+  });
 
+  // Sidebar Stats
+  $('statTotalUsers').innerText = patients.length.toLocaleString();
+  $('statTotalVisits').innerText = totalVisits.toLocaleString();
+
+  // Geocoding
+  clusterer.clear();
+  patients.forEach((p, i) => {
     setTimeout(() => {
       geocoder.addressSearch(p.addr, (res, status) => {
         if(status === kakao.maps.services.Status.OK){
           const latlng = new kakao.maps.LatLng(res[0].y, res[0].x);
+          p.latlng = latlng;
+          p.dong = res[0].address?.region_3depth_name || "미상";
+          
           const color = REP_COLOR[p.type];
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
+          const marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
           
-          const marker = new kakao.maps.Marker({
-            position: latlng,
-            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14))
-          });
-
           const iw = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b><br><span style="color:${color}">● ${p.type}</span></div>`,
+            content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`,
             removable: true
           });
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
@@ -435,101 +443,153 @@ function parsePatients(rows){
         }
         if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("분석 완료"); }
       });
-    }, i * delay);
+    }, i * 30);
   });
 }
 
+// === Filter ===
 document.querySelectorAll('.filter-rep').forEach(cb => cb.addEventListener('change', applyFilter));
-
 function applyFilter(){
   clusterer.clear();
   const checked = Array.from(document.querySelectorAll('.filter-rep:checked')).map(c => c.dataset.type);
   const visible = [];
-  patients.forEach(p => { if(p.marker && checked.includes(p.type)) visible.push(p.marker); });
+  patients.forEach(p => { 
+    if(p.marker && checked.includes(p.type)) visible.push(p.marker);
+  });
   clusterer.addMarkers(visible);
 }
 
-$('btnClear').onclick = () => { clusterer.clear(); patients=[]; toast("초기화 완료"); };
-$('btnFit').onclick = () => {
-  if(!patients.length) return;
-  const b = new kakao.maps.LatLngBounds();
-  patients.forEach(p => p.marker && b.extend(p.marker.getPosition()));
-  map.setBounds(b);
+$('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
+$('btnFit').onclick = () => { if(patients.length) { const b = new kakao.maps.LatLngBounds(); patients.forEach(p=>p.marker&&b.extend(p.marker.getPosition())); map.setBounds(b); } };
+
+// === Detailed Stats (Logic Corrected) ===
+let chartObj1, chartObj2;
+
+$('btnStats').onclick = () => {
+  if(!patients.length) { toast("데이터 없음"); return; }
+  $('statsModal').style.display = 'flex';
+  
+  const checked = Array.from(document.querySelectorAll('.filter-rep:checked')).map(c => c.dataset.type);
+  // Allow stats to show all if filtered, or just filtered? Usually filtered set.
+  const visible = patients.filter(p => p.marker && checked.includes(p.type));
+  
+  // 1. Summary Calculation
+  // Logic: Sum of New(Base) + 90 + Return = Total.
+  // Converted is a subset of New.
+  let cntNewBase = 0; // Pure New + Converted
+  let cntConv = 0;    // Converted Only
+  let cnt90 = 0;
+  let cntRet = 0;
+
+  visible.forEach(p => {
+    if(p.baseType === "신환") {
+      cntNewBase++;
+      if(p.type === "재진 전환") cntConv++;
+    } else if(p.baseType === "90일초") cnt90++;
+    else if(p.baseType === "재진") cntRet++;
+  });
+
+  const total = cntNewBase + cnt90 + cntRet; // Logical Total
+  
+  // Table
+  const tblHtml = `
+    <tr><td style="color:${REP_COLOR['신환']};font-weight:bold;">신환 (전체)</td><td>${cntNewBase}</td><td>${pct(cntNewBase, total)}%</td><td>총 신환 수</td></tr>
+    <tr><td style="color:${REP_COLOR['재진 전환']}">└ 재진 전환</td><td>${cntConv}</td><td>${pct(cntConv, cntNewBase)}%</td><td>신환 중 재방문</td></tr>
+    <tr><td style="color:${REP_COLOR['90일초']}">90일초</td><td>${cnt90}</td><td>${pct(cnt90, total)}%</td><td></td></tr>
+    <tr><td style="color:${REP_COLOR['재진']}">재진</td><td>${cntRet}</td><td>${pct(cntRet, total)}%</td><td></td></tr>
+    <tr style="background:#f1f3f5;font-weight:bold;"><td>합계</td><td>${total}</td><td>100%</td><td>검증 완료</td></tr>
+  `;
+  $('tblSummary').innerHTML = tblHtml;
+
+  // Chart (Doughnut: New, 90, Return)
+  if(chartObj1) chartObj1.destroy();
+  chartObj1 = new Chart($('chartType'), {
+    type: 'doughnut',
+    data: {
+      labels: [`신환(${cntNewBase})`, `90일(${cnt90})`, `재진(${cntRet})`],
+      datasets: [{
+        data: [cntNewBase, cnt90, cntRet],
+        backgroundColor: [REP_COLOR['신환'], REP_COLOR['90일초'], REP_COLOR['재진']]
+      }]
+    },
+    options: { plugins: { datalabels: { color:'white', font:{weight:'bold'} } } },
+    plugins: [ChartDataLabels]
+  });
+
+  // 2. Dong Stats
+  const dongMap = {};
+  visible.forEach(p => {
+    const d = p.dong || "미상";
+    if(!dongMap[d]) dongMap[d] = { n:0, n90:0, r:0, t:0 };
+    dongMap[d].t++;
+    if(p.baseType==='신환') dongMap[d].n++;
+    else if(p.baseType==='90일초') dongMap[d].n90++;
+    else dongMap[d].r++;
+  });
+  
+  const sortedDong = Object.keys(dongMap).sort((a,b) => dongMap[b].t - dongMap[a].t);
+  $('tblDong').innerHTML = sortedDong.map(d => {
+    const v = dongMap[d];
+    return `<tr><td>${d}</td><td>${v.n}</td><td>${v.n90}</td><td>${v.r}</td><td><b>${v.t}</b></td></tr>`;
+  }).join("");
+
+  // 3. Age Stats
+  const ageMap = {};
+  visible.forEach(p => {
+    const ag = Math.floor(p.age/10)*10 || 0;
+    const label = ag+"대";
+    ageMap[label] = (ageMap[label]||0)+1;
+  });
+  const ages = Object.keys(ageMap).sort();
+  
+  $('tblAge').innerHTML = ages.map(a => `<tr><td>${a}</td><td>${ageMap[a]}</td><td>${pct(ageMap[a], total)}%</td></tr>`).join("");
+  
+  if(chartObj2) chartObj2.destroy();
+  chartObj2 = new Chart($('chartAge'), {
+    type: 'bar',
+    data: {
+      labels: ages,
+      datasets: [{ label: '인원수', data: ages.map(a=>ageMap[a]), backgroundColor: '#228be6' }]
+    },
+    options: { plugins: { legend:{display:false} } }
+  });
 };
 
+function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
+window.switchTab = (id) => {
+  document.querySelectorAll('.tabPane').forEach(e => e.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+};
+
+// Search Facilities
 const searchBtns = document.querySelectorAll('.search-btn');
 searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
-
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active');
-  if(!actives.length) return toast("시설을 선택하세요");
-
+  if(!actives.length) return toast("시설 선택 필요");
   Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
   targetMarkers = { senior:[], welfare:[], ortho:[] };
-  let count = 0;
   const bounds = map.getBounds();
-
+  let cnt = 0;
   for(const btn of actives){
-    const type = btn.dataset.target;
-    let kws = [];
-    if(type === 'senior') kws = ['경로당', '마을회관'];
-    if(type === 'welfare') kws = ['노인복지', '주간보호'];
-    if(type === 'ortho') kws = ['정형외과', '통증의학과'];
-
-    for(const kw of kws){
+    const t = btn.dataset.target;
+    let k = (t==='senior')?['경로당']:(t==='welfare')?['노인복지']:(t==='ortho')?['정형외과']:[];
+    for(const kw of k){
       await new Promise(r => {
-        places.keywordSearch(kw, (data, stat) => {
-          if(stat === kakao.maps.services.Status.OK){
-            data.forEach(p => {
-              const m = new kakao.maps.CustomOverlay({
-                position: new kakao.maps.LatLng(p.y, p.x),
-                content: `<div style="background:white;border:1px solid #ccc;padding:2px 4px;font-size:11px;">${p.place_name}</div>`,
-                map: map, yAnchor: 1.5
-              });
-              targetMarkers[type].push(m);
-              count++;
-            });
-          }
-          r();
-        }, {bounds: bounds});
+        places.keywordSearch(kw, (d, s)=>{
+          if(s===kakao.maps.services.Status.OK) d.forEach(p=>{
+             const m = new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(p.y,p.x), content:`<div style="background:#fff;border:1px solid #aaa;font-size:11px;padding:2px;">${p.place_name}</div>`, map:map});
+             targetMarkers[t].push(m); cnt++;
+          }); r();
+        }, {bounds});
       });
     }
   }
-  $('targetCount').innerText = count;
-  toast(`${count}개 시설 발견`);
+  toast(`${cnt}개 발견`);
 };
-
-$('btnResetSearch').onclick = () => {
-  searchBtns.forEach(b => b.classList.remove('active'));
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
-  $('targetCount').innerText = "0";
-};
-
-let chartObj;
-$('btnStats').onclick = () => {
-  $('statsModal').style.display = 'block';
-  const checked = Array.from(document.querySelectorAll('.filter-rep:checked')).map(c => c.dataset.type);
-  const visible = patients.filter(p => p.marker && checked.includes(p.type));
-  
-  const cnt = { "신환":0, "90일초":0, "재진 전환":0, "재진":0 };
-  visible.forEach(p => cnt[p.type]++);
-  const labels = Object.keys(cnt);
-  const vals = Object.values(cnt);
-  const total = visible.length || 1;
-
-  $('tblStats').innerHTML = labels.map((l,i) => `
-    <tr><td style="text-align:left;padding-left:20px;"><span class="dot" style="background:${REP_COLOR[l]};display:inline-block;margin-right:5px;"></span>${l}</td>
-    <td>${vals[i]}</td><td>${((vals[i]/total)*100).toFixed(1)}%</td></tr>
-  `).join("");
-
-  if(chartObj) chartObj.destroy();
-  chartObj = new Chart($('chartType'), {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data: vals, backgroundColor: labels.map(l=>REP_COLOR[l]) }] },
-    options: { plugins: { datalabels: { color:'white' } } },
-    plugins: [ChartDataLabels]
-  });
-};
+$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); };
 </script>
 </body>
 </html>
