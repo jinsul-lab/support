@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.3</title>
+  <title>jinsul-add v2.2.5 (Custom Toolbar)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -13,258 +13,278 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <style>
-    /* UI 스타일: v2.2 원본 유지 */
-    :root { --blue:#228be6; --border:rgba(0,0,0,.10); --text:#1f2937; --bg:#f8f9fa; --card:#fff; --shadow:0 10px 28px rgba(0,0,0,.10); --radius:20px; 
-            --red:#ff0000; --yellow:#ffd400; --green:#00c853; }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden}
-    .app{height:100%;width:100%;display:flex}
+    /* === v2.2 Original Design System === */
+    :root { 
+      --blue:#228be6; --blue-light:#e7f5ff;
+      --red:#fa5252; --red-light:#fff5f5;
+      --border:#dee2e6; --text:#343a40; --bg:#f8f9fa; --card:#fff;
+      --c-new:#ff0000; --c-90:#ffd400; --c-ret-new:#00c853; --c-ret:#228be6;
+    }
     
-    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);z-index:20;display:flex;flex-direction:column;transition:margin-left 0.3s ease;}
-    .sidebar.collapsed{margin-left:-360px;}
-    .sidebarHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.9);}
-    .brand{font-weight:900;font-size:1.1rem;}
-    .iconBtn{border:1px solid var(--border);background:#fff;height:38px;width:38px;border-radius:14px;display:grid;place-items:center;cursor:pointer;}
-    .iconBtn:hover{background:#f1f3f5;}
-    .sidebarBody{flex:1;overflow-y:auto;padding:14px;}
+    *{box-sizing:border-box;font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden;font-size:13px;}
+    
+    .app{display:flex;height:100%;width:100%;}
+    
+    /* Sidebar */
+    .sidebar{width:340px;min-width:340px;height:100%;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20;}
+    .sidebarHeader{padding:15px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .brand{font-weight:900;font-size:16px;}
+    .sidebarBody{flex:1;overflow-y:auto;padding:15px;}
+    
+    /* Sections */
+    .section{background:#fff;border:1px solid var(--border);border-radius:8px;padding:15px;margin-bottom:12px;}
+    .sectionTitle{font-weight:800;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+    .pill{font-size:10px;background:var(--blue);color:white;padding:3px 6px;border-radius:4px;font-weight:normal;}
+    
+    /* Upload Box */
+    .uploadBox{border:2px dashed #adb5bd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8f9fa;transition:0.2s;}
+    .uploadBox:hover{border-color:var(--blue);background:var(--blue-light);}
+    
+    /* Buttons */
+    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+    .btn{width:100%;padding:10px;border-radius:6px;border:none;font-weight:700;cursor:pointer;font-size:12px;transition:0.2s;}
+    .btn.primary{background:var(--blue);color:white;}
+    .btn.primary:hover{background:#1c7ed6;}
+    .btn.danger{background:var(--red-light);color:var(--red);}
+    .btn.danger:hover{background:#ffc9c9;}
+    .btn.outline{background:#fff;border:1px solid var(--border);color:var(--text);}
+    .btn.outline:hover{background:#f1f3f5;}
 
-    .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
-    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:800;font-size:14px;}
-    .pill{font-size:11px;background:var(--blue);color:white;padding:4px 8px;border-radius:10px;}
-    
-    .uploadBox{border:2px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#f8fafc;transition:0.2s;}
-    .uploadBox:hover{border-color:var(--blue);background:#eff6ff;}
-    
-    /* v2.2.3 New Filter Style */
-    .filter-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;}
-    .filter-label{display:flex;align-items:center;font-size:14px;}
-    .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px;}
-    .filter-check{width:18px;height:18px;accent-color:#333;}
-    
-    .search-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
-    .search-btn { padding: 12px; border: 1px solid #dee2e6; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; text-align: center; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 5px; transition:0.2s; }
-    .search-btn:hover { background: #f8f9fa; border-color: var(--blue); }
-    .search-btn.active { background: #e7f5ff; border-color: var(--blue); color: var(--blue); }
-    .search-icon { font-size: 18px; }
+    /* Inputs */
+    .radio-label{display:flex;align-items:center;margin-bottom:8px;cursor:pointer;}
+    .radio-label input{margin-right:8px;accent-color:var(--blue);}
+    .filter-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #f1f3f5;}
+    .filter-row:last-child{border-bottom:none;}
+    .filter-info{display:flex;align-items:center;gap:6px;}
+    .dot{width:10px;height:10px;border-radius:50%;}
+    .filter-check{width:16px;height:16px;accent-color:#333;cursor:pointer;}
 
-    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-    .btn{width:100%;padding:10px;border:none;border-radius:8px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:bold;}
-    .btn.primary{background:var(--blue);color:white;border:none;}
-    .btn.danger{background:#fee2e2;color:#ef4444;border:none;}
-    
+    /* Search Grid */
+    .search-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .search-btn{
+      padding:12px;border:1px solid var(--border);border-radius:8px;background:#fff;
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+      font-weight:600;color:#495057;
+    }
+    .search-btn:hover{background:#f8f9fa;}
+    .search-btn.active{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
+
+    /* Map Area */
     .mapArea{flex:1;position:relative;}
     #map{width:100%;height:100%;}
-    .mapControls{position:absolute;top:20px;right:20px;z-index:30;display:flex;flex-direction:column;gap:5px;}
-    .ctrlBtn{width:40px;height:40px;background:white;border-radius:8px;border:none;cursor:pointer;font-size:18px;font-weight:bold;}
     
-    #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:100;opacity:0;transition:0.3s;pointer-events:none;}
-    #toast.show{opacity:1;bottom:50px;}
-
-    #mapLegend {position:absolute;top:12px;left:12px;z-index:20;background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;font-size:11px;display:flex;flex-direction:column;gap:5px;max-width:170px;}
-    .legend-item{display:flex;align-items:center;gap:8px;}
-    
-    /* Info Overlay for Radius */
-    .info-overlay { background:rgba(255,255,255,0.95); border:1px solid #999; border-radius:6px; padding:6px 8px; font-size:12px; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
-
-    /* Modal Styles */
-    .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
-    .modalPanel{width:90%;max-width:800px;height:80vh;background:white;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;}
-    .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;}
-    .modalBody{padding:20px;overflow-y:auto;flex:1;}
-    table.miniTable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;text-align:center;}
-    table.miniTable th{background:#f8f9fa;padding:8px;}
-    table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
-
-    .version-badge{
-      position:fixed; right:12px; top:10px; z-index:9999;
-      background:#111; color:#fff; padding:6px 10px;
-      border-radius:8px; font-size:12px; opacity:.8; pointer-events:none;
+    /* === Custom Floating Toolbar === */
+    .custom-toolbar {
+      position: absolute; top: 12px; right: 12px; z-index: 100;
+      background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc;
     }
+    .tool-btn {
+      width: 44px; height: 44px; border: none; background: white; cursor: pointer;
+      font-size: 20px; border-bottom: 1px solid #eee; display: grid; place-items: center;
+      transition: 0.2s; color: #444;
+    }
+    .tool-btn:last-child { border-bottom: none; }
+    .tool-btn:hover { background: #f8f9fa; color: var(--blue); }
+    .tool-btn.active { background: var(--blue-light); color: var(--blue); font-weight: bold; }
+    .tooltip { font-size: 10px; margin-top: -2px; color: #888; }
+
+    /* Legend */
+    #mapLegend{
+      position:absolute;top:12px;left:12px;z-index:20;
+      background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);font-size:11px;
+      display:flex;flex-direction:column;gap:5px;
+    }
+    .legend-item{display:flex;align-items:center;gap:6px;}
+
+    /* Overlays */
+    .info-overlay {
+      background:rgba(255,255,255,0.98); border:1px solid #888; border-radius:4px;
+      padding:5px 8px; font-size:11px; white-space:nowrap;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: none;
+    }
+
+    /* Modal */
+    .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;justify-content:center;align-items:center;}
+    .modalPanel{width:90%;max-width:600px;background:white;border-radius:12px;padding:20px;max-height:80vh;overflow-y:auto;}
+    .modalHeader{display:flex;justify-content:space-between;margin-bottom:15px;font-weight:bold;font-size:16px;}
+    
+    #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:12px;opacity:0;transition:0.3s;pointer-events:none;z-index:2000;}
+    #toast.show{opacity:1;bottom:50px;}
   </style>
 </head>
 <body>
+
 <div class="app">
-  <aside id="sidebar" class="sidebar">
+  <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL 분석 시스템</div>
-      <button id="btnCollapse" class="iconBtn">☰</button>
+      <div class="brand">jinsul-add v2.2</div>
+      <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle"><h3>환자 데이터 업로드</h3><span class="pill">BIT/의사랑</span></div>
-        <div id="uploadBox" class="uploadBox" onclick="$('#fileInput').click()">
-          <div style="font-weight:bold;font-size:13px;">📂 파일 선택 또는 드래그&드롭</div>
-          <div style="font-size:11px;color:#888;margin-top:5px;">(XLS, XLSX, CSV 지원)</div>
+        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">BIT/의사랑</span></div>
+        <div class="uploadBox" onclick="document.getElementById('fileInput').click()">
+          <div style="font-size:24px;margin-bottom:5px;">📂</div>
+          <div style="font-weight:bold;">파일 선택 또는 드래그&드롭</div>
+          <div style="color:#868e96;font-size:11px;margin-top:4px;">(XLS, XLSX, CSV 지원)</div>
           <input id="fileInput" type="file" accept=".xls,.xlsx,.csv" style="display:none"/>
         </div>
         <div class="btnRow">
-          <button id="btnClearPatients" class="btn danger">환자 초기화</button>
-          <button id="btnFitPatients" class="btn primary">전체 보기</button>
+          <button id="btnClear" class="btn danger">환자 초기화</button>
+          <button id="btnFit" class="btn primary">전체 보기</button>
         </div>
       </div>
 
       <div class="section">
-        <div class="sectionTitle">
-          <h3>분석 모드</h3>
-          <span class="pill">속도/정확도</span>
-        </div>
-        <label style="display:block;margin-bottom:6px;">
-          <input type="radio" name="geoMode" value="fast" checked title="주소가 일부 불완전해도 근사 좌표를 포함해 빠르게 집계합니다.">
-          속도 우선 — 주소 근사치 포함
+        <div class="sectionTitle">분석 모드 <span class="pill">속도/정확도</span></div>
+        <label class="radio-label">
+          <input type="radio" name="geoMode" value="fast" checked>
+          <span>속도 우선 — 주소 근사치 포함</span>
         </label>
-        <label style="display:block;margin-bottom:6px;">
-          <input type="radio" name="geoMode" value="accurate" title="주소 기준을 적용해 분석용으로 균형 잡힌 결과를 제공합니다.">
-          균형 모드 — 주소 기준 적용
+        <label class="radio-label">
+          <input type="radio" name="geoMode" value="accurate">
+          <span>균형 모드 — 주소 기준 적용</span>
         </label>
-        <label style="display:block;">
-          <input type="radio" name="geoMode" value="full" title="주소가 명확한 경우만 포함하며, 불확실한 데이터는 제외합니다.">
-          엄격 모드 — 주소 불확실 제외
+        <label class="radio-label">
+          <input type="radio" name="geoMode" value="full">
+          <span>엄격 모드 — 주소 불확실 제외</span>
         </label>
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>환자 필터</h3><span class="pill">대표 속성</span></div>
+        <div class="sectionTitle">환자 필터 <span class="pill">대표 속성</span></div>
         
         <div class="filter-row">
-          <label class="filter-label"><span class="dot" style="background:var(--red)"></span> 신환 (New)</label>
+          <div class="filter-info"><div class="dot" style="background:var(--c-new)"></div> 신환 (New)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="신환" checked>
         </div>
         <div class="filter-row">
-          <label class="filter-label"><span class="dot" style="background:var(--yellow)"></span> 90일초 (BIT)</label>
+          <div class="filter-info"><div class="dot" style="background:var(--c-90)"></div> 90일초 (BIT)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="90일초" checked>
         </div>
         <div class="filter-row">
-          <label class="filter-label"><span class="dot" style="background:var(--green)"></span> 재진 전환 (New→Ret)</label>
+          <div class="filter-info"><div class="dot" style="background:var(--c-ret-new)"></div> 재진 전환 (New→Ret)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="재진 전환" checked>
         </div>
         <div class="filter-row">
-          <label class="filter-label"><span class="dot" style="background:var(--blue)"></span> 재진 (General)</label>
+          <div class="filter-info"><div class="dot" style="background:var(--c-ret)"></div> 재진 (General)</div>
           <input type="checkbox" class="filter-rep filter-check" data-type="재진" checked>
         </div>
 
-        <button id="btnOpenStats" class="btn" style="margin-top:10px;">📊 상세 통계 보기</button>
+        <button id="btnStats" class="btn outline" style="width:100%;margin-top:10px;">📊 상세 통계 보기</button>
       </div>
 
       <div class="section">
-        <div class="sectionTitle"><h3>시설 검색</h3><span class="pill">무한 스캔</span></div>
+        <div class="sectionTitle">시설 검색 <span class="pill">무한 스캔</span></div>
         <div class="search-grid">
-          <div class="search-btn" data-target="target_senior"><span class="search-icon">🏠</span> 경로당</div>
-          <div class="search-btn" data-target="target_welfare"><span class="search-icon">💜</span> 노인재가</div>
-          <div class="search-btn" data-target="target_ortho"><span class="search-icon">🏥</span> 경쟁병원</div>
-          <div class="search-btn" id="btnResetTargets" style="background:#fff0f0; border-color:#ffc9c9; color:#fa5252;"><span class="search-icon">🗑️</span> 지우기</div>
+          <div class="search-btn" data-target="senior">
+            <span style="font-size:16px;">🏠</span>
+            <span>경로당</span>
+          </div>
+          <div class="search-btn" data-target="welfare">
+            <span style="font-size:16px;">💜</span>
+            <span>노인재가</span>
+          </div>
+          <div class="search-btn" data-target="ortho" style="grid-column:span 2;">
+            <span style="font-size:16px;">🏥</span>
+            <span>경쟁 병원</span>
+          </div>
         </div>
         <div class="btnRow">
-          <button id="btnSearchTargets" class="btn primary">화면 내 검색</button>
+          <button id="btnSearch" class="btn primary">화면 내 검색</button>
+          <button id="btnResetSearch" class="btn danger">지우기</button>
         </div>
-        <div style="text-align:center; margin-top:5px; font-size:12px; color:#888;">
-          시설 <span id="statTargetsTotal">0</span>개 검색됨
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="sectionTitle"><h3>도구</h3><span class="pill">다중 측정</span></div>
-        <div class="btnRow">
-          <button id="btnDrawCircle" class="btn">⭕ 원 그리기</button>
-          <button id="btnDrawLine" class="btn">📏 거리 재기</button>
-        </div>
-        <button id="btnClearTools" class="btn danger" style="margin-top:10px; font-size:12px;">🧹 도구 모두 지우기</button>
+        <div style="text-align:center;margin-top:6px;color:#868e96;font-size:11px;">검색 결과: <span id="targetCount">0</span>개</div>
       </div>
     </div>
   </aside>
 
   <main class="mapArea">
-    <button id="btnOpenSidebar" class="iconBtn" style="position:absolute;top:12px;left:12px;z-index:30;display:none;">☰</button>
     <div id="map"></div>
     
-    <div id="mapLegend">
-      <div style="font-weight:bold;margin-bottom:5px;border-bottom:1px solid #eee;">환자 분류</div>
-      <div class="legend-item"><div class="dot" style="background:var(--red)"></div> 신환</div>
-      <div class="legend-item"><div class="dot" style="background:var(--yellow)"></div> 90일초</div>
-      <div class="legend-item"><div class="dot" style="background:var(--green)"></div> 재진 전환</div>
-      <div class="legend-item"><div class="dot" style="background:var(--blue)"></div> 재진</div>
+    <div class="custom-toolbar">
+      <button class="tool-btn" id="toolCircle" title="원 그리기">⭕</button>
+      <button class="tool-btn" id="toolLine" title="거리 재기">📏</button>
+      <button class="tool-btn" id="toolClear" title="모두 지우기" style="color:#fa5252;">🗑️</button>
     </div>
 
-    <div class="mapControls">
-      <button id="btnZoomIn" class="ctrlBtn">+</button>
-      <button id="btnZoomOut" class="ctrlBtn">-</button>
+    <div id="mapLegend">
+      <div style="font-weight:bold;margin-bottom:4px;border-bottom:1px solid #eee;">환자 분류</div>
+      <div class="legend-item"><div class="dot" style="background:var(--c-new)"></div> 신환</div>
+      <div class="legend-item"><div class="dot" style="background:var(--c-90)"></div> 90일초</div>
+      <div class="legend-item"><div class="dot" style="background:var(--c-ret-new)"></div> 재진 전환</div>
+      <div class="legend-item"><div class="dot" style="background:var(--c-ret)"></div> 재진</div>
     </div>
   </main>
 </div>
 
 <div id="statsModal" class="modalBack">
   <div class="modalPanel">
-    <div class="modalHeader"><span>상세 통계</span><button id="btnCloseStats" style="border:none;background:none;font-size:20px;cursor:pointer;">✕</button></div>
-    <div class="modalBody">
-      <div style="height:300px;"><canvas id="chartType_modal"></canvas></div>
-      <table class="miniTable">
-        <thead><tr><th>구분</th><th>인원수</th><th>비율</th></tr></thead>
-        <tbody id="tblStats"></tbody>
-      </table>
+    <div class="modalHeader">
+      <span>상세 통계</span>
+      <span onclick="document.getElementById('statsModal').style.display='none'" style="cursor:pointer;">✕</span>
     </div>
+    <div style="height:250px;"><canvas id="chartType"></canvas></div>
+    <table style="width:100%;margin-top:15px;border-collapse:collapse;text-align:center;">
+      <thead style="background:#f8f9fa;"><tr><th>구분</th><th>인원</th><th>비율</th></tr></thead>
+      <tbody id="tblStats"></tbody>
+    </table>
   </div>
 </div>
+
 <div id="toast">알림</div>
 
 <script>
-// === Constants & Config ===
-const BUILD_VERSION = "v2.2.3";
-const WALK_M_PER_MIN = 67;   // 도보 분속
-const BIKE_M_PER_MIN = 250; // 자전거 분속
+// === Constants ===
+const WALK_M_PER_MIN = 67;
+const BIKE_M_PER_MIN = 250;
+const REP_COLOR = { "신환": "#ff0000", "90일초": "#ffd400", "재진 전환": "#00c853", "재진": "#228be6" };
 
-// Representative Color Map
-const REP_COLOR = {
-  "신환": "#ff0000",
-  "90일초": "#ffd400",
-  "재진 전환": "#00c853",
-  "재진": "#228be6"
-};
-
-const GEO_PRESETS = {
-  fast: { delay: 60 },
-  accurate: { delay: 120 },
-  full: { delay: 150 }
-};
-
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-
-let map, geocoder, places, clusterer, drawingManager;
-let patientRecords = []; 
+let map, drawingManager, clusterer, geocoder, places;
+let patients = [];
 let targetMarkers = { senior:[], welfare:[], ortho:[] };
 
-function toast(msg, ms=2000){ const t=$("#toast"); t.innerText=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), ms); }
+const $ = (id) => document.getElementById(id);
+const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
 
-// UI Init (Sidebar toggle)
-$("#btnCollapse").onclick = () => $("#sidebar").classList.toggle("collapsed");
-$("#btnOpenSidebar").onclick = () => $("#sidebar").classList.remove("collapsed");
-
-// === Map & DrawingManager Init ===
+// === Init ===
 function initKakao(){
-  if(!window.kakao || !kakao.maps){ setTimeout(initKakao, 100); return; }
-  kakao.maps.load(()=>{
-    map = new kakao.maps.Map($("#map"), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
+  if(!window.kakao || !kakao.maps) { setTimeout(initKakao, 100); return; }
+  
+  kakao.maps.load(() => {
+    map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
     clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
 
-    // Drawing Manager (Unified Tool)
+    // === Drawing Manager (No Native Control, Using Custom) ===
     drawingManager = new kakao.maps.drawing.DrawingManager({
       map: map,
-      drawingMode: [],
+      drawingMode: [], // Start empty
       circleOptions: {
-        draggable: true, removable: true, editable: false,
-        strokeColor: '#339af0', fillColor: '#339af0', fillOpacity: 0.15
+        draggable: true, removable: true, strokeColor: '#228be6', fillColor: '#228be6', fillOpacity: 0.1
       },
       polylineOptions: {
-        draggable: true, removable: true, strokeColor: '#e03131', strokeWeight: 3
+        draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3
       }
     });
 
-    // Drawing Event: Add Info Overlay to Circles
+    // Event: Circle Created (Overlay Logic)
     kakao.maps.event.addListener(drawingManager, 'drawend', function(data) {
+      if (!data || !data.overlay) return;
+      
+      // Reset button active states
+      $('toolCircle').classList.remove('active');
+      $('toolLine').classList.remove('active');
+
       if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) {
         const circle = data.overlay;
+        if (typeof circle.getRadius !== 'function') return;
+
         const r = Math.round(circle.getRadius());
         const walk = Math.round(r / WALK_M_PER_MIN);
         const bike = Math.round(r / BIKE_M_PER_MIN);
@@ -272,13 +292,13 @@ function initKakao(){
         const content = `
           <div class="info-overlay">
             반경 <b>${r.toLocaleString()}</b>m<br/>
-            🚶약 ${walk}분 · 🚲약 ${bike}분
+            🚶${walk}분 🚲${bike}분
           </div>`;
           
         const overlay = new kakao.maps.CustomOverlay({
           position: circle.getPosition(),
           content: content,
-          yAnchor: 1.35,
+          yAnchor: 1.5,
           zIndex: 10
         });
         overlay.setMap(map);
@@ -289,292 +309,227 @@ function initKakao(){
       }
     });
 
-    $("#btnZoomIn").onclick = () => map.setLevel(map.getLevel()-1);
-    $("#btnZoomOut").onclick = () => map.setLevel(map.getLevel()+1);
-    
-    // Tools Buttons
-    $("#btnDrawCircle").onclick = () => { drawingManager.select(kakao.maps.drawing.OverlayType.CIRCLE); };
-    $("#btnDrawLine").onclick = () => { drawingManager.select(kakao.maps.drawing.OverlayType.POLYLINE); };
-    $("#btnClearTools").onclick = () => { drawingManager.clear(); toast("도구 초기화"); };
-
-    toast("JINSUL 시스템 준비 완료 " + BUILD_VERSION);
+    toast("시스템 준비 완료 (v2.2.5)");
   });
 }
 initKakao();
 
+// === Custom Toolbar Handlers ===
+$('toolCircle').onclick = function() {
+  this.classList.add('active');
+  $('toolLine').classList.remove('active');
+  drawingManager.select(kakao.maps.drawing.OverlayType.CIRCLE);
+};
+$('toolLine').onclick = function() {
+  this.classList.add('active');
+  $('toolCircle').classList.remove('active');
+  drawingManager.select(kakao.maps.drawing.OverlayType.POLYLINE);
+};
+$('toolClear').onclick = function() {
+  drawingManager.clear();
+  $('toolCircle').classList.remove('active');
+  $('toolLine').classList.remove('active');
+  toast("도구 모두 삭제");
+};
 
-// === File & Data Processing ===
-const uploadBox=$("#uploadBox");
-const fileInput=$("#fileInput");
 
-["dragenter","dragover"].forEach(ev=>uploadBox.addEventListener(ev,(e)=>{ e.preventDefault(); uploadBox.style.borderColor="var(--blue)"; }));
-["dragleave","drop"].forEach(ev=>uploadBox.addEventListener(ev,(e)=>{ e.preventDefault(); uploadBox.style.borderColor="#cbd5e1"; }));
-
-uploadBox.addEventListener("drop", (e)=>{
-  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+// File Upload
+$('fileInput').addEventListener('change', e => {
+  if(e.target.files.length) processFile(e.target.files[0]);
+  e.target.value = "";
 });
-fileInput.addEventListener("change", (e)=>{ 
-  if(e.target.files.length) handleFile(e.target.files[0]); 
-  e.target.value=""; 
-});
 
-async function handleFile(file){
-  toast("파일 분석 중...");
+async function processFile(file){
+  toast("분석 중...");
   const fr = new FileReader();
-  fr.onload = (e)=>{
+  fr.onload = (e) => {
     const data = new Uint8Array(e.target.result);
     let workbook;
     try {
       workbook = XLSX.read(data, {type:'array'});
-    } catch(err) {
-      const unicodeArr = Encoding.convert(data, {to:"UNICODE", from:"AUTO"});
-      const str = Encoding.codeToString(unicodeArr);
-      workbook = XLSX.read(str, {type:'string'});
+    } catch {
+      const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"});
+      workbook = XLSX.read(Encoding.codeToString(u), {type:'string'});
     }
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-    const patients = mergePatientData(rows);
-    processDataAndMap(patients);
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
+    parsePatients(rows);
   };
   fr.readAsArrayBuffer(file);
 }
 
-// === Logic: Merge & Representative Type ===
-function calcRepresentativeType(p) {
-  if (p.newVisits > 0 && p.oldVisits > 0) return "재진 전환";
-  if (p.newVisits > 0) return "신환";
-  if (p.return90Visits > 0) return "90일초";
-  return "재진";
-}
-
-function mergePatientData(rows){
-  let headerIdx = -1, headers = [];
-  for(let i=0;i<Math.min(30, rows.length);i++){
-    const line = (rows[i]||[]).join(" ");
-    if(line.includes("주소") && (line.includes("차트") || line.includes("번호"))){
-      headerIdx = i; headers = rows[i]; break;
-    }
+function parsePatients(rows){
+  let headIdx = -1;
+  for(let i=0; i<Math.min(rows.length, 20); i++){
+    if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; }
   }
-  if(headerIdx < 0) return [];
+  if(headIdx < 0) return;
 
-  const findCol = (keys)=> headers.findIndex(h=> keys.some(k=> String(h).includes(k)));
-  const colAddr  = findCol(["주소"]);
-  const colChart = findCol(["차트","번호","ID"]);
-  const colType  = findCol(["구분","분류","신환","초진","재진","환자구분"]);
-  const colNew   = findCol(["신규","신규환자"]);
-  const colName  = findCol(["이름","수진자","환자명"]);
-  const colAge   = findCol(["나이","연령","만나이"]);
+  const h = rows[headIdx].map(x => String(x||""));
+  const idx = {
+    id: h.findIndex(s => /차트|번호|ID/.test(s)),
+    addr: h.findIndex(s => /주소/.test(s)),
+    name: h.findIndex(s => /이름|성명/.test(s)),
+    new: h.findIndex(s => /신규|신환/.test(s)),
+    type: h.findIndex(s => /구분|분류/.test(s))
+  };
 
-  const map = new Map();
-
-  for(let i=headerIdx+1;i<rows.length;i++){
-    const row = rows[i] || [];
-    const chartNo = row[colChart];
-    const addr = String(row[colAddr]||"").replace(/\s+/g," ").trim();
-    if(!chartNo || !addr) continue;
-
-    // Logic: Visit Type
-    let isNewVisit = false;
-    let is90Visit = false;
+  const mapData = new Map();
+  for(let i=headIdx+1; i<rows.length; i++){
+    const r = rows[i];
+    if(!r || !r[idx.id]) continue;
+    const pid = r[idx.id];
     
-    // Explicit 'New' column?
-    if(colNew >= 0 && row[colNew]) {
-      if(String(row[colNew]).trim() !== "") isNewVisit = true;
-    } else if(colType >= 0) {
-      const t = String(row[colType]||"");
-      if(t.includes("90")) is90Visit = true;
-      else if(t.includes("신환") || t.includes("신규") || t==="1") isNewVisit = true;
-    } else {
-      // Fallback: First time ID logic omitted for safety, rely on Explicit
-    }
-
-    if(!map.has(chartNo)){
-      map.set(chartNo, {
-        title: (colName>=0? (row[colName]||"미상") : "미상"),
-        address: addr,
-        age: (colAge>=0? row[colAge] : ""),
-        visitsTotal: 0,
-        newVisits: 0,
-        return90Visits: 0,
-        oldVisits: 0
+    if(!mapData.has(pid)) {
+      mapData.set(pid, {
+        name: r[idx.name]||"미상", addr: r[idx.addr]||"",
+        newV: 0, ret90V: 0, oldV: 0, total: 0
       });
     }
+    const p = mapData.get(pid);
+    p.total++;
 
-    const p = map.get(chartNo);
-    p.visitsTotal += 1;
-    if(isNewVisit) p.newVisits++;
-    else if(is90Visit) p.return90Visits++;
-    else p.oldVisits++;
+    let isNew = false, is90 = false;
+    if(idx.new >= 0 && r[idx.new]) isNew = true;
+    else if(idx.type >= 0) {
+      const t = String(r[idx.type]||"");
+      if(t.includes("90")) is90 = true;
+      else if(/신환|신규|1/.test(t)) isNew = true;
+    }
+
+    if(isNew) p.newV++;
+    else if(is90) p.ret90V++;
+    else p.oldV++;
   }
 
-  const results = Array.from(map.values());
-  results.forEach(p => {
-    p.representativeType = calcRepresentativeType(p);
-  });
-  return results;
-}
-
-// === Map Processing ===
-function processDataAndMap(uniquePatients){
-  clusterer.clear(); patientRecords = []; 
-  let success=0;
-  
-  // Use Analysis Mode Delay
+  patients = Array.from(mapData.values());
   const mode = document.querySelector('input[name="geoMode"]:checked')?.value || "fast";
-  const delay = GEO_PRESETS[mode].delay;
+  const delay = mode === 'fast' ? 50 : 150;
 
-  uniquePatients.forEach((item, idx) => {
-    setTimeout(()=>{
-      let cleanAddr = String(item.address).replace(/\((.*?)\)/g, (m,c)=> /\d+동/.test(c)?" "+c:"").trim();
-      geocoder.addressSearch(cleanAddr, (res, status)=>{
-        if(status===kakao.maps.services.Status.OK){
-          const coords = new kakao.maps.LatLng(res[0].y, res[0].x);
-          
-          // Color by Representative Type
-          const color = REP_COLOR[item.representativeType] || "#999";
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="7" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
+  clusterer.clear();
+  
+  patients.forEach((p, i) => {
+    if(p.newV > 0 && p.oldV > 0) p.type = "재진 전환";
+    else if(p.newV > 0) p.type = "신환";
+    else if(p.ret90V > 0) p.type = "90일초";
+    else p.type = "재진";
+
+    setTimeout(() => {
+      geocoder.addressSearch(p.addr, (res, status) => {
+        if(status === kakao.maps.services.Status.OK){
+          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x);
+          const color = REP_COLOR[p.type];
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
           
           const marker = new kakao.maps.Marker({
-            position: coords,
-            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(16,16))
+            position: latlng,
+            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14))
           });
-          
-          const iw = new kakao.maps.InfoWindow({ 
-            content: `<div style="padding:5px;font-size:12px;"><b>${item.title}</b> (${item.age}세)<br><span style="color:${color}">● ${item.representativeType}</span> / ${item.visitsTotal}회</div>`,
-            removable: true 
+
+          const iw = new kakao.maps.InfoWindow({
+            content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b><br><span style="color:${color}">● ${p.type}</span></div>`,
+            removable: true
           });
-          
-          kakao.maps.event.addListener(marker, 'click', ()=> iw.open(map, marker));
-          
-          item.marker = marker; item.latlng = coords;
-          patientRecords.push(item);
-          success++;
+          kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
+          p.marker = marker;
+          clusterer.addMarker(marker);
         }
-        if(idx === uniquePatients.length-1){ applyFilters(); $("#btnFitPatients").click(); toast(`${success}명 분석 완료`); }
+        if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("분석 완료"); }
       });
-    }, idx * delay);
+    }, i * delay);
   });
 }
 
-// === Filters (Representative Type) ===
-$$(".filter-rep").forEach(cb => cb.addEventListener("change", applyFilters));
+document.querySelectorAll('.filter-rep').forEach(cb => cb.addEventListener('change', applyFilter));
 
-function applyFilters(){
+function applyFilter(){
   clusterer.clear();
-  const checked = $$(".filter-rep:checked").map(cb => cb.dataset.type);
-  
-  const toShow = patientRecords.filter(p => checked.includes(p.representativeType));
-  toShow.forEach(p => clusterer.addMarker(p.marker));
-  
-  $("#statPatientsUnique")?.remove(); // Cleanup old Stat UI if exists
+  const checked = Array.from(document.querySelectorAll('.filter-rep:checked')).map(c => c.dataset.type);
+  const visible = [];
+  patients.forEach(p => { if(p.marker && checked.includes(p.type)) visible.push(p.marker); });
+  clusterer.addMarkers(visible);
 }
 
-// === Search Facilities (Legacy v2.2) ===
-$$(".search-btn").forEach(btn => {
-  if(btn.id === "btnResetTargets") return;
-  btn.addEventListener("click", () => {
-    const target = btn.getAttribute("data-target");
-    btn.classList.toggle("active");
-  });
-});
-
-$("#btnSearchTargets").onclick = async () => {
-  const actives = $$(".search-btn.active");
-  if(!actives.length) { toast("검색 대상을 선택하세요"); return; }
-  
-  const bounds = map.getBounds();
-  let total = 0;
-  
-  // Clear
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
-  targetMarkers = {senior:[], welfare:[], ortho:[]};
-
-  for(const btn of actives){
-    const target = btn.dataset.target; // target_senior
-    let kws = [];
-    if(target.includes('senior')) kws=['경로당','마을회관'];
-    if(target.includes('welfare')) kws=['노인복지','요양센터'];
-    if(target.includes('ortho')) kws=['정형외과','통증의학과'];
-
-    for(const kw of kws){
-      await new Promise(r => {
-        places.keywordSearch(kw, (data, status)=>{
-          if(status===kakao.maps.services.Status.OK){
-            data.forEach(p => {
-              const mk = new kakao.maps.CustomOverlay({
-                position: new kakao.maps.LatLng(p.y, p.x),
-                content: `<div style="background:white;border:1px solid #999;font-size:11px;padding:2px;">${p.place_name}</div>`,
-                map: map, yAnchor: 1.5
-              });
-              targetMarkers[target.replace('target_','')].push(mk);
-              total++;
-            });
-          }
-          r();
-        }, {bounds:bounds});
-      });
-    }
-  }
-  $("#statTargetsTotal").innerText = total;
-  toast(`총 ${total}개 시설 검색`);
-};
-
-$("#btnResetTargets").onclick = () => {
-  $$(".search-btn").forEach(b=>b.classList.remove('active'));
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
-  $("#statTargetsTotal").innerText = "0";
-  toast("시설 마커 초기화");
-};
-
-$("#btnClearPatients").onclick = () => {
-  clusterer.clear(); patientRecords=[];
-  toast("환자 데이터 초기화");
-};
-
-$("#btnFitPatients").onclick = () => {
-  if(!patientRecords.length) return;
+$('btnClear').onclick = () => { clusterer.clear(); patients=[]; toast("초기화 완료"); };
+$('btnFit').onclick = () => {
+  if(!patients.length) return;
   const b = new kakao.maps.LatLngBounds();
-  patientRecords.forEach(p => b.extend(p.latlng));
+  patients.forEach(p => p.marker && b.extend(p.marker.getPosition()));
   map.setBounds(b);
 };
 
-// === Statistics ===
-$("#btnOpenStats").onclick = () => { $("#statsModal").style.display="flex"; updateStats(); };
-$("#btnCloseStats").onclick = () => { $("#statsModal").style.display="none"; };
+const searchBtns = document.querySelectorAll('.search-btn');
+searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
 
-let chartType;
-function updateStats(){
-  const checked = $$(".filter-rep:checked").map(cb => cb.dataset.type);
-  const visible = patientRecords.filter(p => checked.includes(p.representativeType));
+$('btnSearch').onclick = async () => {
+  const actives = document.querySelectorAll('.search-btn.active');
+  if(!actives.length) return toast("시설을 선택하세요");
+
+  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
+  targetMarkers = { senior:[], welfare:[], ortho:[] };
+  let count = 0;
+  const bounds = map.getBounds();
+
+  for(const btn of actives){
+    const type = btn.dataset.target;
+    let kws = [];
+    if(type === 'senior') kws = ['경로당', '마을회관'];
+    if(type === 'welfare') kws = ['노인복지', '주간보호'];
+    if(type === 'ortho') kws = ['정형외과', '통증의학과'];
+
+    for(const kw of kws){
+      await new Promise(r => {
+        places.keywordSearch(kw, (data, stat) => {
+          if(stat === kakao.maps.services.Status.OK){
+            data.forEach(p => {
+              const m = new kakao.maps.CustomOverlay({
+                position: new kakao.maps.LatLng(p.y, p.x),
+                content: `<div style="background:white;border:1px solid #ccc;padding:2px 4px;font-size:11px;">${p.place_name}</div>`,
+                map: map, yAnchor: 1.5
+              });
+              targetMarkers[type].push(m);
+              count++;
+            });
+          }
+          r();
+        }, {bounds: bounds});
+      });
+    }
+  }
+  $('targetCount').innerText = count;
+  toast(`${count}개 시설 발견`);
+};
+
+$('btnResetSearch').onclick = () => {
+  searchBtns.forEach(b => b.classList.remove('active'));
+  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
+  $('targetCount').innerText = "0";
+};
+
+let chartObj;
+$('btnStats').onclick = () => {
+  $('statsModal').style.display = 'block';
+  const checked = Array.from(document.querySelectorAll('.filter-rep:checked')).map(c => c.dataset.type);
+  const visible = patients.filter(p => p.marker && checked.includes(p.type));
   
-  const counts = {};
-  checked.forEach(k => counts[k]=0);
-  visible.forEach(p => counts[p.representativeType]++);
-  
+  const cnt = { "신환":0, "90일초":0, "재진 전환":0, "재진":0 };
+  visible.forEach(p => cnt[p.type]++);
+  const labels = Object.keys(cnt);
+  const vals = Object.values(cnt);
   const total = visible.length || 1;
-  const labels = Object.keys(counts);
-  const data = Object.values(counts);
-  const colors = labels.map(l => REP_COLOR[l]);
 
-  // Table
-  const tbody = $("#tblStats");
-  tbody.innerHTML = labels.map((l,i) => `
-    <tr>
-      <td><span class="dot" style="background:${colors[i]}"></span>${l}</td>
-      <td>${data[i]}</td>
-      <td>${((data[i]/total)*100).toFixed(1)}%</td>
-    </tr>
+  $('tblStats').innerHTML = labels.map((l,i) => `
+    <tr><td style="text-align:left;padding-left:20px;"><span class="dot" style="background:${REP_COLOR[l]};display:inline-block;margin-right:5px;"></span>${l}</td>
+    <td>${vals[i]}</td><td>${((vals[i]/total)*100).toFixed(1)}%</td></tr>
   `).join("");
 
-  // Chart
-  if(chartType) chartType.destroy();
-  chartType = new Chart($("#chartType_modal"), {
+  if(chartObj) chartObj.destroy();
+  chartObj = new Chart($('chartType'), {
     type: 'doughnut',
-    data: { labels, datasets:[{ data, backgroundColor: colors }] },
-    options: { plugins: { datalabels: { color:'white', font:{weight:'bold'} } } },
+    data: { labels, datasets: [{ data: vals, backgroundColor: labels.map(l=>REP_COLOR[l]) }] },
+    options: { plugins: { datalabels: { color:'white' } } },
     plugins: [ChartDataLabels]
   });
-}
+};
 </script>
 </body>
 </html>
