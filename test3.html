@@ -213,11 +213,11 @@
     
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">Excel</span></div>
+        <div class="sectionTitle">통합 데이터 업로드 <span class="pill">Excel/CSV</span></div>
         <div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
-          📂 엑셀 파일 드래그<br>
-          <span style="font-size:11px;color:#868e96;">또는 클릭하여 업로드</span>
-          <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
+          📂 파일 드래그<br>
+          <span style="font-size:11px;color:#868e96;">환자 데이터 또는 현수막 데이터</span>
+          <input type="file" id="fileInput" hidden accept=".xlsx, .xls, .csv">
         </div>
         <div class="statGrid">
           <div class="statItem">
@@ -302,7 +302,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      Jinsul Map System v2.3.0<br>All Rights Reserved.
+      JINSUL MAP v2.3.0<br>All Rights Reserved.
     </div>
   </div>
 
@@ -445,9 +445,9 @@
 
 <script>
 // === JINSUL MAP v2.3.0 ===
-// - Smart Dedup (중복제거): 80m 이내, 이름 유사성, 차수 구분
-// - Standing Promotion (스탠딩 홍보): 사거리/오거리/은행/시장/주민센터 (종교/학교 제외)
-// - Clean UI & Optimized Logic
+// [Feature] Smart Dedup: 80m/300m, Name+Number Check
+// [Feature] Standing Promo: Crossroad, Subway (No Religion/School)
+// [Feature] Banner Upload: Auto-detect Banner CSV Data
 
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
@@ -466,6 +466,7 @@ let roadview, roadviewClient, roadviewMode = false;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
 let searchedData = [], myHospitalMarker = null;
 let routeLine = null, routeMarkers = [];
+let bannerMarkers = []; // 현수막 마커 저장
 const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
 
 // Tool States
@@ -712,6 +713,8 @@ function setupToolbar(){
     if(routeLine) { routeLine.setMap(null); routeLine = null; }
     routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
     if(targetMarkers.recommend) { targetMarkers.recommend.forEach(m => m.setMap(null)); targetMarkers.recommend = []; }
+    // 현수막 삭제 추가
+    bannerMarkers.forEach(m => m.setMap(null)); bannerMarkers = [];
     
     map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
     map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
@@ -935,10 +938,10 @@ $('btnRouteOpt').onclick = () => {
 // === Logic: Standing Promotion (스탠딩 홍보) ===
 $('btnRecommendPoint').onclick = async () => {
   const bounds = map.getBounds(); 
-  toast("스탠딩 홍보 명당 분석 중... (대기시간 중심)");
+  toast("스탠딩 홍보 명당 분석 중... (Top 3 집중)");
   
-  // 타겟: 일반인 전체 + 대기 시간 확보 (교회/학교 제외)
-  const keywords = ["사거리", "오거리", "삼거리", "교차로", "진입로", "은행", "주민센터", "시장"]; 
+  // 타겟: 사거리, 오거리, 지하철역 (Top 3)
+  const keywords = ["사거리", "오거리", "지하철역"]; 
   const spots = [];
   
   for(const k of keywords){ const res = await keywordSearchAllEnhanced(k, bounds); spots.push(...res); }
@@ -947,12 +950,14 @@ $('btnRecommendPoint').onclick = async () => {
   // 필터: 노이즈(종교/학교) 제거 & 거리 중복 제거
   let uniqueSpots = [];
   spots.forEach(s => {
-    if(/교회|성당|절|학교|유치원/.test(s.place_name)) return; // Negative Filter
+    // Negative Filter (Noise)
+    if(/교회|성당|절|학교|유치원|어린이집/.test(s.place_name)) return; 
     
+    // Dedup (30m)
     if(!uniqueSpots.find(u => {
       const p1 = new kakao.maps.LatLng(s.y, s.x);
       const p2 = new kakao.maps.LatLng(u.y, u.x);
-      return new kakao.maps.Polyline({path:[p1,p2]}).getLength() < 30; // 30m 중복 제거
+      return new kakao.maps.Polyline({path:[p1,p2]}).getLength() < 30;
     })) uniqueSpots.push(s);
   });
 
@@ -966,23 +971,73 @@ $('btnRecommendPoint').onclick = async () => {
   toast(`${cnt}개 스탠딩 홍보 포인트 발견`);
 };
 
-// ... File & Filter, Charts (Same) ...
+// ... File & Filter, Charts ...
 const uploadBox = $('uploadBox');
 ['dragenter', 'dragover'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false); });
 ['dragleave', 'drop'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.remove('dragover'); }, false); });
 uploadBox.addEventListener('drop', (e) => { const files = e.dataTransfer.files; if(files.length) processFile(files[0]); }, false);
 $('fileInput').addEventListener('change', e => { if(e.target.files.length) processFile(e.target.files[0]); e.target.value = ""; });
 async function processFile(file){
-  toast("분석 중...");
+  toast("데이터 분석 중...");
   const fr = new FileReader();
   fr.onload = (e) => {
     const data = new Uint8Array(e.target.result); let workbook;
     try { workbook = XLSX.read(data, {type:'array'}); } catch { const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"}); workbook = XLSX.read(Encoding.codeToString(u), {type:'string'}); }
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
-    parsePatients(rows);
+    
+    // [Logic] 파일 종류 판단 (헤더 분석)
+    if(!rows.length) return toast("빈 파일입니다.");
+    
+    // 현수막 파일? (게시대명 + 위도 + 경도 존재 시)
+    const headerRow = rows[0].map ? rows[0] : Object.keys(rows[0]); // header:1 or not
+    const strHeader = JSON.stringify(headerRow);
+    if(strHeader.includes('게시대명') && strHeader.includes('위도') && strHeader.includes('경도')){
+       parseBanner(rows);
+    } else {
+       // 환자 데이터로 간주
+       parsePatients(rows);
+    }
   };
   fr.readAsArrayBuffer(file);
 }
+
+// === NEW: Banner Parsing Function ===
+function parseBanner(rows) {
+  // Clear existing
+  bannerMarkers.forEach(m => m.setMap(null)); bannerMarkers = [];
+  
+  let success = 0;
+  // rows가 {key:value} 형태일 경우 대응
+  rows.forEach(r => {
+    // 필수값 체크
+    const name = r['게시대명'] || r[0]; // 단순화
+    const lat = r['위도'];
+    const lng = r['경도'];
+    
+    if(lat && lng && !isNaN(lat) && !isNaN(lng)) {
+      const latlng = new kakao.maps.LatLng(lat, lng);
+      // 디자인: 보라색 깃발 or 현수막 아이콘
+      const content = `<div style="background:#fff;border:1px solid #7048e8;border-radius:4px;padding:3px;font-size:11px;font-weight:bold;color:#7048e8;box-shadow:0 2px 4px rgba(0,0,0,0.2);white-space:nowrap;">🪧 ${name || "현수막"}</div>`;
+      const overlay = new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1.4, zIndex: 15 });
+      overlay.setMap(map);
+      bannerMarkers.push(overlay);
+      success++;
+    }
+  });
+  
+  if(success > 0) {
+    toast(`🪧 현수막 게시대 ${success}개 로드 완료!`);
+    // 지도 범위 조정
+    if(bannerMarkers.length){
+        const b = new kakao.maps.LatLngBounds();
+        bannerMarkers.forEach(m => b.extend(m.getPosition()));
+        map.setBounds(b);
+    }
+  } else {
+    toast("유효한 좌표 데이터가 없습니다.");
+  }
+}
+
 function calcAge(row, idx) {
   if (idx.age >= 0 && row[idx.age]) { const val = String(row[idx.age]); const match = val.match(/(\d+)세/); if(match) return parseInt(match[1]); if(!isNaN(val)) return parseInt(val); }
   if (idx.rrn >= 0 && row[idx.rrn]) { const rrn = String(row[idx.rrn]).replace(/-/g, '').trim(); if(rrn.length >= 7) { const y2 = parseInt(rrn.substring(0,2)); const code = rrn.charAt(6); let year = (code==='3'||code==='4'||code==='7'||code==='8') ? 2000+y2 : 1900+y2; return new Date().getFullYear() - year; } }
@@ -990,7 +1045,8 @@ function calcAge(row, idx) {
 }
 function parsePatients(rows){
   let headIdx = -1; for(let i=0; i<Math.min(rows.length, 20); i++){ if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } }
-  if(headIdx < 0) return;
+  if(headIdx < 0) return toast("환자 데이터 형식이 아닙니다 (주소 컬럼 없음)");
+  
   const h = rows[headIdx].map(x => String(x||""));
   const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
   const mapData = new Map();
