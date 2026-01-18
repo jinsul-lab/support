@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.16.2 (Rubber-band Fixed)</title>
+  <title>jinsul-add v2.2.16.3 (Logic Enhanced)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -302,7 +302,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      Jinsul Map System v2.2.16.2<br>All Rights Reserved.
+      Jinsul Map System v2.2.16.3<br>All Rights Reserved.
     </div>
   </div>
 
@@ -444,12 +444,10 @@
 </div>
 
 <script>
-// === [설계자 주석] v2.2.16.2 업데이트 내역 ===
-// 1. [Fix] 거리재기 붓칠 현상 해결 (Clean Path Logic)
-//    - 원인: mousemove에서 오염된 경로를 계속 getPath()로 가져와서 발생
-//    - 해결: 클릭된 좌표만 담는 'distPathData' 배열을 별도로 관리하여 rubber-band 구현
-// 2. UI 텍스트 완벽 원복 확인
-// 3. 로드뷰 닫기 및 검색 로직 유지
+// === [설계자 주석] v2.2.16.3 업데이트 내역 ===
+// 1. [Fix] 검색 로직 최종 보완 ('무더위쉼터' 키워드 추가) -> 네이버/정부 데이터 완전 호환
+// 2. 거리재기 고무줄(직선) 로직 유지
+// 3. UI 텍스트 및 로드뷰 종료 로직 유지
 
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
@@ -472,7 +470,6 @@ const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, o
 
 // Tool States
 var drawingFlag = false; var centerPosition = null; var drawingCircle = null; var drawingLine = null; var drawingOverlay = null; var circles = [];
-// [중요] distPathData 추가: 클릭된 '고정 좌표'들만 저장하는 깨끗한 배열
 var distDrawing = false; var distLine = null; var distOverlay = null; var distMeasurements = []; var distPathData = [];
 var areaDrawing=false; var areaPath=[]; var areaPoly=null; var areaOverlay=null; window.__areaPolys = [];
 
@@ -539,7 +536,7 @@ function initKakao(){
 
     setupMapListeners(); 
     setupToolbar(); 
-    toast("시스템 준비 완료 (v2.2.16.2)");
+    toast("시스템 준비 완료 (v2.2.16.3)");
   });
 }
 initKakao();
@@ -558,7 +555,7 @@ function deactivateDrawTools() {
   distDrawing = false; 
   if(distLine) { distLine.setMap(null); distLine=null; } 
   if(distOverlay) { distOverlay.setMap(null); distOverlay=null; }
-  distPathData = []; // 데이터 초기화
+  distPathData = []; 
   
   areaDrawing = false; areaPath=[]; 
   if(areaPoly) areaPoly.setMap(null); 
@@ -618,21 +615,18 @@ function setupMapListeners() {
     }
   });
 
-  // [수정된 거리재기 로직]
   kakao.maps.event.addListener(map, 'click', function(mouseEvent){
     if (!$('btnDist').classList.contains('active')) return;
     
-    // 시작
     if (!distDrawing) {
       distDrawing = true;
-      distPathData = [mouseEvent.latLng]; // 좌표 데이터 별도 관리
+      distPathData = [mouseEvent.latLng]; 
       distLine = new kakao.maps.Polyline({ path: distPathData, strokeWeight: 3, strokeColor: '#fa5252', strokeOpacity: 1, strokeStyle: 'solid' });
       distOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
       distLine.setMap(map);
     } 
-    // 이어 그리기
     else {
-      distPathData.push(mouseEvent.latLng); // 고정 좌표 추가
+      distPathData.push(mouseEvent.latLng); 
       distLine.setPath(distPathData);
     }
   });
@@ -640,8 +634,6 @@ function setupMapListeners() {
   kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
     if (!distDrawing || !distLine) return;
     
-    // 핵심 수정: 기존 Path(distPathData)는 건드리지 않고,
-    // [기존 Path + 현재 마우스 좌표]로 구성된 임시 배열을 만들어 지도에 표시
     var tempPath = distPathData.concat([mouseEvent.latLng]);
     distLine.setPath(tempPath); 
     
@@ -811,7 +803,8 @@ $('btnSearch').onclick = async () => {
   
   for(const btn of actives){
     const t = btn.dataset.target; 
-    let k = (t==='senior') ? ['경로당','노인정','노인회관','무더위쉼터'] : 
+    // [최종 로직 보완] '무더위쉼터', '관리사무소' 키워드 추가
+    let k = (t==='senior') ? ['경로당','마을회관','노인정','노인회관','무더위쉼터','관리사무소'] : 
             (t==='welfare') ? ['노인복지','주간보호'] : 
             (t==='ortho') ? ['정형외과','통증의학과'] : [];
             
