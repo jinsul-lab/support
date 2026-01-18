@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.4</title>
+  <title>JINSUL MAP v2.3.6</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -186,7 +186,7 @@
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.4</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.6</div>
     </div>
     
     <div class="sidebarBody">
@@ -276,7 +276,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.4<br>All Rights Reserved.
+      JINSUL MAP v2.3.6<br>All Rights Reserved.
     </div>
   </div>
 
@@ -444,6 +444,18 @@ var areaDrawing = false; var areaPath = []; var areaPoly = null; var areaOverlay
 const $ = (id) => document.getElementById(id);
 const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
 
+// ENTER on hospital input = search
+(function(){
+  const inp = document.getElementById('myHospitalInput');
+  const btn = document.getElementById('btnSetHospital');
+  if(inp && btn){
+    inp.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); btn.click(); }
+    });
+  }
+})();
+
+
 function getTimeHTML(distance) {
   var walkTime = distance / WALK_SPEED | 0;
   var walkHour = '', walkMin = '';
@@ -486,7 +498,7 @@ function initKakao(){
     roadview = new kakao.maps.Roadview($('roadviewContainer'));
     roadviewClient = new kakao.maps.RoadviewClient();
     setupMapListeners(); setupToolbar(); 
-    toast("시스템 준비 완료 (v2.3.4)");
+    toast("시스템 준비 완료 (v2.3.6)");
   });
 }
 initKakao();
@@ -503,6 +515,17 @@ function deactivateDrawTools() {
 }
 
 function setupMapListeners() {
+
+  kakao.maps.event.addListener(map, 'rightclick', function(me){
+    if(pointMode){
+      pointMode = false;
+      $('btnPoint').classList.remove('active');
+      map.setCursor('auto');
+      toast('우클릭 시 종료');
+      return;
+    }
+  });
+
   kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
     if (!roadviewMode) return;
     const position = mouseEvent.latLng;
@@ -581,7 +604,7 @@ function setupToolbar(){
         document.querySelectorAll('.v-tool-btn').forEach(b=>{if(b.id!=='btnCadastral' && b.id!=='btnTraffic' && b.id!=='btnBike') b.classList.remove('active')});
         this.classList.add('active'); 
         if(id === 'btnRoadview') { roadviewMode = true; map.addOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW); map.setCursor('crosshair'); toast("로드뷰 모드"); }
-        if(id === 'btnPoint') { pointMode = true; map.setCursor('crosshair'); toast("지도 위를 클릭하여 포인트 지정"); }
+        if(id === 'btnPoint') { pointMode = true; map.setCursor('crosshair'); toast("우클릭 시 종료"); toast("지도 위를 클릭하여 포인트 지정"); }
       }
     };
   });
@@ -625,16 +648,32 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   });
 }
 
+
+function dedupPlacesByDistance(list, meters=50){
+  const kept = [];
+  for(const p of list){
+    const latlng = new kakao.maps.LatLng(p.y, p.x);
+    let ok = true;
+    for(const k of kept){
+      const d = new kakao.maps.Polyline({ path: [latlng, new kakao.maps.LatLng(k.y, k.x)] }).getLength();
+      if(d < meters){ ok = false; break; }
+    }
+    if(ok) kept.push(p);
+  }
+  return kept;
+}
+
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active'); if(!actives.length) return toast("대상 선택");
   Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] }; searchedData = []; if(routeLine) { routeLine.setMap(null); routeLine=null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
   const bounds = map.getBounds(); $('searchStatus').innerText = "스캔 중..."; 
   for(const btn of actives){
     const t = btn.dataset.target;
-    let k = [], imageSrc; if(t === 'senior') { k = ['경로당','마을회관']; imageSrc = SVG_MARKERS.senior; } else if (t === 'welfare') { k = ['노인복지','주간보호']; imageSrc = SVG_MARKERS.welfare; } else if (t === 'ortho') { k = ['정형외과','통증의학과']; imageSrc = SVG_MARKERS.ortho; }
+    let k = [], imageSrc; if(t === 'senior') { k = ['경로당','마을회관','무더위쉼터','관리사무소','관리실','경비실']; imageSrc = SVG_MARKERS.senior; } else if (t === 'welfare') { k = ['노인복지','주간보호']; imageSrc = SVG_MARKERS.welfare; } else if (t === 'ortho') { k = ['정형외과','통증의학과']; imageSrc = SVG_MARKERS.ortho; }
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
     let rawResults = []; for(const kw of k){ const data = await keywordSearchAllEnhanced(kw, bounds); rawResults.push(...data); }
     let unique = rawResults.filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i);
+    if(t === 'senior') unique = dedupPlacesByDistance(unique, 50);
     unique.forEach(p => {
        const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 }); targetMarkers[t].push(marker); targetMarkers[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
     });
