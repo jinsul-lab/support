@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.0</title>
+  <title>JINSUL MAP v2.3.1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -209,15 +209,15 @@
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.0</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.1</div>
     </div>
     
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle">통합 데이터 업로드 <span class="pill">Excel/CSV</span></div>
+        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">Excel</span></div>
         <div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
-          📂 파일 드래그<br>
-          <span style="font-size:11px;color:#868e96;">환자 또는 banner.csv 파일</span>
+          📂 환자 엑셀 업로드<br>
+          <span style="font-size:11px;color:#868e96;">클릭 또는 파일 드래그</span>
           <input type="file" id="fileInput" hidden accept=".xlsx, .xls, .csv">
         </div>
         <div class="statGrid">
@@ -303,7 +303,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.0<br>All Rights Reserved.
+      JINSUL MAP v2.3.1<br>All Rights Reserved.
     </div>
   </div>
 
@@ -445,11 +445,11 @@
 </div>
 
 <script>
-// === JINSUL MAP v2.3.0 (Architect Final) ===
+// === JINSUL MAP v2.3.1 (Refined UI) ===
 // 1. Smart Dedup: 80m/300m, Name+Number Check
 // 2. Standing Promo: Crossroad/Subway only (No Noise)
 // 3. 90-day Logic: Explicit OR Low Chart ID (Auto-detect)
-// 4. Banner: Auto-fetch 'banner.csv' (if hosted) or Drag&Drop. Optimized Rendering.
+// 4. Banner: Auto-fetch './banner.csv' on Init. Clean Upload UI.
 
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
@@ -541,13 +541,13 @@ function initKakao(){
     setupMapListeners(); 
     setupToolbar(); 
     
-    // Auto-load banner.csv if hosted
+    // [Logic] Auto-load banner.csv if hosted
     loadBannerFromRepo();
 
-    // Map Move Event for Optimized Rendering
+    // [Logic] Map Move Event for Optimized Rendering
     kakao.maps.event.addListener(map, 'idle', renderVisibleBanners);
 
-    toast("시스템 준비 완료 (v2.3.0)");
+    toast("시스템 준비 완료 (v2.3.1)");
   });
 }
 initKakao();
@@ -802,7 +802,7 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   });
 }
 
-// === Logic: Smart Dedup (중복 제거) ===
+// === Logic: Smart Dedup ===
 function extractNumber(name) {
   const match = name.match(/(\d+)(차|단지|회)/);
   return match ? match[1] : null;
@@ -987,7 +987,7 @@ async function processFile(file){
     const headerRow = rows[0].map ? rows[0] : Object.keys(rows[0]); 
     const strHeader = JSON.stringify(headerRow);
     
-    // 현수막 파일 자동 인식
+    // 현수막 파일 자동 인식 (Drag & Drop Fallback)
     if(strHeader.includes('게시대명') && strHeader.includes('위도') && strHeader.includes('경도')){
        loadBannerData(rows);
     } else {
@@ -999,7 +999,7 @@ async function processFile(file){
 
 // === Logic: Banner (In-Memory -> Viewport Render) ===
 async function loadBannerFromRepo() {
-  // Auto-fetch banner.csv from same dir (works via GitHub Pages)
+  // Auto-fetch './banner.csv' (relative path)
   try {
     const res = await fetch('./banner.csv');
     if(res.ok) {
@@ -1022,10 +1022,8 @@ function loadBannerData(rows) {
     }
   });
   if(bannerDataAll.length > 0) {
-    toast(`🪧 현수막 ${bannerDataAll.length}개 로드 완료 (화면 이동 시 자동 표시)`);
+    toast(`🪧 현수막 ${bannerDataAll.length}개 로드 완료`);
     renderVisibleBanners(); // Initial Render
-  } else {
-    toast("현수막 좌표 데이터가 없습니다.");
   }
 }
 
