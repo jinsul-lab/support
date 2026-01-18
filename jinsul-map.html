@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.1.2</title>
+  <title>JINSUL MAP v2.3.1.3</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -209,7 +209,7 @@
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.1.2</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.1.3</div>
     </div>
     
     <div class="sidebarBody">
@@ -303,7 +303,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.1.2<br>All Rights Reserved.
+      JINSUL MAP v2.3.1.3<br>All Rights Reserved.
     </div>
   </div>
 
@@ -445,7 +445,7 @@
 </div>
 
 <script>
-// === JINSUL MAP v2.3.1.2 (Refined UI) ===
+// === JINSUL MAP v2.3.1.3 (Refined UI) ===
 // 1. Smart Dedup: 80m/300m, Name+Number Check
 // 2. Standing Promo: Crossroad/Subway only (No Noise)
 // 3. 90-day Logic: Explicit OR Low Chart ID (Auto-detect)
@@ -547,7 +547,7 @@ function initKakao(){
     // [Logic] Map Move Event for Optimized Rendering
     kakao.maps.event.addListener(map, 'idle', renderVisibleBanners);
 
-    toast("시스템 준비 완료 (v2.3.1.2)");
+    toast("시스템 준비 완료 (v2.3.1.3)");
   });
 }
 initKakao();
@@ -940,7 +940,7 @@ $('btnRecommendPoint').onclick = async () => {
   const bounds = map.getBounds(); 
   toast("스탠딩 홍보 Top 3 (사거리,오거리,역) 스캔 중...");
   
-  const keywords = ["사거리", "오거리", "역"]; 
+  const keywords = ["사거리", "오거리", "교차로", "역 출입구"]; 
   const spots = [];
   
   for(const k of keywords){ const res = await keywordSearchAllEnhanced(k, bounds); spots.push(...res); }
@@ -949,7 +949,7 @@ $('btnRecommendPoint').onclick = async () => {
   let uniqueSpots = [];
   spots.forEach(s => {
     // Noise Filter
-    if(/교회|성당|절|학교|유치원|어린이집|아파트/.test(s.place_name)) return; 
+    if(/교회|성당|절|학교|유치원|어린이집|아파트|병원|의원|약국|카페|상가|빌딩/.test(s.place_name)) return; 
     
     // Dedup (30m)
     if(!uniqueSpots.find(u => {
@@ -1130,7 +1130,7 @@ function parsePatients(rows){
           const color = REP_COLOR[p.type];
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
           const marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
-          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br>차트번호: ${p.id}<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
           p.marker = marker;
           if(toggleState[p.filterKey]) clusterer.addMarker(marker);
