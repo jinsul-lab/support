@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.10 (My Hospital & Toggle UI)</title>
+  <title>jinsul-add v2.2.11 (Restored All Features)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -18,11 +18,7 @@
       --blue:#228be6; --blue-light:#e7f5ff;
       --red:#fa5252; --red-light:#fff5f5;
       --border:#dee2e6; --text:#343a40; --bg:#f8f9fa; --card:#fff;
-      /* Colors matching user request */
-      --c-new:#ff0000;    /* 신환 (1회) - Red */
-      --c-conv:#00c853;   /* 재진 전환 - Green */
-      --c-90:#ffd400;     /* 90일초 - Yellow */
-      --c-ret:#228be6;    /* 재진 - Blue */
+      --c-new:#ff0000; --c-conv:#00c853; --c-90:#ffd400; --c-ret:#228be6;
     }
     
     *{box-sizing:border-box;font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;}
@@ -51,11 +47,11 @@
     .statLabel{font-size:11px;color:#868e96;margin-bottom:2px;}
     .statValue{font-size:16px;font-weight:800;color:var(--text);}
     
-    /* Input Group (My Hospital) */
+    /* Input Group */
     .input-group { display: flex; gap: 5px; margin-bottom: 5px; }
     .input-box { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
     
-    /* Toggle Switch (v2.2 Style Restored) */
+    /* Toggle Switch */
     .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #f1f3f5; }
     .row:last-child { border-bottom: none; }
     .toggle { width: 36px; height: 20px; background: #e9ecef; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
@@ -137,7 +133,7 @@
 <div class="app">
   <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">jinsul-add v2.2.10</div>
+      <div class="brand">jinsul-add v2.2.11</div>
       <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
@@ -165,7 +161,7 @@
             <div class="statValue" id="statTotalUsers">0</div>
           </div>
           <div class="statItem">
-            <div class="statLabel">현재 조회 (원)</div>
+            <div class="statLabel">현재 조회</div>
             <div class="statValue" id="statFilteredUsers" style="color:var(--blue);">0</div>
           </div>
         </div>
@@ -216,7 +212,7 @@
       </div>
 
       <div class="section">
-        <div class="sectionTitle">시설 검색 <span class="pill">이미지 마커</span></div>
+        <div class="sectionTitle">시설 검색 <span class="pill">16분할 스캔</span></div>
         <div class="search-grid">
           <div class="search-btn" data-target="senior"><span>🏠</span> 경로당</div>
           <div class="search-btn" data-target="welfare"><span>💜</span> 노인재가</div>
@@ -225,6 +221,9 @@
         <div class="btnRow">
           <button id="btnSearch" class="btn primary">검색</button>
           <button id="btnResetSearch" class="btn danger">지우기</button>
+        </div>
+        <div style="text-align:center;margin-top:5px;font-size:11px;color:#888;">
+          상태: <span id="searchStatus">대기</span>
         </div>
       </div>
     </div>
@@ -313,7 +312,6 @@ let patients = [];
 let targetMarkers = { senior:[], welfare:[], ortho:[] };
 let myHospitalMarker = null;
 
-// Toggle State
 const toggleState = {
   all: true,
   new_only: true,
@@ -345,7 +343,6 @@ function initKakao(){
       polylineOptions: { draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3 }
     });
 
-    // Drawing Event
     kakao.maps.event.addListener(drawingManager, 'drawend', function(data) {
       if (!data || !data.overlay) return;
       $('toolCircle').classList.remove('active');
@@ -356,13 +353,11 @@ function initKakao(){
         let r = 0;
         try { r = Math.round(circle.getRadius()); } catch(e){ return; }
 
-        // Filter immediately
         applyFilter(); 
 
         const walk = Math.round(r / WALK_M_PER_MIN);
         const bike = Math.round(r / BIKE_M_PER_MIN);
         
-        // Count inside circle
         const count = countInCircle(circle);
         
         const content = `
@@ -380,32 +375,29 @@ function initKakao(){
         });
         overlay.setMap(map);
         
-        // Remove event
         kakao.maps.event.addListener(drawingManager, 'remove', e => { 
           if(e.overlay === circle) {
             overlay.setMap(null);
-            setTimeout(applyFilter, 100); // Re-filter after removal
+            setTimeout(applyFilter, 100);
           }
         });
       }
     });
 
-    toast("시스템 준비 완료 (v2.2.10)");
+    toast("시스템 준비 완료 (v2.2.11)");
   });
 }
 initKakao();
 
-// === My Hospital Settings ===
+// === My Hospital Settings (PanTo Fix) ===
 $('btnSetHospital').onclick = () => {
   const query = $('myHospitalInput').value.trim();
   if(!query) return toast("병원명 또는 주소를 입력하세요");
   
-  // 1. Keyword Search
   places.keywordSearch(query, (data, status) => {
     if(status === kakao.maps.services.Status.OK) {
       setMyHospital(data[0]);
     } else {
-      // 2. Address Search Fallback
       geocoder.addressSearch(query, (res, stat) => {
         if(stat === kakao.maps.services.Status.OK) {
           setMyHospital(res[0]);
@@ -424,7 +416,6 @@ function setMyHospital(place) {
   
   if(myHospitalMarker) myHospitalMarker.setMap(null);
   
-  // Big Hospital Marker
   const content = `<div style="font-size:30px;filter:drop-shadow(2px 2px 2px rgba(0,0,0,0.3));cursor:pointer;">🏥</div>`;
   
   myHospitalMarker = new kakao.maps.CustomOverlay({
@@ -435,23 +426,19 @@ function setMyHospital(place) {
     zIndex: 1000
   });
   
-  map.setCenter(latlng);
+  map.panTo(latlng); // === FIX: Use panTo for smooth movement ===
   toast(`우리 병원 설정 완료: ${place.place_name || place.address_name}`);
 }
 
-// === Toggles ===
+// === Toggles (Logic Fixed) ===
 document.querySelectorAll('.toggle').forEach(t => {
   t.onclick = function() {
     const key = this.dataset.toggle;
-    const isOn = !this.classList.contains('on'); // will be on
+    const isOn = !this.classList.contains('on');
     
-    // UI Update
     if(isOn) this.classList.add('on');
     else this.classList.remove('on');
     
-    toggleState[key] = isOn;
-    
-    // Logic: All Toggle
     if(key === 'all') {
       ['new_only', 'new_conv', 'bit_90', 'old'].forEach(k => {
         toggleState[k] = isOn;
@@ -459,15 +446,13 @@ document.querySelectorAll('.toggle').forEach(t => {
         if(isOn) sub.classList.add('on'); else sub.classList.remove('on');
       });
     } else {
-      // Logic: Sub Toggle turns off 'All' check if one is off? (Optional, kept simple)
+      toggleState[key] = isOn;
     }
-    
     applyFilter();
   };
 });
 
-
-// === File Process ===
+// === File Process (Loading Animation Fixed) ===
 const uploadBox = $('uploadBox');
 ['dragenter', 'dragover'].forEach(eName => {
   uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false);
@@ -523,7 +508,6 @@ function parsePatients(rows){
   const idx = {
     id: h.findIndex(s => /차트|번호|ID/.test(s)),
     addr: h.findIndex(s => /주소/.test(s)),
-    // Osarang often uses "수진자", "환자명"
     name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), 
     new: h.findIndex(s => /신규|신환/.test(s)),
     type: h.findIndex(s => /구분|분류/.test(s)),
@@ -557,30 +541,21 @@ function parsePatients(rows){
   }
 
   patients = Array.from(mapData.values());
-  
-  // Logic Update
   patients.forEach(p => {
-    // Determine Base Type & Specific Type for Filtering
     if(p.newV > 0) {
-      if(p.oldV > 0) {
-        p.type = "재진 전환"; // Green
-        p.filterKey = "new_conv";
-      } else {
-        p.type = "신환 (1회만)"; // Red
-        p.filterKey = "new_only";
-      }
+      if(p.oldV > 0) { p.type = "재진 전환"; p.filterKey = "new_conv"; }
+      else { p.type = "신환 (1회만)"; p.filterKey = "new_only"; }
     } else if (p.ret90V > 0) {
-      p.type = "90일초";
-      p.filterKey = "bit_90";
+      p.type = "90일초"; p.filterKey = "bit_90";
     } else {
-      p.type = "재진";
-      p.filterKey = "old";
+      p.type = "재진"; p.filterKey = "old";
     }
   });
 
   $('statTotalUsers').innerText = patients.length.toLocaleString();
 
   clusterer.clear();
+  // === FIX: Progressive Loading ===
   patients.forEach((p, i) => {
     setTimeout(() => {
       geocoder.addressSearch(p.addr, (res, status) => {
@@ -594,18 +569,20 @@ function parsePatients(rows){
           const marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
           
           const iw = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;">
-              <b>${p.name}</b> (${p.age}세)<br>
-              <span style="color:${color}">● ${p.type}</span><br>
-              총 ${p.total}회 (신환 ${p.newV} / 재진 ${p.oldV})
-            </div>`,
+            content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회 (신환 ${p.newV} / 재진 ${p.oldV})</div>`,
             removable: true
           });
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
           p.marker = marker;
-          // Note: Add to clusterer only if visible (handled in applyFilter)
+          
+          // ADD IMMEDIATELY TO CLUSTERER (Visual Feedback)
+          if(toggleState[p.filterKey]) clusterer.addMarker(marker);
         }
-        if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("분석 완료"); }
+        if(i === patients.length - 1) { 
+          applyFilter(); // Final tidy up
+          $('btnFit').click(); 
+          toast("분석 완료"); 
+        }
       });
     }, i * 30);
   });
@@ -619,7 +596,7 @@ function countInCircle(circle) {
   
   let count = 0;
   patients.forEach(p => {
-    if(p.marker && p.marker.getMap()) { // Only count visible ones
+    if(p.marker && p.marker.getMap()) {
       line.setPath([center, p.latlng]);
       if(line.getLength() <= radius) count++;
     }
@@ -631,20 +608,6 @@ function applyFilter(){
   if(!patients.length) return;
   clusterer.clear();
   
-  const circles = [];
-  // Get all active circles from drawing manager? 
-  // Native manager doesn't easily expose list. We assume 'drawend' handles single interactions mostly.
-  // BUT to support "Filter by Circle", we need to check if ANY circle exists.
-  // For this version, let's check if the *last drawn circle* exists, or iterate overlays if possible.
-  // To keep it robust without complex manager state, we rely on the Toggles primarily.
-  // Circle filtering is additive (visual intersection). 
-  
-  // Actually, user requested: "Circle drawn -> Only show points inside".
-  // This requires accessing all circles.
-  // Let's use a global list if we want to support multiple circles acting as union filter.
-  // However, simpler is: if overlays exist, use them.
-  
-  // Implementation: We'll fetch all overlays from drawingManager.
   const data = drawingManager.getData();
   const activeCircles = (data.circle || []).map(c => {
     return { center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius };
@@ -654,20 +617,15 @@ function applyFilter(){
   let visibleCount = 0;
 
   patients.forEach(p => {
-    // 1. Toggle Filter
-    if(!toggleState.all) return; // All off
-    if(!toggleState[p.filterKey]) return; // Type off
+    // === FIX: Toggle Logic (Independent check) ===
+    if(!toggleState[p.filterKey]) return; 
 
-    // 2. Circle Filter (if any circle exists)
     if(activeCircles.length > 0) {
       let insideAny = false;
       const line = new kakao.maps.Polyline();
       for(const c of activeCircles) {
         line.setPath([c.center, p.latlng]);
-        if(line.getLength() <= c.radius) {
-          insideAny = true;
-          break;
-        }
+        if(line.getLength() <= c.radius) { insideAny = true; break; }
       }
       if(!insideAny) return;
     }
@@ -682,68 +640,96 @@ function applyFilter(){
   $('statFilteredUsers').innerText = visibleCount.toLocaleString();
 }
 
-// Re-apply filter when tools change (circle added/removed)
 kakao.maps.event.addListener(drawingManager, 'state_changed', applyFilter);
 kakao.maps.event.addListener(drawingManager, 'remove', applyFilter);
 
+// === Search Facilities (Restored Infinite Scan) ===
+// Recursive tiling function for deep search
+function tileBounds(bounds){
+  const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+  const midLat = (sw.getLat() + ne.getLat()) / 2;
+  const midLng = (sw.getLng() + ne.getLng()) / 2;
+  return [
+    new kakao.maps.LatLngBounds(sw, new kakao.maps.LatLng(midLat, midLng)),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(sw.getLat(), midLng), new kakao.maps.LatLng(midLat, ne.getLng())),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, sw.getLng()), new kakao.maps.LatLng(ne.getLat(), midLng)),
+    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, midLng), ne)
+  ];
+}
 
-// === Facilities ===
+async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
+  return new Promise((resolve)=>{
+    const collected = [];
+    places.keywordSearch(keyword, (data, status, pagination)=>{
+      if(status===kakao.maps.services.Status.OK){
+        collected.push(...data);
+        if(pagination.hasNextPage) pagination.nextPage();
+        else {
+          if(collected.length >= 45 && depth < 2){ // If too many results, split and search deeper
+            Promise.all(tileBounds(bounds).map(b => keywordSearchAllEnhanced(keyword, b, depth+1)))
+              .then(results => resolve([...collected, ...results.flat()]));
+          } else resolve(collected);
+        }
+      } else resolve(collected);
+    }, { bounds: bounds, useMapBounds: false });
+  });
+}
+
 const searchBtns = document.querySelectorAll('.search-btn');
 searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
+
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active');
   if(!actives.length) return toast("시설 선택 필요");
+  
   Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
   targetMarkers = { senior:[], welfare:[], ortho:[] };
+  
   const bounds = map.getBounds();
+  $('searchStatus').innerText = "스캔 중...";
   let cnt = 0;
 
   for(const btn of actives){
     const t = btn.dataset.target;
-    let k = (t==='senior')?['경로당']:(t==='welfare')?['노인복지']:(t==='ortho')?['정형외과']:[];
+    let k = (t==='senior')?['경로당','마을회관']:(t==='welfare')?['노인복지','주간보호']:(t==='ortho')?['정형외과','통증의학과']:[];
     
     const imageSrc = SVG_MARKERS[t];
     const imageSize = new kakao.maps.Size(30, 30);
     const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
 
     for(const kw of k){
-      await new Promise(r => {
-        places.keywordSearch(kw, (d, s)=>{
-          if(s===kakao.maps.services.Status.OK) d.forEach(p=>{
-             const latlng = new kakao.maps.LatLng(p.y, p.x);
-             const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
-             const label = new kakao.maps.CustomOverlay({
-               position: latlng,
-               content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`,
-               map: map, zIndex: 6
-             });
-             marker.__label = label;
-             targetMarkers[t].push(marker);
-             targetMarkers[t].push(label);
-             cnt++;
-          }); r();
-        }, {bounds});
+      const data = await keywordSearchAllEnhanced(kw, bounds); // Uses recursive scan
+      data.forEach(p => {
+         const latlng = new kakao.maps.LatLng(p.y, p.x);
+         const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
+         const label = new kakao.maps.CustomOverlay({
+           position: latlng,
+           content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`,
+           map: map, zIndex: 6
+         });
+         marker.__label = label;
+         targetMarkers[t].push(marker);
+         targetMarkers[t].push(label);
+         cnt++;
       });
     }
   }
-  toast(`${cnt}개 발견`);
+  $('searchStatus').innerText = "완료";
+  toast(`${cnt}개 시설 발견`);
 };
-$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); };
 
-// === Stats ===
+$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); $('searchStatus').innerText="대기"; };
+
+// === Stats (Updated) ===
 let chartObj1, chartObj2;
 $('btnStats').onclick = () => {
   if(!patients.length) { toast("데이터 없음"); return; }
   $('statsModal').style.display = 'flex';
   
-  // Stats are based on VISIBLE markers (filtered by Circle & Toggle)
-  // We need to retrieve currently visible patients.
-  // Since we don't store visible list globally, let's recalc efficiently.
   const data = drawingManager.getData();
   const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
 
   const visible = patients.filter(p => {
-    if(!toggleState.all) return false;
     if(!toggleState[p.filterKey]) return false;
     if(activeCircles.length > 0) {
       const line = new kakao.maps.Polyline();
@@ -766,7 +752,6 @@ $('btnStats').onclick = () => {
   });
   
   const total = cNew + cConv + c90 + cRet;
-  // Note: cNew (1회만) + cConv (전환) = Total New in logic sense, but here categories are disjoint for sum
   
   const tblHtml = `
     <tr><td style="color:${REP_COLOR['신환 (1회만)']}">신환 (1회만)</td><td>${cNew}</td><td>${pct(cNew, total)}%</td></tr>
@@ -788,7 +773,6 @@ $('btnStats').onclick = () => {
     plugins: [ChartDataLabels]
   });
 
-  // Dong & Age Stats
   const dongMap = {}, ageMap = {};
   visible.forEach(p => {
     const d = p.dong || "미상";
@@ -808,13 +792,11 @@ $('btnStats').onclick = () => {
     const v = dongMap[d];
     return `<tr><td>${d}</td><td>${v.n}</td><td>${v.c}</td><td>${v.b}</td><td>${v.r}</td><td><b>${v.t}</b></td></tr>`;
   }).join("");
-  // Total Row for Dong
   const dongTotals = Object.values(dongMap).reduce((acc, v) => ({n:acc.n+v.n, c:acc.c+v.c, b:acc.b+v.b, r:acc.r+v.r, t:acc.t+v.t}), {n:0,c:0,b:0,r:0,t:0});
   $('tblDong').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${dongTotals.n}</td><td>${dongTotals.c}</td><td>${dongTotals.b}</td><td>${dongTotals.r}</td><td>${dongTotals.t}</td></tr>`;
 
   const ages = Object.keys(ageMap).sort();
   $('tblAge').innerHTML = ages.map(a => `<tr><td>${a}</td><td>${ageMap[a]}</td><td>${pct(ageMap[a], total)}%</td></tr>`).join("");
-  // Total Row for Age
   const ageTotal = Object.values(ageMap).reduce((a,b)=>a+b, 0);
   $('tblAge').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${ageTotal}</td><td>100%</td></tr>`;
   
