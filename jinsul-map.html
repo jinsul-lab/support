@@ -781,7 +781,9 @@ let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
 let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
 let pointMode = false, promoPoints = [];
+let roadviewMode = false;
 const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
+
 
 var drawingFlag = false; var centerPosition = null; var drawingCircle = null; var drawingLine = null; var drawingOverlay = null; var circles = [];
 var distDrawing = false; var distLine = null; var distOverlay = null; var distMeasurements = []; var distPathData = [];
@@ -857,6 +859,10 @@ function deactivateDrawTools() {
   distDrawing = false; if(distLine) { distLine.setMap(null); distLine=null; } if(distOverlay) { distOverlay.setMap(null); distOverlay=null; }
   distPathData = []; areaDrawing = false; areaPath=[]; 
   if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null);
+
+
+  map.setDraggable(true);
+  map.setZoomable(true);
   map.setCursor('auto');
 }
 
@@ -869,6 +875,9 @@ function setupMapListeners() {
       map.setCursor('auto');
       toast('우클릭 시 종료');
       return;
+
+
+
     }
   });
 
@@ -882,6 +891,16 @@ function setupMapListeners() {
   });
 
   kakao.maps.event.addListener(map, 'click', function(me){
+
+
+
+// 🔒 더블클릭 오작동 방지
+if (me && me.domEvent && me.domEvent.detail >= 2 && !drawingFlag) {
+  return;
+}
+
+
+
     if (pointMode) {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><polygon points="20,2 25,15 38,20 25,25 20,38 15,25 2,20 15,15" fill="#ff0000" stroke="white" stroke-width="2"/></svg>`;
       const marker = new kakao.maps.Marker({ position: me.latLng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(40,40)), zIndex: 50 });
