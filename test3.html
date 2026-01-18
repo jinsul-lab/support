@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.15.6 (Marker & Logic Update)</title>
+  <title>jinsul-add v2.2.15.7 (Distance Delete Fix)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -200,7 +200,7 @@ const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapido
 <div class="app">
   <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">jinsul-add v2.2.15.6</div>
+      <div class="brand">jinsul-add v2.2.15.7</div>
       <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
@@ -519,7 +519,7 @@ function initKakao(){
       });
     });
 
-    toast("시스템 준비 완료 (v2.2.15.6)");
+    toast("시스템 준비 완료 (v2.2.15.7)");
   });
 }
 initKakao();
@@ -1035,10 +1035,11 @@ kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
   drawingOverlay.setMap(null);
 });
 
-// === Distance Measure (Updated with Real-time Info) ===
+// === Distance Measure (FIX: Rubberband & Storage) ===
 var distDrawing = false;
 var distLine = null;
 var distOverlay = null;
+var distMeasurements = []; // FIX: Store completed measurements
 
 kakao.maps.event.addListener(map, 'click', function(mouseEvent){
   if (!$('btnDist').classList.contains('active')) return;
@@ -1058,19 +1059,25 @@ kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
   if (!distDrawing || !distLine) return;
   var path = distLine.getPath();
   if (path.length < 1) return;
-  var tempPath = path.concat([mouseEvent.latLng]);
-  var tempLine = new kakao.maps.Polyline({ path: tempPath });
-  var distance = Math.round(tempLine.getLength());
   
+  // FIX: Rubberband effect (visualize next segment)
+  var tempPath = path.concat([mouseEvent.latLng]);
+  distLine.setPath(tempPath); 
+  
+  var distance = Math.round(distLine.getLength());
   distOverlay.setPosition(mouseEvent.latLng);
-  // Changed: Use getTimeHTML to show real-time walk/bike info
   distOverlay.setContent(getTimeHTML(distance));
   distOverlay.setMap(map);
 });
 
-kakao.maps.event.addListener(map, 'rightclick', function(){
+kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
   if (!distDrawing) return;
+  
+  // FIX: Store completed lines to allow deletion
+  distMeasurements.push({ line: distLine, overlay: distOverlay });
+
   distDrawing = false;
+  distLine = null;
   distOverlay = null;
 });
 
@@ -1120,7 +1127,6 @@ kakao.maps.event.addListener(map, 'rightclick', function(){
     q('btnRadius').onclick = function(){
       resetTools();
       this.classList.add('active');
-      // Handled by existing click event
     };
 
     // Area
@@ -1192,7 +1198,7 @@ kakao.maps.event.addListener(map, 'rightclick', function(){
       else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
     };
 
-    // Clear All
+    // Clear All (FIX: Clear stored distance measurements)
     q('btnClearTools').onclick = function(){
       resetTools();
       // Clear Radius
@@ -1201,9 +1207,16 @@ kakao.maps.event.addListener(map, 'rightclick', function(){
       // Clear Area
       if(window.__areaPolys) window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); });
       window.__areaPolys = [];
-      // Clear Dist
-      if(distLine) distLine.setMap(null);
-      if(distOverlay) distOverlay.setMap(null);
+      
+      // Clear Dist (Completed)
+      if(window.distMeasurements) {
+        window.distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); });
+        window.distMeasurements = [];
+      }
+      // Clear Dist (Current Active)
+      if(distLine) { distLine.setMap(null); distLine = null; }
+      if(distOverlay) { distOverlay.setMap(null); distOverlay = null; }
+      distDrawing = false;
       
       // Clear Overlays
       q('btnCadastral').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
