@@ -2,111 +2,131 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.2.7</title>
+  <title>JINSUL MAP v2.3.2.9</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer">
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
   <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js">
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
@@ -309,7 +329,7 @@ function updateFilteredStats(){
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.2.7</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.2.9</div>
     </div>
     
     <div class="sidebarBody">
@@ -322,12 +342,12 @@ function updateFilteredStats(){
         </div>
         <div class="statGrid">
           <div class="statItem">
-            <div class="statLabel">총 데이터</div>
+            <div class="statLabel">환자 수</div>
             <div class="statValue" id="statTotalUsers">0</div>
           </div>
           <div class="statItem">
-            <div class="statLabel">화면내 환자 수</div>
-            <div class="statValue" style="color:var(--banner);" id="statVisibleBanners">0</div>
+            <div class="statLabel">총 내원 수</div>
+            <div class="statValue" style="color:var(--banner);" id="statVisitCount">0</div>
           </div>
         </div>
         <div class="btnRow">
@@ -403,7 +423,7 @@ function updateFilteredStats(){
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.2.7<br>All Rights Reserved.
+      JINSUL MAP v2.3.2.9<br>All Rights Reserved.
     </div>
   </div>
 
@@ -550,7 +570,7 @@ function updateFilteredStats(){
 </div>
 
 <script>
-// === JINSUL MAP v2.3.2.7 (Refined UI) ===
+// === JINSUL MAP v2.3.2.9 (Refined UI) ===
 // 1. Smart Dedup: 80m/300m, Name+Number Check
 // 2. Standing Promo: Crossroad/Subway only (No Noise)
 // 3. 90-day Logic: Explicit OR Low Chart ID (Auto-detect)
@@ -657,7 +677,7 @@ function initKakao(){
       if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) {
         const circle = data.overlay;
         let r = 0; try { r = Math.round(circle.getRadius()); } catch(e){ return; }
-        applyFilter(); updateFilteredStats(); 
+        applyFilter(); updateSimpleStats(); 
         const walk = Math.round(r / WALK_SPEED);
         const bike = Math.round(r / BIKE_SPEED);
         const count = countInCircle(circle);
@@ -683,7 +703,7 @@ function initKakao(){
     // [Logic] Map Move Event for Optimized Rendering
     kakao.maps.event.addListener(map, 'idle', renderVisibleBanners);
 
-    toast("시스템 준비 완료 (v2.3.2.7)");
+    toast("시스템 준비 완료 (v2.3.2.9)");
   });
 }
 initKakao();
@@ -1190,7 +1210,7 @@ function renderVisibleBanners() {
     bannerMarkers.push(overlay);
   });
   
-  // 화면내 환자 수는 applyFilter에서 계산
+  // 총 내원 수는 applyFilter에서 계산
 
 }
 
@@ -1271,36 +1291,40 @@ function parsePatients(rows){
           p.marker = marker;
           if(toggleState[p.filterKey]) clusterer.addMarker(marker);
         }
-        if(i === patients.length - 1) { applyFilter(); updateFilteredStats(); $('btnFit').click(); toast("분석 완료 (90일초 자동분류 포함)"); }
+        if(i === patients.length - 1) { applyFilter(); updateSimpleStats(); $('btnFit').click(); toast("분석 완료 (90일초 자동분류 포함)"); }
       });
     }, i * 30);
   });
 }
 $('btnFit').onclick = () => { if(patients.length) { const b = new kakao.maps.LatLngBounds(); patients.forEach(p=>p.marker&&b.extend(p.marker.getPosition())); map.setBounds(b); } };
-document.querySelectorAll('.toggle').forEach(t => { t.onclick = function() { const key = this.dataset.toggle; const isOn = !this.classList.contains('on'); if(isOn) this.classList.add('on'); else this.classList.remove('on'); if(key === 'all') { ['new_only', 'new_conv', 'bit_90', 'old'].forEach(k => { toggleState[k] = isOn; const sub = document.querySelector(`.toggle[data-toggle="${k}"]`); if(isOn) sub.classList.add('on'); else sub.classList.remove('on'); }); } else { toggleState[key] = isOn; } applyFilter(); updateFilteredStats(); }; });
+document.querySelectorAll('.toggle').forEach(t => { t.onclick = function() { const key = this.dataset.toggle; const isOn = !this.classList.contains('on'); if(isOn) this.classList.add('on'); else this.classList.remove('on'); if(key === 'all') { ['new_only', 'new_conv', 'bit_90', 'old'].forEach(k => { toggleState[k] = isOn; const sub = document.querySelector(`.toggle[data-toggle="${k}"]`); if(isOn) sub.classList.add('on'); else sub.classList.remove('on'); }); } else { toggleState[key] = isOn; } applyFilter(); updateSimpleStats(); }; });
 function countInCircle(circle) { if(!circle) return 0; const center = circle.getPosition(); const radius = circle.getRadius(); const line = new kakao.maps.Polyline(); let count = 0; patients.forEach(p => { if(p.marker && p.marker.getMap()) { line.setPath([center, p.latlng]); if(line.getLength() <= radius) count++; } }); return count; }
 function applyFilter(){ if(!patients.length) return; clusterer.clear(); const data = drawingManager.getData(); const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius })); const visibleMarkers = []; let visibleCount = 0; patients.forEach(p => { if(!toggleState[p.filterKey]) return; if(activeCircles.length > 0) { let insideAny = false; const line = new kakao.maps.Polyline(); for(const c of activeCircles) { line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) { insideAny = true; break; } } if(!insideAny) return; } if(p.marker) { visibleMarkers.push(p.marker); visibleCount++; } }); clusterer.addMarkers(visibleMarkers); $('statFilteredUsers').innerText = visibleCount.toLocaleString(); }
 kakao.maps.event.addListener(drawingManager, 'state_changed', applyFilter); kakao.maps.event.addListener(drawingManager, 'remove', applyFilter);
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statFilteredUsers').innerText=0; toast("초기화"); };
 let chartObj1, chartObj2; $('btnStats').onclick = () => { if(!patients.length) { toast("데이터 없음"); return; } $('statsModal').style.display = 'flex'; const data = drawingManager.getData(); const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius })); const visible = patients.filter(p => { if(!toggleState[p.filterKey]) return false; if(activeCircles.length > 0) { const line = new kakao.maps.Polyline(); for(const c of activeCircles){ line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) return true; } return false; } return true; }); let cNew = 0, cConv = 0, c90 = 0, cRet = 0; visible.forEach(p => { if(p.type === '신환 (1회만)') cNew++; else if(p.type === '신환 ▶ 재진 전환') cConv++; else if(p.type === '90일초') c90++; else cRet++; }); const total = cNew + cConv + c90 + cRet; const tblHtml = `<tr><td style="color:${REP_COLOR['신환 (1회만)']}">신환 (1회만)</td><td>${cNew}</td><td>${pct(cNew, total)}%</td></tr><tr><td style="color:${REP_COLOR['신환 ▶ 재진 전환']}">전환</td><td>${cConv}</td><td>${pct(cConv, total)}%</td></tr><tr><td style="color:${REP_COLOR['90일초']}">90일초</td><td>${c90}</td><td>${pct(c90, total)}%</td></tr><tr><td style="color:${REP_COLOR['재진']}">재진</td><td>${cRet}</td><td>${pct(cRet, total)}%</td></tr><tr style="background:#f1f3f5;font-weight:bold;"><td>합계</td><td>${total}</td><td>100%</td></tr>`; $('tblSummary').innerHTML = tblHtml; if(chartObj1) chartObj1.destroy(); chartObj1 = new Chart($('chartType'), { type: 'doughnut', data: { labels: ['신환(1회)', '전환', '90일', '재진'], datasets: [{ data: [cNew, cConv, c90, cRet], backgroundColor: [REP_COLOR['신환 (1회만)'], REP_COLOR['신환 ▶ 재진 전환'], REP_COLOR['90일초'], REP_COLOR['재진']] }] }, options: { plugins: { datalabels: { color:'white', font:{weight:'bold'} } } }, plugins: [ChartDataLabels] }); const dongMap = {}, ageMap = {}; visible.forEach(p => { const d = p.dong || "미상"; if(!dongMap[d]) dongMap[d] = { n:0, c:0, b:0, r:0, t:0 }; dongMap[d].t++; if(p.type === '신환 (1회만)') dongMap[d].n++; else if(p.type === '신환 ▶ 재진 전환') dongMap[d].c++; else if(p.type === '90일초') dongMap[d].b++; else dongMap[d].r++; const ag = Math.floor(p.age/10)*10 || 0; ageMap[ag+"대"] = (ageMap[ag+"대"]||0)+1; }); const sortedDong = Object.keys(dongMap).sort((a,b) => dongMap[b].t - dongMap[a].t); $('tblDong').innerHTML = sortedDong.map(d => { const v = dongMap[d]; return `<tr><td>${d}</td><td>${v.n}</td><td>${v.c}</td><td>${v.b}</td><td>${v.r}</td><td><b>${v.t}</b></td></tr>`; }).join(""); const dongTotals = Object.values(dongMap).reduce((acc, v) => ({n:acc.n+v.n, c:acc.c+v.c, b:acc.b+v.b, r:acc.r+v.r, t:acc.t+v.t}), {n:0,c:0,b:0,r:0,t:0}); $('tblDong').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${dongTotals.n}</td><td>${dongTotals.c}</td><td>${dongTotals.b}</td><td>${dongTotals.r}</td><td>${dongTotals.t}</td></tr>`; const ages = Object.keys(ageMap).sort(); $('tblAge').innerHTML = ages.map(a => `<tr><td>${a}</td><td>${ageMap[a]}</td><td>${pct(ageMap[a], total)}%</td></tr>`).join(""); const ageTotal = Object.values(ageMap).reduce((a,b)=>a+b, 0); $('tblAge').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${ageTotal}</td><td>100%</td></tr>`; if(chartObj2) chartObj2.destroy(); chartObj2 = new Chart($('chartAge'), { type: 'bar', data: { labels: ages, datasets: [{ label: '인원수', data: ages.map(a=>ageMap[a]), backgroundColor: '#228be6' }] }, options: { plugins: { legend:{display:false} } } }); }; function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; } window.switchTab = (id) => { document.querySelectorAll('.tabPane').forEach(e => e.style.display='none'); document.getElementById(id).style.display='block'; document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); };
 
-function updateFilteredStats(){
-  if(!patients || !patients.length) return;
+function updateSimpleStats(){
+  let patientCnt = 0;
+  let visitCnt = 0;
 
-  let peopleSet = new Set();
-  let visitSum = 0;
+  if(toggleState['new']){
+    patientCnt += summary.newCount || 0;
+    visitCnt += summary.newVisits || 0;
+  }
+  if(toggleState['old']){
+    patientCnt += summary.oldCount || 0;
+    visitCnt += summary.oldVisits || 0;
+  }
+  if(toggleState['90']){
+    patientCnt += summary.day90Count || 0;
+    visitCnt += summary.day90Visits || 0;
+  }
 
-  patients.forEach(p => {
-    if(toggleState[p.filterKey]){
-      peopleSet.add(p.id);
-      visitSum += (p.total || 0);
-    }
-  });
-
-  const elP = document.getElementById('statTotalPeople');
-  const elV = document.getElementById('statTotalVisits');
-  if(elP) elP.innerText = peopleSet.size.toLocaleString();
-  if(elV) elV.innerText = visitSum.toLocaleString();
+  const elP = document.getElementById('statPatientCount');
+  const elV = document.getElementById('statVisitCount');
+  if(elP) elP.innerText = patientCnt.toLocaleString();
+  if(elV) elV.innerText = visitCnt.toLocaleString();
 }
 
 </script>
