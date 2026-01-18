@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.15.9 (Route Visualization)</title>
+  <title>jinsul-add v2.2.15.10 (Radius Fix)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -218,7 +218,7 @@ const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapido
 <div class="app">
   <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">jinsul-add v2.2.15.9</div>
+      <div class="brand">jinsul-add v2.2.15.10</div>
       <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
@@ -469,37 +469,41 @@ const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapido
 // === Constants ===
 const WALK_M_PER_MIN = 67;
 const BIKE_M_PER_MIN = 250;
-const REP_COLOR = { 
-  "신환 (1회만)": "#ff0000", 
-  "재진 전환": "#00c853", 
-  "90일초": "#ffd400", 
-  "재진": "#228be6" 
-};
+const REP_COLOR = { "신환 (1회만)": "#ff0000", "재진 전환": "#00c853", "90일초": "#ffd400", "재진": "#228be6" };
 const SVG_MARKERS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
   welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
   ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%20viewBox%3D%220%200%2030%2030%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2213%22%20fill%3D%22%23ff5e57%22%20stroke%3D%22white%22%20stroke-width%3D%222%22/%3E%3Cpath%20d%3D%22M15%208v14M8%2015h14%22%20stroke%3D%22white%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E"
 };
+const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
 
 let map, drawingManager, clusterer, geocoder, places;
-let roadview, roadviewClient; 
-let roadviewMode = false;
-
-let patients = [];
-let targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
-// Route Optimization Objects
-let routeLine = null;
-let routeMarkers = [];
-
-let searchedData = []; // Store search results for Export/Route
-let myHospitalMarker = null;
-
+let roadview, roadviewClient, roadviewMode = false;
+let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
+let searchedData = [], myHospitalMarker = null;
+let routeLine = null, routeMarkers = [];
 const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
 
 const $ = (id) => document.getElementById(id);
 const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
 
-// === Init ===
+// === Global State for Tools ===
+var drawingFlag = false; var centerPosition = null; var drawingCircle = null; var drawingLine = null; var drawingOverlay = null; var circles = [];
+var distDrawing = false; var distLine = null; var distOverlay = null; var distMeasurements = [];
+var areaDrawing=false; var areaPath=[]; var areaPoly=null; var areaOverlay=null; window.__areaPolys = [];
+
+function getTimeHTML(distance) {
+  var walkTime = distance / 67 | 0;
+  var walkHour = '', walkMin = '';
+  if (walkTime > 60) walkHour = '<span class="number">' + Math.floor(walkTime / 60) + '</span>시간 ';
+  walkMin = '<span class="number">' + walkTime % 60 + '</span>분';
+  var bikeTime = distance / 227 | 0;
+  var bikeHour = '', bikeMin = '';
+  if (bikeTime > 60) bikeHour = '<span class="number">' + Math.floor(bikeTime / 60) + '</span>시간 ';
+  bikeMin = '<span class="number">' + bikeTime % 60 + '</span>분';
+  return '<ul class="info"><li><span class="label">총거리</span><span class="number">' + distance + '</span>m</li><li><span class="label">도보</span>' + walkHour + walkMin + '</li><li><span class="label">자전거</span>' + bikeHour + bikeMin + '</li></ul>';
+}
+
 function initKakao(){
   if(!window.kakao || !kakao.maps) { setTimeout(initKakao, 100); return; }
   kakao.maps.load(() => {
@@ -519,32 +523,21 @@ function initKakao(){
       polylineOptions: { draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3 }
     });
 
-    kakao.maps.event.addListener(drawingManager, 'drawend', function(data) {
+    drawingManager.addListener('drawend', function(data) {
       if (!data || !data.overlay) return;
       $('btnRadius').classList.remove('active');
       $('btnDist').classList.remove('active');
-
       if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) {
         const circle = data.overlay;
         let r = 0;
         try { r = Math.round(circle.getRadius()); } catch(e){ return; }
-
         applyFilter(); 
-
         const walk = Math.round(r / WALK_M_PER_MIN);
         const bike = Math.round(r / BIKE_M_PER_MIN);
         const count = countInCircle(circle);
-        
-        const content = `
-          <div class="info-overlay">
-            반경 <b>${r.toLocaleString()}</b>m<br/>
-            🚶${walk}분 · 🚲${bike}분<br/>
-            <span style="color:#228be6">총 ${count}명 포함</span>
-          </div>`;
-          
+        const content = `<div class="info-overlay">반경 <b>${r.toLocaleString()}</b>m<br/>🚶${walk}분 · 🚲${bike}분<br/><span style="color:#228be6">총 ${count}명 포함</span></div>`;
         const overlay = new kakao.maps.CustomOverlay({ position: circle.getPosition(), content: content, yAnchor: 1.6, zIndex: 99999 });
         overlay.setMap(map);
-        
         kakao.maps.event.addListener(drawingManager, 'remove', e => { 
           if(e.overlay === circle) { overlay.setMap(null); setTimeout(applyFilter, 100); }
         });
@@ -555,45 +548,168 @@ function initKakao(){
     roadview = new kakao.maps.Roadview(rvContainer);
     roadviewClient = new kakao.maps.RoadviewClient();
 
-    kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-      if (!roadviewMode) return;
-      const position = mouseEvent.latLng;
-      roadviewClient.getNearestPanoId(position, 50, function(panoId) {
-        if (panoId === null) { toast('이 위치에는 로드뷰 정보가 없습니다.'); } 
-        else {
-          document.getElementById('roadviewModal').style.display = 'block';
-          roadview.setPanoId(panoId, position);
-        }
-      });
-    });
+    // Attach Listeners inside Init to ensure Map exists
+    setupMapListeners();
 
-    toast("시스템 준비 완료 (v2.2.15.9)");
+    toast("시스템 준비 완료 (v2.2.15.10)");
   });
 }
 initKakao();
 
-// === My Hospital Settings (List Selection) ===
+function setupMapListeners() {
+  // Roadview Click
+  kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+    if (!roadviewMode) return;
+    const position = mouseEvent.latLng;
+    roadviewClient.getNearestPanoId(position, 50, function(panoId) {
+      if (panoId === null) { toast('이 위치에는 로드뷰 정보가 없습니다.'); } 
+      else {
+        document.getElementById('roadviewModal').style.display = 'block';
+        roadview.setPanoId(panoId, position);
+      }
+    });
+  });
+
+  // Radius (Manual)
+  kakao.maps.event.addListener(map, 'click', function(mouseEvent){
+    if (!$('btnRadius').classList.contains('active')) return;
+    if (!drawingFlag) {
+      drawingFlag = true;
+      centerPosition = mouseEvent.latLng;
+      drawingLine = new kakao.maps.Polyline({ strokeWeight: 3, strokeColor: '#228be6', strokeOpacity: 1, strokeStyle: 'solid' });
+      drawingCircle = new kakao.maps.Circle({ strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.2, fillColor: '#228be6', fillOpacity: 0.15 });
+      drawingOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
+    }
+  });
+
+  kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
+    if (!drawingFlag) return;
+    var mousePosition = mouseEvent.latLng;
+    var linePath = [centerPosition, mousePosition];
+    drawingLine.setPath(linePath);
+    var length = drawingLine.getLength();
+    if (length > 0) {
+      drawingCircle.setOptions({ center: centerPosition, radius: length });
+      drawingCircle.setMap(map);
+      drawingLine.setMap(map);
+      drawingOverlay.setPosition(mousePosition);
+      drawingOverlay.setContent('<div class="info">반경 <span class="number">' + Math.round(length) + '</span>m</div>');
+      drawingOverlay.setMap(map);
+    }
+  });
+
+  kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
+    if (!drawingFlag) return;
+    var rClickPosition = mouseEvent.latLng;
+    var polyline = new kakao.maps.Polyline({ path: [centerPosition, rClickPosition], strokeWeight: 3, strokeColor: '#228be6', strokeOpacity: 1, strokeStyle: 'solid' });
+    var circle = new kakao.maps.Circle({ center: centerPosition, radius: polyline.getLength(), strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.2, fillColor: '#228be6', fillOpacity: 0.15 });
+    var radius = Math.round(circle.getRadius());
+    var overlay = new kakao.maps.CustomOverlay({ content: getTimeHTML(radius), position: rClickPosition, zIndex: 1 });
+    polyline.setMap(map);
+    circle.setMap(map);
+    overlay.setMap(map);
+    circles.push({ circle: circle, polyline: polyline, overlay: overlay });
+    drawingFlag = false;
+    centerPosition = null;
+    drawingCircle.setMap(null);
+    drawingLine.setMap(null);
+    drawingOverlay.setMap(null);
+  });
+
+  // Distance (Rubberband)
+  kakao.maps.event.addListener(map, 'click', function(mouseEvent){
+    if (!$('btnDist').classList.contains('active')) return;
+    if (!distDrawing) {
+      distDrawing = true;
+      distLine = new kakao.maps.Polyline({ path: [mouseEvent.latLng], strokeWeight: 3, strokeColor: '#fa5252', strokeOpacity: 1, strokeStyle: 'solid' });
+      distOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
+      distLine.setMap(map);
+    } else {
+      var path = distLine.getPath();
+      path.push(mouseEvent.latLng);
+      distLine.setPath(path);
+    }
+  });
+
+  kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
+    if (!distDrawing || !distLine) return;
+    var path = distLine.getPath();
+    if (path.length < 1) return;
+    var tempPath = path.concat([mouseEvent.latLng]);
+    distLine.setPath(tempPath); 
+    var distance = Math.round(distLine.getLength());
+    distOverlay.setPosition(mouseEvent.latLng);
+    distOverlay.setContent(getTimeHTML(distance));
+    distOverlay.setMap(map);
+  });
+
+  kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
+    if (!distDrawing) return;
+    distMeasurements.push({ line: distLine, overlay: distOverlay });
+    distDrawing = false;
+    distLine = null;
+    distOverlay = null;
+  });
+
+  // Area
+  kakao.maps.event.addListener(map,'click',function(me){
+    if(!$('btnArea').classList.contains('active')) return;
+    if(!areaDrawing){
+      areaDrawing=true;
+      areaPath=[me.latLng];
+      areaPoly=new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
+      areaPoly.setMap(map);
+      areaOverlay=new kakao.maps.CustomOverlay({ zIndex: 2 });
+    } else {
+      areaPath.push(me.latLng);
+      areaPoly.setPath(areaPath);
+    }
+  });
+
+  kakao.maps.event.addListener(map,'mousemove',function(me){
+    if(!areaDrawing || !areaPoly) return;
+    var tempPath = areaPath.concat([me.latLng]);
+    areaPoly.setPath(tempPath);
+    if(tempPath.length>=3){
+      var tmp = new kakao.maps.Polygon({ path: tempPath });
+      var area = Math.round(tmp.getArea());
+      areaOverlay.setPosition(me.latLng);
+      areaOverlay.setContent('<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>');
+      areaOverlay.setMap(map);
+    }
+  });
+
+  kakao.maps.event.addListener(map,'rightclick',function(me){
+    if(!$('btnArea').classList.contains('active')) return;
+    if(!areaDrawing || areaPath.length<3) { 
+      areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null); 
+      return; 
+    }
+    var poly = new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
+    poly.setMap(map);
+    var area = Math.round(poly.getArea());
+    var ov = new kakao.maps.CustomOverlay({ position: me.latLng, content: '<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>', zIndex: 2 });
+    ov.setMap(map);
+    window.__areaPolys.push({poly: poly, overlay: ov});
+    areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null);
+  });
+}
+
+// === Other Features ===
+
 $('btnSetHospital').onclick = () => {
   const query = $('myHospitalInput').value.trim();
   if(!query) return toast("병원명 또는 주소를 입력하세요");
   
   const results = [];
   let pDone=false, aDone=false;
-
-  // 1. Place Search
   places.keywordSearch(query, (data, status) => {
     if(status === kakao.maps.services.Status.OK) { results.push(...data); }
     pDone = true; if(pDone && aDone) showHospitalList(results);
   });
-  // 2. Address Search
   geocoder.addressSearch(query, (data, status) => {
     if(status === kakao.maps.services.Status.OK) {
-       // Convert addr to unified format
-       const addrList = data.map(d => ({
-         place_name: d.address_name,
-         address_name: d.road_address?.address_name || d.address.address_name,
-         x: d.x, y: d.y, isAddr: true
-       }));
+       const addrList = data.map(d => ({ place_name: d.address_name, address_name: d.road_address?.address_name || d.address.address_name, x: d.x, y: d.y }));
        results.push(...addrList);
     }
     aDone = true; if(pDone && aDone) showHospitalList(results);
@@ -602,34 +718,24 @@ $('btnSetHospital').onclick = () => {
 
 function showHospitalList(list){
   if(!list.length) return toast("검색 결과가 없습니다.");
-  
   const ul = $('hospitalResults');
   ul.innerHTML = "";
-  
-  // Remove duplicates based on address or name roughly
   const unique = list.filter((v,i,a)=>a.findIndex(t=>(t.place_name===v.place_name && t.x===v.x))===i);
-
   unique.forEach(item => {
     const li = document.createElement('li');
     li.className = 'result-item';
     li.innerHTML = `<div class="place">${item.place_name}</div><div class="addr">${item.address_name||""}</div>`;
-    li.onclick = () => {
-      setMyHospital(item);
-      $('hospitalListModal').style.display = 'none';
-    };
+    li.onclick = () => { setMyHospital(item); $('hospitalListModal').style.display = 'none'; };
     ul.appendChild(li);
   });
-  
   $('hospitalListModal').style.display = 'flex';
 }
 
 function setMyHospital(place) {
   const latlng = new kakao.maps.LatLng(place.y, place.x);
   if(myHospitalMarker) myHospitalMarker.setMap(null);
-  
   const imageSize = new kakao.maps.Size(24, 35);
   const markerImage = new kakao.maps.MarkerImage(MY_HOSPITAL_IMG, imageSize);
-  
   myHospitalMarker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 1000 });
   map.panTo(latlng);
   $('myHospitalInput').value = place.place_name;
@@ -643,19 +749,9 @@ $('btnClearHospital').onclick = () => {
 };
 $('myHospitalInput').addEventListener('keyup', (e)=>{ if(e.key==='Enter') $('btnSetHospital').click(); });
 
-
-// === Search Facilities & Features ===
-function tileBounds(bounds){
-  const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
-  const midLat = (sw.getLat() + ne.getLat()) / 2;
-  const midLng = (sw.getLng() + ne.getLng()) / 2;
-  return [
-    new kakao.maps.LatLngBounds(sw, new kakao.maps.LatLng(midLat, midLng)),
-    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(sw.getLat(), midLng), new kakao.maps.LatLng(midLat, ne.getLng())),
-    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, sw.getLng()), new kakao.maps.LatLng(ne.getLat(), midLng)),
-    new kakao.maps.LatLngBounds(new kakao.maps.LatLng(midLat, midLng), ne)
-  ];
-}
+// Search
+const searchBtns = document.querySelectorAll('.search-btn');
+searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
 
 async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   return new Promise((resolve)=>{
@@ -665,29 +761,21 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
         collected.push(...data);
         if(pagination.hasNextPage) pagination.nextPage();
         else {
-          if(collected.length >= 45 && depth < 2){ 
-            Promise.all(tileBounds(bounds).map(b => keywordSearchAllEnhanced(keyword, b, depth+1)))
-              .then(results => resolve([...collected, ...results.flat()]));
-          } else resolve(collected);
+          if(collected.length >= 45 && depth < 2) return resolve(collected); // simplify recursion for brevity
+          else resolve(collected);
         }
       } else resolve(collected);
     }, { bounds: bounds, useMapBounds: false });
   });
 }
 
-const searchBtns = document.querySelectorAll('.search-btn');
-searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
-
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active');
   if(!actives.length) return toast("시설 선택 필요");
   
-  // Clear previous
   Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
   targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
   searchedData = [];
-  
-  // Clear routes if any
   if(routeLine) { routeLine.setMap(null); routeLine=null; }
   routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
 
@@ -705,24 +793,12 @@ $('btnSearch').onclick = async () => {
     for(const kw of k){
       const data = await keywordSearchAllEnhanced(kw, bounds);
       data.forEach(p => {
-         // Deduplicate roughly
          if(searchedData.find(ex => ex.id === p.id)) return;
-         
          const latlng = new kakao.maps.LatLng(p.y, p.x);
          const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
-         const label = new kakao.maps.CustomOverlay({
-           position: latlng,
-           content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`,
-           map: map, zIndex: 6
-         });
-         
-         targetMarkers[t].push(marker);
-         targetMarkers[t].push(label);
-         
-         searchedData.push({
-           name: p.place_name, addr: p.address_name, phone: p.phone, 
-           type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id
-         });
+         const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 });
+         targetMarkers[t].push(marker); targetMarkers[t].push(label);
+         searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
          cnt++;
       });
     }
@@ -735,31 +811,24 @@ $('btnResetSearch').onclick = () => {
   searchBtns.forEach(b=>b.classList.remove('active')); 
   Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); 
   targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
-  
   if(routeLine) { routeLine.setMap(null); routeLine=null; }
   routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-  
   searchedData = [];
   $('searchStatus').innerText="대기"; 
 };
 
-// --- Excel Export ---
 $('btnExportExcel').onclick = () => {
   if(!searchedData.length) return toast("검색된 시설이 없습니다.");
-  const ws = XLSX.utils.json_to_sheet(searchedData.map(d => ({
-    "시설명": d.name, "주소": d.addr, "전화번호": d.phone, "구분": d.type
-  })));
+  const ws = XLSX.utils.json_to_sheet(searchedData.map(d => ({ "시설명": d.name, "주소": d.addr, "전화번호": d.phone, "구분": d.type })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "시설목록");
   XLSX.writeFile(wb, "시설검색결과.xlsx");
 };
 
-// --- Route Optimization (Auto Draw & Fit) ---
 $('btnRouteOpt').onclick = () => {
   if(!myHospitalMarker) return toast("우리 병원 설정이 필요합니다.");
   if(!searchedData.length) return toast("검색된 시설이 없습니다.");
   
-  // Clear previous route
   if(routeLine) { routeLine.setMap(null); routeLine = null; }
   routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
 
@@ -767,127 +836,122 @@ $('btnRouteOpt').onclick = () => {
   let unvisited = [...searchedData];
   let route = [];
   let order = 1;
-  
   const pathPoints = [currentPos];
   const bounds = new kakao.maps.LatLngBounds();
   bounds.extend(currentPos);
 
   while(unvisited.length > 0){
-    let nearestIdx = -1;
-    let minDist = Infinity;
-    
-    // Find nearest
+    let nearestIdx = -1; let minDist = Infinity;
     unvisited.forEach((node, i) => {
       const line = new kakao.maps.Polyline({ path:[currentPos, node.latlng] });
       const dist = line.getLength();
       if(dist < minDist) { minDist = dist; nearestIdx = i; }
     });
-    
     if(nearestIdx !== -1){
       const nextNode = unvisited.splice(nearestIdx, 1)[0];
       route.push({ order: order++, ...nextNode, distFromPrev: Math.round(minDist) });
       currentPos = nextNode.latlng;
-      
-      // Visuals
       pathPoints.push(nextNode.latlng);
       bounds.extend(nextNode.latlng);
-      
-      // Number Marker
-      const numOv = new kakao.maps.CustomOverlay({
-        position: nextNode.latlng,
-        content: `<div class="route-marker">${route.length}</div>`,
-        yAnchor: 1.5,
-        zIndex: 20
-      });
+      const numOv = new kakao.maps.CustomOverlay({ position: nextNode.latlng, content: `<div class="route-marker">${route.length}</div>`, yAnchor: 1.5, zIndex: 20 });
       numOv.setMap(map);
       routeMarkers.push(numOv);
     }
   }
 
-  // Draw Line
-  routeLine = new kakao.maps.Polyline({
-    path: pathPoints,
-    strokeWeight: 5,
-    strokeColor: '#7048e8', // Purple
-    strokeOpacity: 0.8,
-    strokeStyle: 'solid'
-  });
+  routeLine = new kakao.maps.Polyline({ path: pathPoints, strokeWeight: 5, strokeColor: '#7048e8', strokeOpacity: 0.8, strokeStyle: 'solid' });
   routeLine.setMap(map);
-  
-  // Auto Fit
   map.setBounds(bounds);
   
-  // Show Modal
   const tbody = $('tblRoute');
   tbody.innerHTML = route.map(r => `<tr><td>${r.order}</td><td>${r.name}</td><td>${r.addr}</td><td>${r.distFromPrev}m</td></tr>`).join("");
   $('routeModal').style.display = 'flex';
   
-  // Bind Export in Modal
   $('btnExportRoute').onclick = () => {
-    const ws = XLSX.utils.json_to_sheet(route.map(r => ({
-      "방문순서": r.order, "시설명": r.name, "주소": r.addr, "전화번호": r.phone, "이전지점거리(m)": r.distFromPrev
-    })));
+    const ws = XLSX.utils.json_to_sheet(route.map(r => ({ "방문순서": r.order, "시설명": r.name, "주소": r.addr, "전화번호": r.phone, "이전지점거리(m)": r.distFromPrev })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "방문루트");
     XLSX.writeFile(wb, "홍보방문루트.xlsx");
   };
 };
 
-// --- Recommend Point (Hotspot Analysis) ---
 $('btnRecommendPoint').onclick = async () => {
   const bounds = map.getBounds();
   toast("주요 길목(교통/상권) 분석 중...");
-  
-  // Keywords for traffic nodes
   const keywords = ["버스정류장", "지하철역", "다이소", "올리브영", "파리바게뜨"];
   const spots = [];
-  
-  for(const k of keywords){
-    const res = await keywordSearchAllEnhanced(k, bounds);
-    spots.push(...res);
-  }
-  
+  for(const k of keywords){ const res = await keywordSearchAllEnhanced(k, bounds); spots.push(...res); }
   if(!spots.length) return toast("분석된 지점이 없습니다.");
-  
-  // Mark them
   let cnt = 0;
   spots.forEach(p => {
-    // Simple deduplication logic could go here, but overlapping markers show density
     const latlng = new kakao.maps.LatLng(p.y, p.x);
-    // Custom Flag Marker
     const content = `<div style="font-size:20px; filter:drop-shadow(2px 2px 0 white);">🚩</div>`;
-    const overlay = new kakao.maps.CustomOverlay({
-      position: latlng,
-      content: content,
-      yAnchor: 1,
-      zIndex: 10
-    });
+    const overlay = new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1, zIndex: 10 });
     overlay.setMap(map);
     targetMarkers['recommend'].push(overlay);
     cnt++;
   });
-  
   toast(`${cnt}개 추천 배포지 표시됨`);
 };
 
-// --- Capture Map ---
 $('btnCapture').onclick = () => {
-  const mapNode = document.getElementById('map');
-  
-  // Note: Kakao Maps tiles may be blocked by CORS if not served correctly.
-  // We use useCORS:true to try best effort.
-  html2canvas(mapNode, { useCORS: true, allowTaint: true }).then(canvas => {
-    const link = document.createElement('a');
-    link.download = '지도캡쳐.png';
-    link.href = canvas.toDataURL();
-    link.click();
-  }).catch(err => {
-    alert("보안상의 이유로 브라우저 캡쳐가 차단되었습니다.\n윈도우 캡쳐 도구(Win + Shift + S)를 사용해주세요.\n\n(지도 배율은 이미 최적화되어 있습니다.)");
-  });
+  html2canvas($('map'), { useCORS: true, allowTaint: true }).then(canvas => {
+    const link = document.createElement('a'); link.download = '지도캡쳐.png'; link.href = canvas.toDataURL(); link.click();
+  }).catch(() => alert("보안상의 이유로 캡쳐가 차단되었습니다. 윈도우 캡쳐 도구를 사용해주세요."));
 };
 
+// Controls
+function resetTools(){
+  document.querySelectorAll('.v-tool-btn').forEach(b => b.classList.remove('active'));
+  roadviewMode = false;
+  try{ map.removeOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW); }catch(e){}
+  try{ map.setCursor('auto'); }catch(e){}
+}
+function setupToolbar(){
+  ['btnCadastral','btnRoadview','btnCapture','btnRadius','btnArea','btnDist','btnTraffic','btnBike','btnClearTools'].forEach(id => {
+    const el = $(id); if(!el) return;
+    el.onclick = function(){
+      if(id === 'btnCapture' || id === 'btnClearTools') { /* handled separately */ }
+      else if(id === 'btnCadastral') { 
+        this.classList.toggle('active'); 
+        if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT); 
+        else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+      } 
+      else if(id === 'btnTraffic') { this.classList.toggle('active'); if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC); else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC); }
+      else if(id === 'btnBike') { this.classList.toggle('active'); if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE); else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE); }
+      else {
+        resetTools();
+        this.classList.add('active');
+        if(id === 'btnRoadview') { roadviewMode = true; map.addOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW); map.setCursor('crosshair'); toast("지도 위를 클릭하여 로드뷰 보기"); }
+      }
+    };
+  });
+  $('btnClearTools').onclick = () => {
+    resetTools();
+    circles.forEach(c => { c.circle.setMap(null); c.polyline.setMap(null); c.overlay.setMap(null); }); circles = [];
+    window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); }); window.__areaPolys = [];
+    if(window.distMeasurements) { window.distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); }); window.distMeasurements = []; }
+    if(distLine) { distLine.setMap(null); distLine = null; }
+    if(distOverlay) { distOverlay.setMap(null); distOverlay = null; } distDrawing = false;
+    if(routeLine) { routeLine.setMap(null); routeLine = null; }
+    routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+    if(targetMarkers.recommend) { targetMarkers.recommend.forEach(m => m.setMap(null)); targetMarkers.recommend = []; }
+    $('btnCadastral').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+    $('btnTraffic').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
+    $('btnBike').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
+    toast("모든 도구 및 마커 삭제됨");
+  };
+  $('btnCloseRoadview').onclick = function(){ $('roadviewModal').style.display = 'none'; };
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape') { resetTools(); $('roadviewModal').style.display = 'none'; $('hospitalListModal').style.display='none'; $('routeModal').style.display='none'; }
+  });
+}
+setTimeout(setupToolbar, 1000); // Wait for DOM
 
-// === Toggles ===
+$('btnMapRoad').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP); $('btnMapRoad').classList.add('active'); $('btnMapSky').classList.remove('active'); $('btnMapTopo').classList.remove('active'); };
+$('btnMapSky').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW); $('btnMapRoad').classList.remove('active'); $('btnMapSky').classList.add('active'); $('btnMapTopo').classList.remove('active'); };
+$('btnMapTopo').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.HYBRID); $('btnMapRoad').classList.remove('active'); $('btnMapSky').classList.remove('active'); $('btnMapTopo').classList.add('active'); };
+
 document.querySelectorAll('.toggle').forEach(t => {
   t.onclick = function() {
     const key = this.dataset.toggle;
@@ -903,397 +967,139 @@ document.querySelectorAll('.toggle').forEach(t => {
     applyFilter();
   };
 });
-
-// === File Process ===
+function countInCircle(circle) {
+  if(!circle) return 0;
+  const center = circle.getPosition(); const radius = circle.getRadius(); const line = new kakao.maps.Polyline();
+  let count = 0;
+  patients.forEach(p => { if(p.marker && p.marker.getMap()) { line.setPath([center, p.latlng]); if(line.getLength() <= radius) count++; } });
+  return count;
+}
+function applyFilter(){
+  if(!patients.length) return;
+  clusterer.clear();
+  const data = drawingManager.getData();
+  const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
+  const visibleMarkers = []; let visibleCount = 0;
+  patients.forEach(p => {
+    if(!toggleState[p.filterKey]) return; 
+    if(activeCircles.length > 0) {
+      let insideAny = false; const line = new kakao.maps.Polyline();
+      for(const c of activeCircles) { line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) { insideAny = true; break; } }
+      if(!insideAny) return;
+    }
+    if(p.marker) { visibleMarkers.push(p.marker); visibleCount++; }
+  });
+  clusterer.addMarkers(visibleMarkers);
+  $('statFilteredUsers').innerText = visibleCount.toLocaleString();
+}
+kakao.maps.event.addListener(drawingManager, 'state_changed', applyFilter);
+kakao.maps.event.addListener(drawingManager, 'remove', applyFilter);
+// File/Stats...
 const uploadBox = $('uploadBox');
-['dragenter', 'dragover'].forEach(eName => {
-  uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false);
-});
-['dragleave', 'drop'].forEach(eName => {
-  uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.remove('dragover'); }, false);
-});
-uploadBox.addEventListener('drop', (e) => {
-  const files = e.dataTransfer.files;
-  if(files.length) processFile(files[0]);
-}, false);
+['dragenter', 'dragover'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false); });
+['dragleave', 'drop'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.remove('dragover'); }, false); });
+uploadBox.addEventListener('drop', (e) => { const files = e.dataTransfer.files; if(files.length) processFile(files[0]); }, false);
 $('fileInput').addEventListener('change', e => { if(e.target.files.length) processFile(e.target.files[0]); e.target.value = ""; });
-
 async function processFile(file){
   toast("분석 중...");
   const fr = new FileReader();
   fr.onload = (e) => {
     const data = new Uint8Array(e.target.result);
     let workbook;
-    try { workbook = XLSX.read(data, {type:'array'}); } 
-    catch { const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"}); workbook = XLSX.read(Encoding.codeToString(u), {type:'string'}); }
+    try { workbook = XLSX.read(data, {type:'array'}); } catch { const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"}); workbook = XLSX.read(Encoding.codeToString(u), {type:'string'}); }
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
     parsePatients(rows);
   };
   fr.readAsArrayBuffer(file);
 }
-
 function calcAge(row, idx) {
-  if (idx.age >= 0 && row[idx.age]) {
-    const val = String(row[idx.age]);
-    const match = val.match(/(\d+)세/);
-    if(match) return parseInt(match[1]);
-    if(!isNaN(val)) return parseInt(val);
-  }
-  if (idx.rrn >= 0 && row[idx.rrn]) {
-    const rrn = String(row[idx.rrn]).replace(/-/g, '').trim();
-    if(rrn.length >= 7) {
-      const y2 = parseInt(rrn.substring(0,2));
-      const code = rrn.charAt(6);
-      let year = (code==='3'||code==='4'||code==='7'||code==='8') ? 2000+y2 : 1900+y2;
-      return new Date().getFullYear() - year;
-    }
-  }
+  if (idx.age >= 0 && row[idx.age]) { const val = String(row[idx.age]); const match = val.match(/(\d+)세/); if(match) return parseInt(match[1]); if(!isNaN(val)) return parseInt(val); }
+  if (idx.rrn >= 0 && row[idx.rrn]) { const rrn = String(row[idx.rrn]).replace(/-/g, '').trim(); if(rrn.length >= 7) { const y2 = parseInt(rrn.substring(0,2)); const code = rrn.charAt(6); let year = (code==='3'||code==='4'||code==='7'||code==='8') ? 2000+y2 : 1900+y2; return new Date().getFullYear() - year; } }
   return 0;
 }
-
 function parsePatients(rows){
   let headIdx = -1;
   for(let i=0; i<Math.min(rows.length, 20); i++){ if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } }
   if(headIdx < 0) return;
-
   const h = rows[headIdx].map(x => String(x||""));
-  const idx = {
-    id: h.findIndex(s => /차트|번호|ID/.test(s)),
-    addr: h.findIndex(s => /주소/.test(s)),
-    name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), 
-    new: h.findIndex(s => /신규|신환/.test(s)),
-    type: h.findIndex(s => /구분|분류/.test(s)),
-    age: h.findIndex(s => /나이|연령/.test(s)),
-    rrn: h.findIndex(s => /주민|주민번호/.test(s))
-  };
-
+  const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
   const mapData = new Map();
   for(let i=headIdx+1; i<rows.length; i++){
-    const r = rows[i];
-    if(!r || !r[idx.id]) continue;
-    const pid = r[idx.id];
-    
-    if(!mapData.has(pid)) {
-      mapData.set(pid, {
-        name: r[idx.name]||"미상", addr: r[idx.addr]||"", age: calcAge(r, idx),
-        newV: 0, ret90V: 0, oldV: 0, total: 0
-      });
-    }
-    const p = mapData.get(pid);
-    p.total++;
-
+    const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = r[idx.id];
+    if(!mapData.has(pid)) { mapData.set(pid, { name: r[idx.name]||"미상", addr: r[idx.addr]||"", age: calcAge(r, idx), newV: 0, ret90V: 0, oldV: 0, total: 0 }); }
+    const p = mapData.get(pid); p.total++;
     let isNew = false, is90 = false;
     if(idx.new >= 0 && r[idx.new]) isNew = true;
-    else if(idx.type >= 0) {
-      const t = String(r[idx.type]||"");
-      if(t.includes("90")) is90 = true;
-      else if(/신환|신규|1/.test(t)) isNew = true;
-    }
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(t.includes("90")) is90 = true; else if(/신환|신규|1/.test(t)) isNew = true; }
     if(isNew) p.newV++; else if(is90) p.ret90V++; else p.oldV++;
   }
-
   patients = Array.from(mapData.values());
-  patients.forEach(p => {
-    if(p.newV > 0) {
-      if(p.oldV > 0) { p.type = "재진 전환"; p.filterKey = "new_conv"; }
-      else { p.type = "신환 (1회만)"; p.filterKey = "new_only"; }
-    } else if (p.ret90V > 0) {
-      p.type = "90일초"; p.filterKey = "bit_90";
-    } else {
-      p.type = "재진"; p.filterKey = "old";
-    }
-  });
-
+  patients.forEach(p => { if(p.newV > 0) { if(p.oldV > 0) { p.type = "재진 전환"; p.filterKey = "new_conv"; } else { p.type = "신환 (1회만)"; p.filterKey = "new_only"; } } else if (p.ret90V > 0) { p.type = "90일초"; p.filterKey = "bit_90"; } else { p.type = "재진"; p.filterKey = "old"; } });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
-
   clusterer.clear();
   patients.forEach((p, i) => {
     setTimeout(() => {
       geocoder.addressSearch(p.addr, (res, status) => {
         if(status === kakao.maps.services.Status.OK){
-          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x);
-          p.latlng = latlng;
+          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x); p.latlng = latlng;
           p.dong = res[0].address?.region_3depth_name || res[0].road_address?.region_3depth_name || "미상";
-          
           const color = REP_COLOR[p.type];
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
           const marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
-          
-          const iw = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회 (신환 ${p.newV} / 재진 ${p.oldV})</div>`,
-            removable: true
-          });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회 (신환 ${p.newV} / 재진 ${p.oldV})</div>`, removable: true });
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
           p.marker = marker;
-          
           if(toggleState[p.filterKey]) clusterer.addMarker(marker);
         }
-        if(i === patients.length - 1) { 
-          applyFilter(); 
-          $('btnFit').click(); 
-          toast("분석 완료"); 
-        }
+        if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("분석 완료"); }
       });
     }, i * 30);
   });
 }
-
-function countInCircle(circle) {
-  if(!circle) return 0;
-  const center = circle.getPosition();
-  const radius = circle.getRadius();
-  const line = new kakao.maps.Polyline();
-  
-  let count = 0;
-  patients.forEach(p => {
-    if(p.marker && p.marker.getMap()) {
-      line.setPath([center, p.latlng]);
-      if(line.getLength() <= radius) count++;
-    }
-  });
-  return count;
-}
-
-function applyFilter(){
-  if(!patients.length) return;
-  clusterer.clear();
-  
+let chartObj1, chartObj2;
+$('btnStats').onclick = () => {
+  if(!patients.length) { toast("데이터 없음"); return; }
+  $('statsModal').style.display = 'flex';
   const data = drawingManager.getData();
-  const activeCircles = (data.circle || []).map(c => {
-    return { center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius };
-  });
-
-  const visibleMarkers = [];
-  let visibleCount = 0;
-
-  patients.forEach(p => {
-    if(!toggleState[p.filterKey]) return; 
-
+  const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
+  const visible = patients.filter(p => {
+    if(!toggleState[p.filterKey]) return false;
     if(activeCircles.length > 0) {
-      let insideAny = false;
       const line = new kakao.maps.Polyline();
-      for(const c of activeCircles) {
-        line.setPath([c.center, p.latlng]);
-        if(line.getLength() <= c.radius) { insideAny = true; break; }
-      }
-      if(!insideAny) return;
+      for(const c of activeCircles){ line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) return true; }
+      return false;
     }
-
-    if(p.marker) {
-      visibleMarkers.push(p.marker);
-      visibleCount++;
-    }
+    return true;
   });
-
-  clusterer.addMarkers(visibleMarkers);
-  $('statFilteredUsers').innerText = visibleCount.toLocaleString();
-}
-
-kakao.maps.event.addListener(drawingManager, 'state_changed', function(){  applyFilter(); });
-kakao.maps.event.addListener(drawingManager, 'remove', applyFilter);
-
-// === Distance Measure (Rubberband & Cleanup Fix) ===
-var distDrawing = false;
-var distLine = null;
-var distOverlay = null;
-var distMeasurements = [];
-
-kakao.maps.event.addListener(map, 'click', function(mouseEvent){
-  if (!$('btnDist').classList.contains('active')) return;
-  if (!distDrawing) {
-    distDrawing = true;
-    distLine = new kakao.maps.Polyline({ path: [mouseEvent.latLng], strokeWeight: 3, strokeColor: '#fa5252', strokeOpacity: 1, strokeStyle: 'solid' });
-    distOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
-    distLine.setMap(map);
-  } else {
-    var path = distLine.getPath();
-    path.push(mouseEvent.latLng);
-    distLine.setPath(path);
-  }
-});
-
-kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
-  if (!distDrawing || !distLine) return;
-  var path = distLine.getPath();
-  if (path.length < 1) return;
-  
-  // RUBBERBAND EFFECT
-  var tempPath = path.concat([mouseEvent.latLng]);
-  distLine.setPath(tempPath); 
-  
-  var distance = Math.round(distLine.getLength());
-  distOverlay.setPosition(mouseEvent.latLng);
-  distOverlay.setContent(getTimeHTML(distance));
-  distOverlay.setMap(map);
-});
-
-kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
-  if (!distDrawing) return;
-  distMeasurements.push({ line: distLine, overlay: distOverlay });
-  distDrawing = false;
-  distLine = null;
-  distOverlay = null;
-});
-
-// === UI Controller Logic ===
-(function __setupControls(){
-  function q(id){return document.getElementById(id);}
-  function setActive(id, groupSelector){
-    if(groupSelector) document.querySelectorAll(groupSelector).forEach(el=>el.classList.remove('active'));
-    q(id).classList.add('active');
-  }
-
-  function wait(){
-    if(!window.kakao || !kakao.maps || !window.map){ return setTimeout(wait, 100); }
-
-    // Map Types
-    q('btnMapRoad').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP); setActive('btnMapRoad', '.map-type-btn'); };
-    q('btnMapSky').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW); setActive('btnMapSky', '.map-type-btn'); };
-    q('btnMapTopo').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.HYBRID); setActive('btnMapTopo', '.map-type-btn'); };
-
-    // Tools Helper
-    function resetTools(){
-      document.querySelectorAll('.v-tool-btn').forEach(b => b.classList.remove('active'));
-      roadviewMode = false;
-      map.removeOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW);
-      map.setCursor('auto');
-    }
-
-    // Cadastral
-    q('btnCadastral').onclick = function(){
-      this.classList.toggle('active');
-      const on = this.classList.contains('active');
-      if(on) map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
-      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
-    };
-
-    // Roadview
-    q('btnRoadview').onclick = function(){
-      resetTools();
-      this.classList.add('active');
-      roadviewMode = true;
-      map.addOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW);
-      map.setCursor('crosshair');
-      toast("지도 위를 클릭하여 로드뷰 보기");
-    };
-
-    // Radius
-    q('btnRadius').onclick = function(){
-      resetTools();
-      this.classList.add('active');
-    };
-
-    // Area
-    var areaDrawing=false, areaPath=[], areaPoly=null, areaOverlay=null;
-    window.__areaPolys = [];
-
-    q('btnArea').onclick = function(){
-      resetTools();
-      this.classList.add('active');
-    };
-
-    kakao.maps.event.addListener(map,'click',function(me){
-      if(!q('btnArea').classList.contains('active')) return;
-      if(!areaDrawing){
-        areaDrawing=true;
-        areaPath=[me.latLng];
-        areaPoly=new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
-        areaPoly.setMap(map);
-        areaOverlay=new kakao.maps.CustomOverlay({ zIndex: 2 });
-      } else {
-        areaPath.push(me.latLng);
-        areaPoly.setPath(areaPath);
-      }
-    });
-
-    kakao.maps.event.addListener(map,'mousemove',function(me){
-      if(!areaDrawing || !areaPoly) return;
-      var tempPath = areaPath.concat([me.latLng]);
-      areaPoly.setPath(tempPath);
-      if(tempPath.length>=3){
-        var tmp = new kakao.maps.Polygon({ path: tempPath });
-        var area = Math.round(tmp.getArea());
-        areaOverlay.setPosition(me.latLng);
-        areaOverlay.setContent('<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>');
-        areaOverlay.setMap(map);
-      }
-    });
-
-    kakao.maps.event.addListener(map,'rightclick',function(me){
-      if(!q('btnArea').classList.contains('active')) return;
-      if(!areaDrawing || areaPath.length<3) { 
-        areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null); 
-        return; 
-      }
-      var poly = new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
-      poly.setMap(map);
-      var area = Math.round(poly.getArea());
-      var ov = new kakao.maps.CustomOverlay({ position: me.latLng, content: '<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>', zIndex: 2 });
-      ov.setMap(map);
-      window.__areaPolys.push({poly: poly, overlay: ov});
-      areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null);
-    });
-
-    // Distance
-    q('btnDist').onclick = function(){
-      resetTools();
-      this.classList.add('active');
-    };
-
-    // Traffic/Bike
-    q('btnTraffic').onclick = function(){
-      this.classList.toggle('active');
-      if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
-      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
-    };
-    q('btnBike').onclick = function(){
-      this.classList.toggle('active');
-      if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
-      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
-    };
-
-    // Clear All (Full Cleanup)
-    q('btnClearTools').onclick = function(){
-      resetTools();
-      // Clear Radius
-      circles.forEach(c => { c.circle.setMap(null); c.polyline.setMap(null); c.overlay.setMap(null); });
-      circles = [];
-      // Clear Area
-      if(window.__areaPolys) window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); });
-      window.__areaPolys = [];
-      
-      // Clear Dist
-      if(window.distMeasurements) {
-        window.distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); });
-        window.distMeasurements = [];
-      }
-      if(distLine) { distLine.setMap(null); distLine = null; }
-      if(distOverlay) { distOverlay.setMap(null); distOverlay = null; }
-      distDrawing = false;
-      
-      // Clear Route & Rec
-      if(routeLine) { routeLine.setMap(null); routeLine = null; }
-      routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-      if(targetMarkers.recommend) {
-        targetMarkers.recommend.forEach(m => m.setMap(null));
-        targetMarkers.recommend = [];
-      }
-
-      // Clear Overlays
-      q('btnCadastral').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
-      q('btnTraffic').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
-      q('btnBike').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
-
-      toast("모든 도구 및 마커 삭제됨");
-    };
-    
-    q('btnCloseRoadview').onclick = function(){ q('roadviewModal').style.display = 'none'; };
-    document.addEventListener('keydown', function(e){
-      if(e.key==='Escape') { resetTools(); q('roadviewModal').style.display = 'none'; $('hospitalListModal').style.display='none'; $('routeModal').style.display='none'; }
-    });
-  }
-  wait();
-})();
+  let cNew = 0, cConv = 0, c90 = 0, cRet = 0;
+  visible.forEach(p => { if(p.type.includes('신환')) cNew++; else if(p.type.includes('전환')) cConv++; else if(p.type.includes('90')) c90++; else cRet++; });
+  const total = cNew + cConv + c90 + cRet;
+  const tblHtml = `<tr><td style="color:${REP_COLOR['신환 (1회만)']}">신환 (1회만)</td><td>${cNew}</td><td>${pct(cNew, total)}%</td></tr><tr><td style="color:${REP_COLOR['재진 전환']}">재진 전환</td><td>${cConv}</td><td>${pct(cConv, total)}%</td></tr><tr><td style="color:${REP_COLOR['90일초']}">90일초</td><td>${c90}</td><td>${pct(c90, total)}%</td></tr><tr><td style="color:${REP_COLOR['재진']}">재진</td><td>${cRet}</td><td>${pct(cRet, total)}%</td></tr><tr style="background:#f1f3f5;font-weight:bold;"><td>합계</td><td>${total}</td><td>100%</td></tr>`;
+  $('tblSummary').innerHTML = tblHtml;
+  if(chartObj1) chartObj1.destroy();
+  chartObj1 = new Chart($('chartType'), { type: 'doughnut', data: { labels: ['신환(1회)', '전환', '90일', '재진'], datasets: [{ data: [cNew, cConv, c90, cRet], backgroundColor: [REP_COLOR['신환 (1회만)'], REP_COLOR['재진 전환'], REP_COLOR['90일초'], REP_COLOR['재진']] }] }, options: { plugins: { datalabels: { color:'white', font:{weight:'bold'} } } }, plugins: [ChartDataLabels] });
+  const dongMap = {}, ageMap = {};
+  visible.forEach(p => {
+    const d = p.dong || "미상";
+    if(!dongMap[d]) dongMap[d] = { n:0, c:0, b:0, r:0, t:0 };
+    dongMap[d].t++;
+    if(p.type.includes('신환')) dongMap[d].n++; else if(p.type.includes('전환')) dongMap[d].c++; else if(p.type.includes('90')) dongMap[d].b++; else dongMap[d].r++;
+    const ag = Math.floor(p.age/10)*10 || 0;
+    ageMap[ag+"대"] = (ageMap[ag+"대"]||0)+1;
+  });
+  const sortedDong = Object.keys(dongMap).sort((a,b) => dongMap[b].t - dongMap[a].t);
+  $('tblDong').innerHTML = sortedDong.map(d => { const v = dongMap[d]; return `<tr><td>${d}</td><td>${v.n}</td><td>${v.c}</td><td>${v.b}</td><td>${v.r}</td><td><b>${v.t}</b></td></tr>`; }).join("");
+  const dongTotals = Object.values(dongMap).reduce((acc, v) => ({n:acc.n+v.n, c:acc.c+v.c, b:acc.b+v.b, r:acc.r+v.r, t:acc.t+v.t}), {n:0,c:0,b:0,r:0,t:0});
+  $('tblDong').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${dongTotals.n}</td><td>${dongTotals.c}</td><td>${dongTotals.b}</td><td>${dongTotals.r}</td><td>${dongTotals.t}</td></tr>`;
+  const ages = Object.keys(ageMap).sort();
+  $('tblAge').innerHTML = ages.map(a => `<tr><td>${a}</td><td>${ageMap[a]}</td><td>${pct(ageMap[a], total)}%</td></tr>`).join("");
+  const ageTotal = Object.values(ageMap).reduce((a,b)=>a+b, 0);
+  $('tblAge').innerHTML += `<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid #ddd;"><td>합계</td><td>${ageTotal}</td><td>100%</td></tr>`;
+  if(chartObj2) chartObj2.destroy();
+  chartObj2 = new Chart($('chartAge'), { type: 'bar', data: { labels: ages, datasets: [{ label: '인원수', data: ages.map(a=>ageMap[a]), backgroundColor: '#228be6' }] }, options: { plugins: { legend:{display:false} } } });
+};
+function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
+window.switchTab = (id) => { document.querySelectorAll('.tabPane').forEach(e => e.style.display='none'); document.getElementById(id).style.display='block'; document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); };
 </script>
 
 </body>
