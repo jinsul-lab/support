@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.15.14 (Clean Fix)</title>
+  <title>jinsul-add v2.2.15.15 (Load Timing Fix)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -243,10 +243,19 @@ function getTimeHTML(distance) {
   return '<ul class="info"><li><span class="label">총거리</span><span class="number">' + distance + '</span>m</li><li><span class="label">도보</span>' + walkHour + walkMin + '</li><li><span class="label">자전거</span>' + bikeHour + bikeMin + '</li></ul>';
 }
 
+// === FIX: Init Triggered by Window Load ===
+window.addEventListener('load', function() {
+  initKakao();
+});
+
 function initKakao(){
-  if(!window.kakao || !kakao.maps) { setTimeout(initKakao, 100); return; }
+  if(!window.kakao || !kakao.maps) { return; }
   kakao.maps.load(() => {
-    map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
+    // Container Check
+    const mapContainer = document.getElementById('map');
+    if(!mapContainer) return; 
+
+    map = new kakao.maps.Map(mapContainer, { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     
     const zoomControl = new kakao.maps.ZoomControl();
     map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
@@ -289,10 +298,9 @@ function initKakao(){
     setupMapListeners(); // Core map events (Distance, Area, Radius logic)
     setupToolbar(); // Bind Buttons
 
-    toast("시스템 준비 완료 (v2.2.15.14)");
+    toast("시스템 준비 완료 (v2.2.15.15)");
   });
 }
-initKakao();
 
 function deactivateDrawTools() {
   $('btnRadius').classList.remove('active');
