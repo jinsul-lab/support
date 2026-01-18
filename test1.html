@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.1.1</title>
+  <title>JINSUL MAP v2.3.1.10</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -209,7 +209,7 @@
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.1.1</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.1.10</div>
     </div>
     
     <div class="sidebarBody">
@@ -226,7 +226,7 @@
             <div class="statValue" id="statTotalUsers">0</div>
           </div>
           <div class="statItem">
-            <div class="statLabel">화면내 현수막</div>
+            <div class="statLabel">화면내 환자 수</div>
             <div class="statValue" style="color:var(--banner);" id="statVisibleBanners">0</div>
           </div>
         </div>
@@ -284,7 +284,7 @@
           </div>
           <div class="search-btn" id="btnRecommendPoint">
             <span>🚩</span>
-            <span>스탠딩 홍보</span>
+            <span>포인트 지정</span>
           </div>
         </div>
         <div style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;" id="searchStatus">대기</div>
@@ -303,7 +303,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.1.1<br>All Rights Reserved.
+      JINSUL MAP v2.3.1.10<br>All Rights Reserved.
     </div>
   </div>
 
@@ -348,7 +348,12 @@
         <button class="v-tool-btn" id="btnArea" title="면적 재기">
           <span>📐</span><span class="lbl">면적</span>
         </button>
+        
         <div class="v-divider"></div>
+        <button class="v-tool-btn" id="btnPoint" title="포인트 지정">
+          <span>🚩</span><span class="lbl">포인트</span>
+        </button>
+
         <button class="v-tool-btn danger" id="btnClearTools" title="모두 지우기">
           <span>🗑️</span><span class="lbl">삭제</span>
         </button>
@@ -445,7 +450,7 @@
 </div>
 
 <script>
-// === JINSUL MAP v2.3.1.1 (Refined UI) ===
+// === JINSUL MAP v2.3.1.10 (Refined UI) ===
 // 1. Smart Dedup: 80m/300m, Name+Number Check
 // 2. Standing Promo: Crossroad/Subway only (No Noise)
 // 3. 90-day Logic: Explicit OR Low Chart ID (Auto-detect)
@@ -500,6 +505,37 @@ function initKakao(){
     if(!$('map')) return; 
 
     map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
+    // === Manual Point Mode ===
+    let pointMode = false;
+    let promoPoints = [];
+
+    const pointBtn = document.getElementById('btnPoint');
+    if(pointBtn){
+      pointBtn.onclick = () => {
+        pointMode = !pointMode;
+        map.setCursor(pointMode ? 'crosshair' : 'auto');
+        pointBtn.classList.toggle('active', pointMode);
+      };
+    }
+
+    kakao.maps.event.addListener(map, 'click', function(me){
+      if(!pointMode) return;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+        <polygon points="20,2 25,15 38,20 25,25 20,38 15,25 2,20 15,15"
+         fill="#ff0000" stroke="white" stroke-width="2"/>
+      </svg>`;
+      const marker = new kakao.maps.Marker({
+        position: me.latLng,
+        image: new kakao.maps.MarkerImage(
+          "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),
+          new kakao.maps.Size(40,40)
+        ),
+        zIndex: 50
+      });
+      marker.setMap(map);
+      promoPoints.push(marker);
+    });
+
     
     const zoomControl = new kakao.maps.ZoomControl();
     map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
@@ -547,7 +583,7 @@ function initKakao(){
     // [Logic] Map Move Event for Optimized Rendering
     kakao.maps.event.addListener(map, 'idle', renderVisibleBanners);
 
-    toast("시스템 준비 완료 (v2.3.1.1)");
+    toast("시스템 준비 완료 (v2.3.1.10)");
   });
 }
 initKakao();
@@ -938,9 +974,9 @@ $('btnRouteOpt').onclick = () => {
 // === Logic: Standing Promotion (Top 3) ===
 $('btnRecommendPoint').onclick = async () => {
   const bounds = map.getBounds(); 
-  toast("스탠딩 홍보 Top 3 (사거리,오거리,역) 스캔 중...");
+  toast("포인트 지정 Top 3 (사거리,오거리,역) 스캔 중...");
   
-  const keywords = ["사거리", "오거리", "역"]; 
+  const keywords = ["역 출입구", "지하철역", "환승센터", "광장"]; 
   const spots = [];
   
   for(const k of keywords){ const res = await keywordSearchAllEnhanced(k, bounds); spots.push(...res); }
@@ -949,7 +985,7 @@ $('btnRecommendPoint').onclick = async () => {
   let uniqueSpots = [];
   spots.forEach(s => {
     // Noise Filter
-    if(/교회|성당|절|학교|유치원|어린이집|아파트/.test(s.place_name)) return; 
+    if(/교회|성당|절|학교|유치원|어린이집|아파트|병원|의원|약국|카페|상가|빌딩|주택|오피스텔/.test(s.place_name)) return; 
     
     // Dedup (30m)
     if(!uniqueSpots.find(u => {
@@ -966,7 +1002,7 @@ $('btnRecommendPoint').onclick = async () => {
     const overlay = new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1, zIndex: 10 });
     overlay.setMap(map); targetMarkers['recommend'].push(overlay); cnt++;
   });
-  toast(`${cnt}개 스탠딩 홍보 포인트 발견`);
+  toast(`${cnt}개 포인트 지정 포인트 발견`);
 };
 
 // ... File & Filter ...
@@ -1054,7 +1090,8 @@ function renderVisibleBanners() {
     bannerMarkers.push(overlay);
   });
   
-  $('statVisibleBanners').innerText = visible.length.toLocaleString();
+  // 화면내 환자 수는 applyFilter에서 계산
+
 }
 
 // === Logic: 90-day Inference (Chart ID) ===
@@ -1129,7 +1166,7 @@ function parsePatients(rows){
           const color = REP_COLOR[p.type];
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
           const marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
-          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.name}</b> (${p.age}세)<br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.id} ${p.name} (${p.age}세)</b><br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
           p.marker = marker;
           if(toggleState[p.filterKey]) clusterer.addMarker(marker);
