@@ -6,46 +6,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer">
-// === [ADD] 현수막 게시대 레이어 ===
+
+// === [FINAL] 전국 현수막 게시대 (공공데이터포털 공식 API) ===
 let bannerMarkers = [];
 let bannerLayerOn = false;
 
 async function loadBannerBoards() {
   if (bannerMarkers.length > 0) return;
 
-  const API_URL = "https://api.odcloud.kr/api/XXXXXXXX/v1/uddi:YYYYYYYY";
-  const SERVICE_KEY = "YOUR_API_KEY";
+  const API_URL = "http://api.data.go.kr/openapi/tn_pubr_public_banner_api";
+  const SERVICE_KEY = "c8955eba86e3853af8e9d4c6ca072b7d7d0158630d11296129824c3eb4f4c426";
 
-  const url = `${API_URL}?serviceKey=${SERVICE_KEY}&page=1&perPage=1000`;
+  const url = API_URL
+    + "?serviceKey=" + SERVICE_KEY
+    + "&pageNo=0"
+    + "&numOfRows=1000"
+    + "&type=json";
 
   try {
     const res = await fetch(url);
     const json = await res.json();
-    if (!json.data) return;
 
-    json.data.forEach(item => {
-      if (!item.위도 || !item.경도) return;
-      const latlng = new kakao.maps.LatLng(parseFloat(item.위도), parseFloat(item.경도));
-      const content = `<div style="background:#fff;border:1px solid #333;border-radius:6px;
-        padding:4px 6px;font-size:11px;font-weight:700;">🪧 현수막</div>`;
-      const overlay = new kakao.maps.CustomOverlay({ position: latlng, content, yAnchor: 1, zIndex: 3 });
+    const items = json?.response?.body?.items?.item || [];
+    if (!items.length) {
+      toast("현수막 게시대 데이터 없음");
+      return;
+    }
+
+    items.forEach(item => {
+      if (!item.LAT || !item.LOT) return;
+
+      const lat = parseFloat(item.LAT);
+      const lng = parseFloat(item.LOT);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      const latlng = new kakao.maps.LatLng(lat, lng);
+
+      const content = `
+        <div style="
+          background:#ffffff;
+          border:1px solid #222;
+          border-radius:6px;
+          padding:4px 6px;
+          font-size:11px;
+          font-weight:700;
+          white-space:nowrap;">
+          🪧 현수막
+        </div>
+      `;
+
+      const overlay = new kakao.maps.CustomOverlay({
+        position: latlng,
+        content: content,
+        yAnchor: 1,
+        zIndex: 3
+      });
+
       bannerMarkers.push(overlay);
     });
-  } catch(e) {
+
+    toast(`현수막 게시대 ${bannerMarkers.length}개 로드 완료`);
+  } catch (e) {
     console.error(e);
+    toast("현수막 게시대 API 오류");
   }
 }
 
-function toggleBannerBoards(){
+function toggleBannerBoards() {
   bannerLayerOn = !bannerLayerOn;
-  if(bannerLayerOn){
-    loadBannerBoards().then(()=>{
-      bannerMarkers.forEach(o=>o.setMap(map));
-      toast("현수막 게시대 ON");
+  if (bannerLayerOn) {
+    loadBannerBoards().then(() => {
+      bannerMarkers.forEach(o => o.setMap(map));
+      toast("현수막 게시대 표시 ON");
     });
   } else {
-    bannerMarkers.forEach(o=>o.setMap(null));
-    toast("현수막 게시대 OFF");
+    bannerMarkers.forEach(o => o.setMap(null));
+    toast("현수막 게시대 표시 OFF");
   }
 }
 
