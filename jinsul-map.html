@@ -1009,6 +1009,26 @@ function dedupPlacesByDistance(list, meters=50){
   return kept;
 }
 
+function extractComplexName(name){
+  const m = name.match(/(.+?(아파트|주공|단지))/);
+  return m ? m[1] : null;
+}
+
+function pickSeniorRepresentative(list){
+  const senior = list.find(p => /경로당/.test(p.place_name));
+  if (senior) return senior;
+
+  const mgmt = list.find(p => /관리사무소|관리실/.test(p.place_name));
+  if (mgmt) return mgmt;
+
+  const guard = list.find(p => /경비실/.test(p.place_name));
+  if (guard) return guard;
+
+  return list[0];
+}
+
+
+
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active'); if(!actives.length) return toast("대상 선택");
   Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] }; searchedData = []; if(routeLine) { routeLine.setMap(null); routeLine=null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
@@ -1019,7 +1039,20 @@ $('btnSearch').onclick = async () => {
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
     let rawResults = []; for(const kw of k){ const data = await keywordSearchAllEnhanced(kw, bounds); rawResults.push(...data); }
     let unique = rawResults.filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i);
-    if(t === 'senior') unique = dedupPlacesByDistance(unique, 50);
+
+if(t === 'senior') {
+  const grouped = {};
+  unique.forEach(p => {
+    const key = extractComplexName(p.place_name) || p.id;
+    grouped[key] ??= [];
+    grouped[key].push(p);
+  });
+
+  unique = Object.values(grouped).map(list => pickSeniorRepresentative(list));
+}
+
+
+
     unique.forEach(p => {
        const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 }); targetMarkers[t].push(marker); targetMarkers[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
     });
