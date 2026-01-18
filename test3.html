@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.16.3 (Logic Enhanced)</title>
+  <title>jinsul-add v2.2.16.4 (Final Architect Ver)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -283,7 +283,7 @@
           </div>
           <div class="search-btn" id="btnRecommendPoint">
             <span>🚩</span>
-            <span>추천지점</span>
+            <span>스탠딩 홍보</span>
           </div>
         </div>
         <div style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;" id="searchStatus">대기</div>
@@ -302,7 +302,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      Jinsul Map System v2.2.16.3<br>All Rights Reserved.
+      Jinsul Map System v2.2.16.4<br>All Rights Reserved.
     </div>
   </div>
 
@@ -444,10 +444,13 @@
 </div>
 
 <script>
-// === [설계자 주석] v2.2.16.3 업데이트 내역 ===
-// 1. [Fix] 검색 로직 최종 보완 ('무더위쉼터' 키워드 추가) -> 네이버/정부 데이터 완전 호환
-// 2. 거리재기 고무줄(직선) 로직 유지
-// 3. UI 텍스트 및 로드뷰 종료 로직 유지
+// === [설계자 주석] v2.2.16.4 최종 완성본 ===
+// 1. [Smart Dedup] 중복 제거 로직 강화: (반경 80m + 이름 유사성 + 숫자 차수 구분)
+//    - 우선순위: 경로당 > 관리사무소 > 경비실 (경로당 있으면 나머지는 지도에서 삭제)
+//    - '아파트', '빌라' 등 공통어 제외하고 비교하여 옆 단지 팀킬 방지
+// 2. [Standing Promotion] '스탠딩 홍보' 로직 최적화
+//    - 타겟: 일반인 전체 + 대기시간 확보 (사거리, 오거리, 은행, 주민센터, 시장)
+// 3. [Fix] 검색 필터: '경비실'을 무조건 지우지 않고, 경로당이 없는 경우 최후의 수단으로 생존시킴
 
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
@@ -536,7 +539,7 @@ function initKakao(){
 
     setupMapListeners(); 
     setupToolbar(); 
-    toast("시스템 준비 완료 (v2.2.16.3)");
+    toast("시스템 준비 완료 (v2.2.16.4)");
   });
 }
 initKakao();
@@ -617,15 +620,13 @@ function setupMapListeners() {
 
   kakao.maps.event.addListener(map, 'click', function(mouseEvent){
     if (!$('btnDist').classList.contains('active')) return;
-    
     if (!distDrawing) {
       distDrawing = true;
       distPathData = [mouseEvent.latLng]; 
       distLine = new kakao.maps.Polyline({ path: distPathData, strokeWeight: 3, strokeColor: '#fa5252', strokeOpacity: 1, strokeStyle: 'solid' });
       distOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
       distLine.setMap(map);
-    } 
-    else {
+    } else {
       distPathData.push(mouseEvent.latLng); 
       distLine.setPath(distPathData);
     }
@@ -633,10 +634,8 @@ function setupMapListeners() {
 
   kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
     if (!distDrawing || !distLine) return;
-    
     var tempPath = distPathData.concat([mouseEvent.latLng]);
     distLine.setPath(tempPath); 
-    
     var distance = Math.round(distLine.getLength());
     distOverlay.setPosition(mouseEvent.latLng);
     distOverlay.setContent(getTimeHTML(distance));
@@ -791,6 +790,22 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   });
 }
 
+// [핵심] Smart Dedup Logic (중복 제거)
+function extractNumber(name) {
+  const match = name.match(/(\d+)(차|단지|회)/);
+  return match ? match[1] : null;
+}
+function cleanName(name) {
+  return name.replace(/아파트|빌라|맨션|오피스텔|주상복합/g, "").replace(/\s/g, "");
+}
+// 순위 결정: 경로당(1) > 관리사무소(2) > 경비실(3)
+function getPriority(name) {
+  if(/경로당|노인정|무더위쉼터/.test(name)) return 1;
+  if(/관리사무소/.test(name)) return 2;
+  if(/경비실/.test(name)) return 3;
+  return 4;
+}
+
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active');
   if(!actives.length) return toast("시설 선택 필요");
@@ -799,31 +814,111 @@ $('btnSearch').onclick = async () => {
   
   const bounds = map.getBounds(); 
   $('searchStatus').innerText = "스캔 중..."; 
-  let cnt = 0;
   
   for(const btn of actives){
     const t = btn.dataset.target; 
-    // [최종 로직 보완] '무더위쉼터', '관리사무소' 키워드 추가
-    let k = (t==='senior') ? ['경로당','마을회관','노인정','노인회관','무더위쉼터','관리사무소'] : 
-            (t==='welfare') ? ['노인복지','주간보호'] : 
-            (t==='ortho') ? ['정형외과','통증의학과'] : [];
-            
-    const imageSrc = SVG_MARKERS[t]; const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+    let k = [], imageSrc;
     
+    // [로직] 검색어 설정
+    if(t === 'senior') {
+      k = ['경로당','마을회관','노인정','노인회관','무더위쉼터','관리사무소','경비실']; // 모두 긁어옴
+      imageSrc = SVG_MARKERS.senior;
+    } else if (t === 'welfare') {
+      k = ['노인복지','주간보호'];
+      imageSrc = SVG_MARKERS.welfare;
+    } else if (t === 'ortho') {
+      k = ['정형외과','통증의학과'];
+      imageSrc = SVG_MARKERS.ortho;
+    } else if (t === 'recommend') {
+      // [로직] 스탠딩 홍보 타겟팅 (일반인+대기시간)
+      k = ['사거리', '오거리', '은행', '주민센터', '시장'];
+      // 추천마커는 별도 처리
+    }
+
+    if(t === 'recommend') continue; // 추천은 별도 버튼 로직 사용
+
+    const imageSize = new kakao.maps.Size(30, 30); 
+    const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+    let rawResults = [];
+
+    // 1. 수집 단계
     for(const kw of k){
       const data = await keywordSearchAllEnhanced(kw, bounds);
-      data.forEach(p => {
-         if(searchedData.find(ex => ex.id === p.id)) return;
-         const latlng = new kakao.maps.LatLng(p.y, p.x);
-         const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
-         const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 });
-         targetMarkers[t].push(marker); targetMarkers[t].push(label);
-         searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
-         cnt++;
-      });
+      rawResults.push(...data);
     }
+
+    // 2. 중복 제거 & 우선순위 필터링 (Smart Dedup)
+    // ID 기준 1차 중복 제거
+    let unique = rawResults.filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i);
+    let finalResults = [];
+    
+    // 거리+이름 기반 필터링
+    let groups = []; // { items: [], best: null }
+    
+    // 그룹핑 (N^2 복잡도지만 데이터량이 적어 괜찮음)
+    let processed = new Set();
+    
+    unique.forEach((item, idx) => {
+      if(processed.has(item.id)) return;
+      
+      let group = [item];
+      processed.add(item.id);
+      
+      const p1 = new kakao.maps.LatLng(item.y, item.x);
+      
+      for(let i=idx+1; i<unique.length; i++){
+        if(processed.has(unique[i].id)) continue;
+        
+        const other = unique[i];
+        const p2 = new kakao.maps.LatLng(other.y, other.x);
+        
+        // 거리 계산 (미터)
+        const poly = new kakao.maps.Polyline({ path: [p1, p2] });
+        const dist = poly.getLength();
+        
+        // 조건: 80m 이내 AND 이름 유사성(차수 구분 포함)
+        if(dist <= 80) {
+           const n1 = cleanName(item.place_name);
+           const n2 = cleanName(other.place_name);
+           const num1 = extractNumber(item.place_name);
+           const num2 = extractNumber(other.place_name);
+           
+           // 숫자가 다르다면(1차 vs 2차) 다른 그룹임 -> 합치지 않음
+           if(num1 && num2 && num1 !== num2) continue;
+           
+           // 이름이 2글자 이상 겹치거나, 아예 포함관계면 같은 그룹
+           // (단, 아파트 등 공통어 제외한 알맹이 비교)
+           let commonCount = 0;
+           for(let char of n1) { if(n2.includes(char)) commonCount++; }
+           
+           if(commonCount >= 2 || n1.includes(n2) || n2.includes(n1)) {
+             group.push(other);
+             processed.add(other.id);
+           }
+        }
+      }
+      
+      // 그룹 내 서열 정리 (경로당 > 관리소 > 경비실)
+      group.sort((a,b) => getPriority(a.place_name) - getPriority(b.place_name));
+      finalResults.push(group[0]); // 1등만 생존
+    });
+
+    // 지도 표시
+    let cnt = 0;
+    finalResults.forEach(p => {
+       const latlng = new kakao.maps.LatLng(p.y, p.x);
+       const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
+       const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 });
+       targetMarkers[t].push(marker); targetMarkers[t].push(label);
+       searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
+       cnt++;
+    });
+    
+    if(cnt > 0) toast(`${t==='senior'?'노인시설':t} ${cnt}개 발견 (중복제거 됨)`);
   }
-  $('searchStatus').innerText = "완료"; toast(`${cnt}개 시설 발견`);
+  
+  // 추천지점은 별도 로직이라 위 루프 안탐 -> 아래 함수에서 처리
+  $('searchStatus').innerText = "완료";
 };
 
 $('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] }; if(routeLine) { routeLine.setMap(null); routeLine=null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
@@ -853,21 +948,40 @@ $('btnRouteOpt').onclick = () => {
   const tbody = $('tblRoute'); tbody.innerHTML = route.map(r => `<tr><td>${r.order}</td><td>${r.name}</td><td>${r.addr}</td><td>${r.distFromPrev}m</td></tr>`).join(""); $('routeModal').style.display = 'flex';
   $('btnExportRoute').onclick = () => { const ws = XLSX.utils.json_to_sheet(route.map(r => ({ "방문순서": r.order, "시설명": r.name, "주소": r.addr, "전화번호": r.phone, "이전지점거리(m)": r.distFromPrev }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "방문루트"); XLSX.writeFile(wb, "홍보방문루트.xlsx"); };
 };
+
+// [수정] 스탠딩 홍보 추천 (대기시간 + 일반인 타겟)
 $('btnRecommendPoint').onclick = async () => {
-  const bounds = map.getBounds(); toast("주요 길목(교통/상권) 분석 중...");
-  const keywords = ["버스정류장", "지하철역", "다이소", "올리브영", "파리바게뜨"]; const spots = [];
+  const bounds = map.getBounds(); 
+  toast("스탠딩 홍보 명당 분석 중... (대기시간 중심)");
+  
+  // 타겟 변경: 올리브영/다이소 제거 -> 사거리/은행/주민센터/시장 등 '멈추는 곳'
+  const keywords = ["사거리", "오거리", "은행", "주민센터", "시장"]; 
+  const spots = [];
+  
   for(const k of keywords){ const res = await keywordSearchAllEnhanced(k, bounds); spots.push(...res); }
   if(!spots.length) return toast("분석된 지점이 없습니다.");
+  
+  // 너무 많이 뜨면 혼잡하므로 거리 기반 필터링 (30m 이내 중복 제거)
+  let uniqueSpots = [];
+  spots.forEach(s => {
+    if(!uniqueSpots.find(u => {
+      const p1 = new kakao.maps.LatLng(s.y, s.x);
+      const p2 = new kakao.maps.LatLng(u.y, u.x);
+      return new kakao.maps.Polyline({path:[p1,p2]}).getLength() < 30;
+    })) uniqueSpots.push(s);
+  });
+
   let cnt = 0;
-  spots.forEach(p => {
+  uniqueSpots.forEach(p => {
     const latlng = new kakao.maps.LatLng(p.y, p.x);
     const content = `<div style="font-size:20px; filter:drop-shadow(2px 2px 0 white);">🚩</div>`;
     const overlay = new kakao.maps.CustomOverlay({ position: latlng, content: content, yAnchor: 1, zIndex: 10 });
     overlay.setMap(map); targetMarkers['recommend'].push(overlay); cnt++;
   });
-  toast(`${cnt}개 추천 배포지 표시됨`);
+  toast(`${cnt}개 스탠딩 홍보 포인트 발견`);
 };
 
+// ... File & Filter, Charts (Same) ...
 const uploadBox = $('uploadBox');
 ['dragenter', 'dragover'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false); });
 ['dragleave', 'drop'].forEach(eName => { uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.remove('dragover'); }, false); });
