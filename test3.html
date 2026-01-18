@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>jinsul-add v2.2.11 (Restored All Features)</title>
+  <title>jinsul-add v2.2.15.6 (Marker & Logic Update)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -19,6 +19,7 @@
       --red:#fa5252; --red-light:#fff5f5;
       --border:#dee2e6; --text:#343a40; --bg:#f8f9fa; --card:#fff;
       --c-new:#ff0000; --c-conv:#00c853; --c-90:#ffd400; --c-ret:#228be6;
+      --shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
     
     *{box-sizing:border-box;font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;}
@@ -79,20 +80,6 @@
     .mapArea{flex:1;position:relative;}
     #map{width:100%;height:100%;}
 
-    /* Custom Toolbar */
-    .custom-toolbar {
-      position: absolute; top: 12px; right: 60px; z-index: 100; 
-      background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc;
-    }
-    .tool-btn {
-      width: 44px; height: 44px; border: none; background: white; cursor: pointer;
-      font-size: 20px; border-bottom: 1px solid #eee; display: grid; place-items: center;
-      transition: 0.2s; color: #444;
-    }
-    .tool-btn:hover { background: #f8f9fa; color: var(--blue); }
-    .tool-btn.active { background: var(--blue-light); color: var(--blue); }
-
     /* Info Overlay */
     .info-overlay {
       background: #fff; border: 2px solid #333; border-radius: 6px;
@@ -126,25 +113,106 @@
     }
     .legend-item{display:flex;align-items:center;gap:6px;}
     .dot{width:10px;height:10px;border-radius:50%;}
-  </style>
+  
+    /* === Kakao Radius Info Box (Official Style) === */
+    .info {
+      position: relative; border-radius: 6px; border: 1px solid #ccc;
+      border-bottom: 2px solid #ddd; font-size: 12px; padding: 6px 8px;
+      background: #fff; list-style: none; margin: 0;
+      box-shadow: 0px 1px 2px rgba(0,0,0,0.3);
+    }
+    .info .label { display:inline-block; width:50px; color:#555; }
+    .number { font-weight:bold; color:#00a0e9; }
+
+    /* === NEW UI: Map Controls (Top Right) === */
+    .map-controls-container {
+      position: absolute; top: 12px; right: 12px; z-index: 150;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    }
+
+    /* 1. Horizontal Map Type Control */
+    .map-type-group {
+      display: flex; background: white; border-radius: 4px; 
+      box-shadow: var(--shadow); overflow: hidden; border: 1px solid #b8b8b8;
+    }
+    .map-type-btn {
+      padding: 7px 12px; border: none; background: white; 
+      font-size: 12px; font-weight: 600; color: #444; cursor: pointer;
+      border-right: 1px solid #ddd; transition: 0.1s;
+    }
+    .map-type-btn:last-child { border-right: none; }
+    .map-type-btn:hover { background: #f1f1f1; }
+    .map-type-btn.active { background: #228be6; color: white; }
+
+    /* 2. Vertical Toolbar */
+    .vertical-toolbar {
+      width: 44px; background: white; border-radius: 4px;
+      box-shadow: var(--shadow); border: 1px solid #b8b8b8;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .v-tool-btn {
+      width: 44px; height: 44px; border: none; background: white;
+      cursor: pointer; display: flex; flex-direction: column; 
+      align-items: center; justify-content: center; gap: 2px;
+      border-bottom: 1px solid #eee; color: #333;
+      transition: 0.1s;
+    }
+    .v-tool-btn:last-child { border-bottom: none; }
+    .v-tool-btn span { font-size: 18px; } /* Icon size */
+    .v-tool-btn .lbl { font-size: 9px; font-weight: 600; line-height: 1; color: #666; }
+    
+    .v-tool-btn:hover { background: #f8f9fa; }
+    .v-tool-btn.active { background: #e7f5ff; color: #228be6; }
+    .v-tool-btn.active .lbl { color: #228be6; }
+    
+    .v-tool-btn.danger { color: #fa5252; }
+    .v-tool-btn.danger .lbl { color: #fa5252; }
+
+    /* Divider */
+    .v-divider { height: 4px; background: #f1f3f5; border-bottom: 1px solid #eee; }
+
+    /* === Roadview Window === */
+    #roadviewModal {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 80%; height: 70%; background: black; z-index: 2000;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none;
+      border-radius: 8px; overflow: hidden; border: 2px solid white;
+    }
+    #roadviewContainer { width: 100%; height: 100%; }
+    .rv-close {
+      position: absolute; top: 10px; right: 10px; z-index: 2001;
+      background: white; border: none; border-radius: 4px; 
+      padding: 5px 10px; font-weight: bold; cursor: pointer;
+    }
+
+</style>
+
+<script>
+const WALK_SPEED = 67;
+const BIKE_SPEED = 227;
+// Updated My Hospital Marker
+const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
+</script>
+
 </head>
 <body>
 
 <div class="app">
   <aside class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">jinsul-add v2.2.11</div>
+      <div class="brand">jinsul-add v2.2.15.6</div>
       <div style="font-size:18px;cursor:pointer;">≡</div>
     </div>
 
     <div class="sidebarBody">
       <div class="section">
-        <div class="sectionTitle">우리 병원 설정 <span class="pill">기준점</span></div>
+        <div class="sectionTitle">우리 병원 설정 <span class="pill">정확히 일치 시</span></div>
         <div class="input-group">
-          <input type="text" id="myHospitalInput" class="input-box" placeholder="병원명 또는 주소 입력 (엔터)">
+          <input type="text" id="myHospitalInput" class="input-box" placeholder="정확한 병원명/주소 (엔터)">
           <button id="btnSetHospital" class="btn primary" style="width:50px;padding:0;">설정</button>
+          <button id="btnClearHospital" class="btn danger" style="width:30px;padding:0;">✕</button>
         </div>
-        <div style="font-size:11px;color:#888;">* 검색 후 지도에 파란 십자가 마커가 표시됩니다.</div>
+        <div style="font-size:11px;color:#888;">* 검색어와 이름/주소가 100% 일치해야 설정됩니다.</div>
       </div>
 
       <div class="section">
@@ -232,10 +300,49 @@
   <main class="mapArea">
     <div id="map"></div>
     
-    <div class="custom-toolbar">
-      <button class="tool-btn" id="toolCircle" title="원 그리기">⭕</button>
-      <button class="tool-btn" id="toolLine" title="거리 재기">📏</button>
-      <button class="tool-btn" id="toolClear" title="지우기" style="color:#fa5252;">🗑️</button>
+    <div class="map-controls-container">
+      
+      <div class="map-type-group">
+        <button class="map-type-btn active" id="btnMapRoad">일반지도</button>
+        <button class="map-type-btn" id="btnMapSky">위성지도</button>
+        <button class="map-type-btn" id="btnMapTopo">지형도</button>
+      </div>
+
+      <div class="vertical-toolbar">
+        <button class="v-tool-btn" id="btnCadastral" title="지적편집도">
+          <span>📅</span><div class="lbl">지적</div>
+        </button>
+        <button class="v-tool-btn" id="btnRoadview" title="로드뷰">
+          <span>📷</span><div class="lbl">로드뷰</div>
+        </button>
+        
+        <div class="v-divider"></div>
+
+        <button class="v-tool-btn" id="btnRadius" title="반경">
+          <span>◎</span><div class="lbl">반경</div>
+        </button>
+        <button class="v-tool-btn" id="btnArea" title="면적">
+          <span>▨</span><div class="lbl">면적</div>
+        </button>
+        <button class="v-tool-btn" id="btnDist" title="거리">
+          <span>📏</span><div class="lbl">거리</div>
+        </button>
+        
+        <div class="v-divider"></div>
+
+        <button class="v-tool-btn" id="btnTraffic" title="교통정보">
+          <span>🚦</span><div class="lbl">교통</div>
+        </button>
+        <button class="v-tool-btn" id="btnBike" title="자전거도로">
+          <span>🚲</span><div class="lbl">자전거</div>
+        </button>
+
+        <div class="v-divider"></div>
+
+        <button class="v-tool-btn danger" id="btnClearTools" title="모두 지우기">
+          <span>🗑️</span><div class="lbl">삭제</div>
+        </button>
+      </div>
     </div>
 
     <div id="mapLegend">
@@ -245,8 +352,16 @@
       <div class="legend-item"><div class="dot" style="background:var(--c-90)"></div> 90일초</div>
       <div class="legend-item"><div class="dot" style="background:var(--c-ret)"></div> 재진</div>
       <hr style="margin:5px 0;border:none;border-top:1px solid #eee;">
-      <div class="legend-item"><div style="font-size:14px;">🏥</div> 우리 병원</div>
+      <div class="legend-item">
+        <img src="https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png" style="width:16px;height:24px;"> 우리 병원
+      </div>
     </div>
+
+    <div id="roadviewModal">
+      <div id="roadviewContainer"></div>
+      <button class="rv-close" id="btnCloseRoadview">로드뷰 닫기</button>
+    </div>
+
   </main>
 </div>
 
@@ -301,13 +416,17 @@ const REP_COLOR = {
   "90일초": "#ffd400", 
   "재진": "#228be6" 
 };
+// Updated SVG Marker for Ortho (Red Circle + White Cross)
 const SVG_MARKERS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
   welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
-  ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%232b8a3e%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A5%3C/text%3E%3C/svg%3E"
+  ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%20viewBox%3D%220%200%2030%2030%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2213%22%20fill%3D%22%23ff5e57%22%20stroke%3D%22white%22%20stroke-width%3D%222%22/%3E%3Cpath%20d%3D%22M15%208v14M8%2015h14%22%20stroke%3D%22white%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E"
 };
 
 let map, drawingManager, clusterer, geocoder, places;
+let roadview, roadviewClient; // Roadview Objects
+let roadviewMode = false; // Roadview State
+
 let patients = [];
 let targetMarkers = { senior:[], welfare:[], ortho:[] };
 let myHospitalMarker = null;
@@ -329,6 +448,7 @@ function initKakao(){
   kakao.maps.load(() => {
     map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     
+    // Zoom Control
     const zoomControl = new kakao.maps.ZoomControl();
     map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
 
@@ -336,6 +456,7 @@ function initKakao(){
     places = new kakao.maps.services.Places();
     clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
 
+    // Drawing Manager
     drawingManager = new kakao.maps.drawing.DrawingManager({
       map: map,
       drawingMode: [],
@@ -343,10 +464,11 @@ function initKakao(){
       polylineOptions: { draggable: true, removable: true, strokeColor: '#fa5252', strokeWeight: 3 }
     });
 
+    // Drawing Events
     kakao.maps.event.addListener(drawingManager, 'drawend', function(data) {
       if (!data || !data.overlay) return;
-      $('toolCircle').classList.remove('active');
-      $('toolLine').classList.remove('active');
+      $('btnRadius').classList.remove('active');
+      $('btnDist').classList.remove('active');
 
       if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) {
         const circle = data.overlay;
@@ -357,7 +479,6 @@ function initKakao(){
 
         const walk = Math.round(r / WALK_M_PER_MIN);
         const bike = Math.round(r / BIKE_M_PER_MIN);
-        
         const count = countInCircle(circle);
         
         const content = `
@@ -368,39 +489,71 @@ function initKakao(){
           </div>`;
           
         const overlay = new kakao.maps.CustomOverlay({
-          position: circle.getPosition(),
-          content: content,
-          yAnchor: 1.6, 
-          zIndex: 99999
+          position: circle.getPosition(), content: content, yAnchor: 1.6, zIndex: 99999
         });
         overlay.setMap(map);
         
         kakao.maps.event.addListener(drawingManager, 'remove', e => { 
-          if(e.overlay === circle) {
-            overlay.setMap(null);
-            setTimeout(applyFilter, 100);
-          }
+          if(e.overlay === circle) { overlay.setMap(null); setTimeout(applyFilter, 100); }
         });
       }
     });
 
-    toast("시스템 준비 완료 (v2.2.11)");
+    // === NEW: Roadview Init ===
+    const rvContainer = document.getElementById('roadviewContainer');
+    roadview = new kakao.maps.Roadview(rvContainer);
+    roadviewClient = new kakao.maps.RoadviewClient();
+
+    // Roadview Click Event
+    kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+      if (!roadviewMode) return;
+      
+      const position = mouseEvent.latLng;
+      roadviewClient.getNearestPanoId(position, 50, function(panoId) {
+        if (panoId === null) {
+          toast('이 위치에는 로드뷰 정보가 없습니다.');
+        } else {
+          document.getElementById('roadviewModal').style.display = 'block';
+          roadview.setPanoId(panoId, position);
+        }
+      });
+    });
+
+    toast("시스템 준비 완료 (v2.2.15.6)");
   });
 }
 initKakao();
 
-// === My Hospital Settings (PanTo Fix) ===
+// === My Hospital Settings (Exact Match & Reset) ===
 $('btnSetHospital').onclick = () => {
   const query = $('myHospitalInput').value.trim();
   if(!query) return toast("병원명 또는 주소를 입력하세요");
   
+  // 1. Place Search (Check exact name match)
   places.keywordSearch(query, (data, status) => {
     if(status === kakao.maps.services.Status.OK) {
-      setMyHospital(data[0]);
+      const exact = data.find(p => p.place_name === query);
+      if(exact) {
+        setMyHospital(exact);
+      } else {
+        // 2. Address Search (Check exact address match)
+        geocoder.addressSearch(query, (res, stat) => {
+          if(stat === kakao.maps.services.Status.OK) {
+            const exactAddr = res.find(a => a.address_name === query || a.road_address?.address_name === query);
+            if(exactAddr) setMyHospital(exactAddr);
+            else toast("정확히 일치하는 병원명/주소가 없습니다.");
+          } else {
+            toast("정확히 일치하는 병원명/주소가 없습니다.");
+          }
+        });
+      }
     } else {
+      // Direct Address Search
       geocoder.addressSearch(query, (res, stat) => {
         if(stat === kakao.maps.services.Status.OK) {
-          setMyHospital(res[0]);
+          const exactAddr = res.find(a => a.address_name === query || a.road_address?.address_name === query);
+          if(exactAddr) setMyHospital(exactAddr);
+          else toast("정확히 일치하는 병원명/주소가 없습니다.");
         } else {
           toast("검색 결과가 없습니다.");
         }
@@ -409,50 +562,54 @@ $('btnSetHospital').onclick = () => {
   });
 };
 
+$('btnClearHospital').onclick = () => {
+  if(myHospitalMarker) {
+    myHospitalMarker.setMap(null);
+    myHospitalMarker = null;
+  }
+  $('myHospitalInput').value = "";
+  toast("우리 병원 설정 해제됨");
+};
+
 $('myHospitalInput').addEventListener('keyup', (e)=>{ if(e.key==='Enter') $('btnSetHospital').click(); });
 
 function setMyHospital(place) {
   const latlng = new kakao.maps.LatLng(place.y, place.x);
-  
   if(myHospitalMarker) myHospitalMarker.setMap(null);
   
-  const content = `<div style="font-size:30px;filter:drop-shadow(2px 2px 2px rgba(0,0,0,0.3));cursor:pointer;">🏥</div>`;
+  // Updated to use Image Marker instead of Overlay
+  const imageSize = new kakao.maps.Size(24, 35);
+  const markerImage = new kakao.maps.MarkerImage(MY_HOSPITAL_IMG, imageSize);
   
-  myHospitalMarker = new kakao.maps.CustomOverlay({
+  myHospitalMarker = new kakao.maps.Marker({
     position: latlng,
-    content: content,
+    image: markerImage,
     map: map,
-    yAnchor: 0.5,
     zIndex: 1000
   });
   
-  map.panTo(latlng); // === FIX: Use panTo for smooth movement ===
+  map.panTo(latlng);
   toast(`우리 병원 설정 완료: ${place.place_name || place.address_name}`);
 }
 
-// === Toggles (Logic Fixed) ===
+// === Toggles ===
 document.querySelectorAll('.toggle').forEach(t => {
   t.onclick = function() {
     const key = this.dataset.toggle;
     const isOn = !this.classList.contains('on');
-    
-    if(isOn) this.classList.add('on');
-    else this.classList.remove('on');
-    
+    if(isOn) this.classList.add('on'); else this.classList.remove('on');
     if(key === 'all') {
       ['new_only', 'new_conv', 'bit_90', 'old'].forEach(k => {
         toggleState[k] = isOn;
         const sub = document.querySelector(`.toggle[data-toggle="${k}"]`);
         if(isOn) sub.classList.add('on'); else sub.classList.remove('on');
       });
-    } else {
-      toggleState[key] = isOn;
-    }
+    } else { toggleState[key] = isOn; }
     applyFilter();
   };
 });
 
-// === File Process (Loading Animation Fixed) ===
+// === File Process ===
 const uploadBox = $('uploadBox');
 ['dragenter', 'dragover'].forEach(eName => {
   uploadBox.addEventListener(eName, (e) => { e.preventDefault(); e.stopPropagation(); uploadBox.classList.add('dragover'); }, false);
@@ -555,7 +712,6 @@ function parsePatients(rows){
   $('statTotalUsers').innerText = patients.length.toLocaleString();
 
   clusterer.clear();
-  // === FIX: Progressive Loading ===
   patients.forEach((p, i) => {
     setTimeout(() => {
       geocoder.addressSearch(p.addr, (res, status) => {
@@ -575,11 +731,10 @@ function parsePatients(rows){
           kakao.maps.event.addListener(marker, 'click', () => iw.open(map, marker));
           p.marker = marker;
           
-          // ADD IMMEDIATELY TO CLUSTERER (Visual Feedback)
           if(toggleState[p.filterKey]) clusterer.addMarker(marker);
         }
         if(i === patients.length - 1) { 
-          applyFilter(); // Final tidy up
+          applyFilter(); 
           $('btnFit').click(); 
           toast("분석 완료"); 
         }
@@ -617,7 +772,6 @@ function applyFilter(){
   let visibleCount = 0;
 
   patients.forEach(p => {
-    // === FIX: Toggle Logic (Independent check) ===
     if(!toggleState[p.filterKey]) return; 
 
     if(activeCircles.length > 0) {
@@ -640,11 +794,10 @@ function applyFilter(){
   $('statFilteredUsers').innerText = visibleCount.toLocaleString();
 }
 
-kakao.maps.event.addListener(drawingManager, 'state_changed', applyFilter);
+kakao.maps.event.addListener(drawingManager, 'state_changed', function(){  applyFilter(); });
 kakao.maps.event.addListener(drawingManager, 'remove', applyFilter);
 
-// === Search Facilities (Restored Infinite Scan) ===
-// Recursive tiling function for deep search
+// === Search Facilities ===
 function tileBounds(bounds){
   const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
   const midLat = (sw.getLat() + ne.getLat()) / 2;
@@ -665,7 +818,7 @@ async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
         collected.push(...data);
         if(pagination.hasNextPage) pagination.nextPage();
         else {
-          if(collected.length >= 45 && depth < 2){ // If too many results, split and search deeper
+          if(collected.length >= 45 && depth < 2){ 
             Promise.all(tileBounds(bounds).map(b => keywordSearchAllEnhanced(keyword, b, depth+1)))
               .then(results => resolve([...collected, ...results.flat()]));
           } else resolve(collected);
@@ -692,13 +845,12 @@ $('btnSearch').onclick = async () => {
   for(const btn of actives){
     const t = btn.dataset.target;
     let k = (t==='senior')?['경로당','마을회관']:(t==='welfare')?['노인복지','주간보호']:(t==='ortho')?['정형외과','통증의학과']:[];
-    
     const imageSrc = SVG_MARKERS[t];
     const imageSize = new kakao.maps.Size(30, 30);
     const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
 
     for(const kw of k){
-      const data = await keywordSearchAllEnhanced(kw, bounds); // Uses recursive scan
+      const data = await keywordSearchAllEnhanced(kw, bounds);
       data.forEach(p => {
          const latlng = new kakao.maps.LatLng(p.y, p.x);
          const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
@@ -720,7 +872,7 @@ $('btnSearch').onclick = async () => {
 
 $('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); $('searchStatus').innerText="대기"; };
 
-// === Stats (Updated) ===
+// === Stats ===
 let chartObj1, chartObj2;
 $('btnStats').onclick = () => {
   if(!patients.length) { toast("데이터 없음"); return; }
@@ -817,9 +969,266 @@ window.switchTab = (id) => {
 };
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statFilteredUsers').innerText=0; toast("초기화"); };
 $('btnFit').onclick = () => { if(patients.length) { const b = new kakao.maps.LatLngBounds(); patients.forEach(p=>p.marker&&b.extend(p.marker.getPosition())); map.setBounds(b); } };
-$('toolCircle').onclick = function() { this.classList.add('active'); $('toolLine').classList.remove('active'); drawingManager.select(kakao.maps.drawing.OverlayType.CIRCLE); };
-$('toolLine').onclick = function() { this.classList.add('active'); $('toolCircle').classList.remove('active'); drawingManager.select(kakao.maps.drawing.OverlayType.POLYLINE); };
-$('toolClear').onclick = function() { drawingManager.clear(); $('toolCircle').classList.remove('active'); $('toolLine').classList.remove('active'); applyFilter(); toast("도구 삭제"); };
+
+// === Radius Drawing ===
+var drawingFlag = false;
+var centerPosition = null;
+var drawingCircle = null;
+var drawingLine = null;
+var drawingOverlay = null;
+var circles = [];
+
+function getTimeHTML(distance) {
+  var walkTime = distance / 67 | 0;
+  var walkHour = '', walkMin = '';
+  if (walkTime > 60) walkHour = '<span class="number">' + Math.floor(walkTime / 60) + '</span>시간 ';
+  walkMin = '<span class="number">' + walkTime % 60 + '</span>분';
+  var bikeTime = distance / 227 | 0;
+  var bikeHour = '', bikeMin = '';
+  if (bikeTime > 60) bikeHour = '<span class="number">' + Math.floor(bikeTime / 60) + '</span>시간 ';
+  bikeMin = '<span class="number">' + bikeTime % 60 + '</span>분';
+  return '<ul class="info"><li><span class="label">총거리</span><span class="number">' + distance + '</span>m</li><li><span class="label">도보</span>' + walkHour + walkMin + '</li><li><span class="label">자전거</span>' + bikeHour + bikeMin + '</li></ul>';
+}
+
+kakao.maps.event.addListener(map, 'click', function(mouseEvent){
+  if (!$('btnRadius').classList.contains('active')) return;
+  if (!drawingFlag) {
+    drawingFlag = true;
+    centerPosition = mouseEvent.latLng;
+    drawingLine = new kakao.maps.Polyline({ strokeWeight: 3, strokeColor: '#228be6', strokeOpacity: 1, strokeStyle: 'solid' });
+    drawingCircle = new kakao.maps.Circle({ strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.2, fillColor: '#228be6', fillOpacity: 0.15 });
+    drawingOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
+  }
+});
+
+kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
+  if (!drawingFlag) return;
+  var mousePosition = mouseEvent.latLng;
+  var linePath = [centerPosition, mousePosition];
+  drawingLine.setPath(linePath);
+  var length = drawingLine.getLength();
+  if (length > 0) {
+    drawingCircle.setOptions({ center: centerPosition, radius: length });
+    drawingCircle.setMap(map);
+    drawingLine.setMap(map);
+    drawingOverlay.setPosition(mousePosition);
+    drawingOverlay.setContent('<div class="info">반경 <span class="number">' + Math.round(length) + '</span>m</div>');
+    drawingOverlay.setMap(map);
+  }
+});
+
+kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent){
+  if (!drawingFlag) return;
+  var rClickPosition = mouseEvent.latLng;
+  var polyline = new kakao.maps.Polyline({ path: [centerPosition, rClickPosition], strokeWeight: 3, strokeColor: '#228be6', strokeOpacity: 1, strokeStyle: 'solid' });
+  var circle = new kakao.maps.Circle({ center: centerPosition, radius: polyline.getLength(), strokeWeight: 1, strokeColor: '#228be6', strokeOpacity: 0.2, fillColor: '#228be6', fillOpacity: 0.15 });
+  var radius = Math.round(circle.getRadius());
+  var overlay = new kakao.maps.CustomOverlay({ content: getTimeHTML(radius), position: rClickPosition, zIndex: 1 });
+  polyline.setMap(map);
+  circle.setMap(map);
+  overlay.setMap(map);
+  circles.push({ circle: circle, polyline: polyline, overlay: overlay });
+  drawingFlag = false;
+  centerPosition = null;
+  drawingCircle.setMap(null);
+  drawingLine.setMap(null);
+  drawingOverlay.setMap(null);
+});
+
+// === Distance Measure (Updated with Real-time Info) ===
+var distDrawing = false;
+var distLine = null;
+var distOverlay = null;
+
+kakao.maps.event.addListener(map, 'click', function(mouseEvent){
+  if (!$('btnDist').classList.contains('active')) return;
+  if (!distDrawing) {
+    distDrawing = true;
+    distLine = new kakao.maps.Polyline({ path: [mouseEvent.latLng], strokeWeight: 3, strokeColor: '#fa5252', strokeOpacity: 1, strokeStyle: 'solid' });
+    distOverlay = new kakao.maps.CustomOverlay({ zIndex: 1 });
+    distLine.setMap(map);
+  } else {
+    var path = distLine.getPath();
+    path.push(mouseEvent.latLng);
+    distLine.setPath(path);
+  }
+});
+
+kakao.maps.event.addListener(map, 'mousemove', function(mouseEvent){
+  if (!distDrawing || !distLine) return;
+  var path = distLine.getPath();
+  if (path.length < 1) return;
+  var tempPath = path.concat([mouseEvent.latLng]);
+  var tempLine = new kakao.maps.Polyline({ path: tempPath });
+  var distance = Math.round(tempLine.getLength());
+  
+  distOverlay.setPosition(mouseEvent.latLng);
+  // Changed: Use getTimeHTML to show real-time walk/bike info
+  distOverlay.setContent(getTimeHTML(distance));
+  distOverlay.setMap(map);
+});
+
+kakao.maps.event.addListener(map, 'rightclick', function(){
+  if (!distDrawing) return;
+  distDrawing = false;
+  distOverlay = null;
+});
+
+// === UI Controller Logic ===
+(function __setupControls(){
+  function q(id){return document.getElementById(id);}
+  function setActive(id, groupSelector){
+    if(groupSelector) document.querySelectorAll(groupSelector).forEach(el=>el.classList.remove('active'));
+    q(id).classList.add('active');
+  }
+
+  function wait(){
+    if(!window.kakao || !kakao.maps || !window.map){ return setTimeout(wait, 100); }
+
+    // Map Types
+    q('btnMapRoad').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP); setActive('btnMapRoad', '.map-type-btn'); };
+    q('btnMapSky').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW); setActive('btnMapSky', '.map-type-btn'); };
+    q('btnMapTopo').onclick = () => { map.setMapTypeId(kakao.maps.MapTypeId.HYBRID); setActive('btnMapTopo', '.map-type-btn'); };
+
+    // Tools Helper
+    function resetTools(){
+      document.querySelectorAll('.v-tool-btn').forEach(b => b.classList.remove('active'));
+      roadviewMode = false;
+      map.removeOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW);
+      map.setCursor('auto');
+    }
+
+    // Cadastral
+    q('btnCadastral').onclick = function(){
+      this.classList.toggle('active');
+      const on = this.classList.contains('active');
+      if(on) map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+    };
+
+    // Roadview
+    q('btnRoadview').onclick = function(){
+      resetTools();
+      this.classList.add('active');
+      roadviewMode = true;
+      map.addOverlayMapTypeId(kakao.maps.MapTypeId.ROADVIEW);
+      map.setCursor('crosshair');
+      toast("지도 위를 클릭하여 로드뷰 보기");
+    };
+
+    // Radius
+    q('btnRadius').onclick = function(){
+      resetTools();
+      this.classList.add('active');
+      // Handled by existing click event
+    };
+
+    // Area
+    var areaDrawing=false, areaPath=[], areaPoly=null, areaOverlay=null;
+    window.__areaPolys = [];
+
+    q('btnArea').onclick = function(){
+      resetTools();
+      this.classList.add('active');
+    };
+
+    kakao.maps.event.addListener(map,'click',function(me){
+      if(!q('btnArea').classList.contains('active')) return;
+      if(!areaDrawing){
+        areaDrawing=true;
+        areaPath=[me.latLng];
+        areaPoly=new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
+        areaPoly.setMap(map);
+        areaOverlay=new kakao.maps.CustomOverlay({ zIndex: 2 });
+      } else {
+        areaPath.push(me.latLng);
+        areaPoly.setPath(areaPath);
+      }
+    });
+
+    kakao.maps.event.addListener(map,'mousemove',function(me){
+      if(!areaDrawing || !areaPoly) return;
+      var tempPath = areaPath.concat([me.latLng]);
+      areaPoly.setPath(tempPath);
+      if(tempPath.length>=3){
+        var tmp = new kakao.maps.Polygon({ path: tempPath });
+        var area = Math.round(tmp.getArea());
+        areaOverlay.setPosition(me.latLng);
+        areaOverlay.setContent('<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>');
+        areaOverlay.setMap(map);
+      }
+    });
+
+    kakao.maps.event.addListener(map,'rightclick',function(me){
+      if(!q('btnArea').classList.contains('active')) return;
+      if(!areaDrawing || areaPath.length<3) { 
+        areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null); 
+        return; 
+      }
+      var poly = new kakao.maps.Polygon({ path: areaPath, strokeWeight: 2, strokeColor: '#7950f2', strokeOpacity: 0.9, fillColor: '#7950f2', fillOpacity: 0.15 });
+      poly.setMap(map);
+      var area = Math.round(poly.getArea());
+      var ov = new kakao.maps.CustomOverlay({ position: me.latLng, content: '<div class="info">면적 <span class="number">'+area.toLocaleString()+'</span>㎡</div>', zIndex: 2 });
+      ov.setMap(map);
+      window.__areaPolys.push({poly: poly, overlay: ov});
+      areaDrawing=false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null);
+    });
+
+    // Distance
+    q('btnDist').onclick = function(){
+      resetTools();
+      this.classList.add('active');
+    };
+
+    // Traffic/Bike
+    q('btnTraffic').onclick = function(){
+      this.classList.toggle('active');
+      if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
+      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
+    };
+    q('btnBike').onclick = function(){
+      this.classList.toggle('active');
+      if(this.classList.contains('active')) map.addOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
+      else map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
+    };
+
+    // Clear All
+    q('btnClearTools').onclick = function(){
+      resetTools();
+      // Clear Radius
+      circles.forEach(c => { c.circle.setMap(null); c.polyline.setMap(null); c.overlay.setMap(null); });
+      circles = [];
+      // Clear Area
+      if(window.__areaPolys) window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); });
+      window.__areaPolys = [];
+      // Clear Dist
+      if(distLine) distLine.setMap(null);
+      if(distOverlay) distOverlay.setMap(null);
+      
+      // Clear Overlays
+      q('btnCadastral').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+      q('btnTraffic').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
+      q('btnBike').classList.remove('active'); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
+      
+      toast("모든 도구 삭제됨");
+    };
+    
+    // Close Roadview
+    q('btnCloseRoadview').onclick = function(){
+      q('roadviewModal').style.display = 'none';
+    };
+
+    // Escape Key
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape') {
+        resetTools();
+        q('roadviewModal').style.display = 'none';
+      }
+    });
+  }
+  wait();
+})();
 </script>
+
 </body>
 </html>
