@@ -1128,28 +1128,47 @@ function parsePatients(rows){
   patients = Array.from(mapData.values());
   
 patients.forEach(p => {
-  const bits = p.visits.map(v => String(v.bit||"").trim());
-  const has90 = bits.some(b => b.includes("90"));
-  const hasNew = bits.some(b => b === "신환");
-  const hasRe = bits.some(b => b === "재진" || b === "");
+  const hasBit = p.visits.some(v => v.bit && v.bit.trim() !== "");
 
-  // 비트/의사랑 공통 분류 (요구 명세 그대로)
-  if(has90){
-    p.type = "90일초";
-  } else if(hasNew && hasRe){
-    p.type = "신환 ▶ 재진 전환";
-  } else if(hasNew && p.visits.length === 1){
-    p.type = "신환 (1회만)";
-  } else if(hasNew){
-    p.type = "신환 ▶ 재진 전환";
+  if (hasBit) {
+    // ===== BIT 기준 =====
+    const bits = p.visits.map(v => v.bit || "");
+    const has90 = bits.some(b => b.includes("90"));
+    const hasNew = bits.some(b => b.includes("신환"));
+    const hasRe = bits.some(b => b.includes("재진"));
+
+    if (has90) {
+      p.type = "90일초";
+    } else if (hasNew && hasRe) {
+      p.type = "신환 ▶ 재진 전환";
+    } else if (hasNew && p.visits.length === 1) {
+      p.type = "신환 (1회만)";
+    } else if (hasNew) {
+      p.type = "신환 ▶ 재진 전환";
+    } else {
+      p.type = "재진";
+    }
+
   } else {
-    p.type = "재진";
+    // ===== 의사랑 기준 =====
+    const hasNew = p.visits.some(v => v.isNew === true);
+    const hasBlank = p.visits.some(v => v.isNew === false);
+
+    if (hasNew && hasBlank) {
+      p.type = "신환 ▶ 재진 전환";
+    } else if (hasNew && p.visits.length === 1) {
+      p.type = "신환 (1회만)";
+    } else if (hasNew) {
+      p.type = "신환 ▶ 재진 전환";
+    } else {
+      p.type = "재진";
+    }
   }
 
   p.total = p.visits.length;
 });
-$('statTotalUsers')
-.innerText = patients.length.toLocaleString();
+
+  $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
   clusterer.clear();
   patients.forEach((p, i) => {
