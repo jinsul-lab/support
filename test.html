@@ -1109,57 +1109,154 @@ async function processFile(file){
 }
 
 function parsePatients(rows){
-  let headIdx = -1; for(let i=0; i<Math.min(rows.length, 20); i++){ if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } }
-  if(headIdx < 0) return toast("환자 데이터 형식이 아닙니다");
-  const h = rows[headIdx].map(x => String(x||""));
-  const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
-  const mapData = new Map(); let totalV = 0; let newIds = [];
-  for(let i=headIdx+1; i<rows.length; i++){
-    const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
-    const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
-    if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
-    const p = mapData.get(pid); let isNewVisit = false;
-    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
-    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
-    p.visits.push({ isNew: isNewVisit, bit: bit, source: "bit" }); if(isNewVisit) newIds.push(numId);
+  // ---- Detect file type ----
+  // BIT: header contains "초재진구분" (or similar)
+  // DOCTORANG: contains repeated headers, and "신규" marks new visits; may not have "초재진구분"
+  let isBit = false;
+  let bitHeadIdx = -1;
+  for(let i=0;i<Math.min(rows.length,30);i++){
+    const line = rows[i] || [];
+    const s = JSON.stringify(line);
+    if(/초재진구분/.test(s)){ isBit = true; bitHeadIdx = i; break; }
   }
-  newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
-  patients = Array.from(mapData.values());
-  
 
-
-patients.forEach(p => {
-  // ---- BIT FLAGS (explicit) ----
-  const bitNewVisits = p.visits.filter(v => v.source==="bit" && v.bit==="신환");
-  const bit90Visits  = p.visits.filter(v => v.source==="bit" && typeof v.bit==="string" && v.bit.includes("90"));
-  const bitReVisits  = p.visits.filter(v => v.source==="bit" && v.bit==="재진");
-
-  // ---- DOCTORANG FLAGS (inferred) ----
-  const daNewVisits = p.visits.filter(v => v.source==="doctorang" && typeof v.raw==="string" && v.raw.includes("신규"));
-  const daBlankVisits = p.visits.filter(v => v.source==="doctorang" && (!v.raw || String(v.raw).trim()===""));
-
-  // ---- FINAL PATIENT CLASSIFICATION ----
-  // Priority: BIT (explicit) > DOCTORANG (inferred)
-  if (bit90Visits.length > 0) {
-    p.type = "90일초";
-  } else if (bitNewVisits.length > 0 && bitReVisits.length > 0) {
-    p.type = "신환 ▶ 재진";
-  } else if (bitNewVisits.length > 0) {
-    p.type = "신환";
-  } else if (daNewVisits.length > 0 && daBlankVisits.length > 0) {
-    p.type = "신환 ▶ 재진";
-  } else if (daNewVisits.length > 0) {
-    p.type = "신환";
+  if(isBit){
+    parsePatientsBit(rows, bitHeadIdx);
   } else {
-    p.type = "재진";
+    parsePatientsDoctorang(rows);
   }
 
-  // ---- COUNTS ----
-  p.total = p.visits.length;
-});
+  $('statTotalUsers').innerText = patients.length.toLocaleString();
 
+function parsePatientsBit(rows, headIdx){
+  // Find header row (fallback: search for "주소" like 기존)
+  if(headIdx < 0){
+    let hi = -1;
+    for(let i=0; i<Math.min(rows.length, 30); i++){
+      if(JSON.stringify(rows[i]).includes("초재진구분")) { hi = i; break; }
+    }
+    headIdx = hi;
+  }
+  if(headIdx < 0) return toast("비트 데이터 형식이 아닙니다");
 
+  const h = (rows[headIdx]||[]).map(x => String(x||""));
+  const idx = {
+    id: h.findIndex(s => /차트|번호|ID/.test(s)),
+    addr: h.findIndex(s => /주소/.test(s)),
+    name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)),
+    type: h.findIndex(s => /초재진구분|구분|분류/.test(s)),
+    age: h.findIndex(s => /나이|연령/.test(s)),
+  };
+
+  const mapData = new Map(); let totalV = 0;
+  for(let i=headIdx+1; i<rows.length; i++){
+    const r = rows[i]; if(!r) continue;
+    const pidCell = (idx.id>=0) ? r[idx.id] : null;
+    if(pidCell === undefined || pidCell === null || String(pidCell).trim()==="") continue;
+    const pid = String(pidCell).trim(); totalV++;
+
+    const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
+    if(!mapData.has(pid)) {
+      mapData.set(pid, {
+        id: pid,
+        numId: numId,
+        name: (idx.name>=0 ? (r[idx.name]||"미상") : "미상"),
+        addr: (idx.addr>=0 ? (r[idx.addr]||"") : ""),
+        age: (idx.age>=0 ? (r[idx.age]||"") : ""),
+        visits: []
+      });
+    }
+    const p = mapData.get(pid);
+
+    const bit = (idx.type>=0) ? String(r[idx.type]||"").trim() : "";
+    // Store visit as BIT
+    p.visits.push({ source:"bit", bit: bit });
+  }
+
+  patients = Array.from(mapData.values());
+
+  // ---- BIT PATIENT CLASSIFICATION (exact spec) ----
+  patients.forEach(p => {
+    const bits = p.visits.filter(v=>v.source==="bit").map(v=>String(v.bit||"").trim());
+    const has90 = bits.some(b => b.includes("90"));
+    if(has90){
+      p.type = "90일초";
+    } else {
+      // Determine first meaningful label among bits (row order = chronological)
+      const first = bits.find(b => b==="신환" || b==="재진");
+      const hasNew = bits.includes("신환");
+      const hasRe = bits.includes("재진");
+      if(first==="신환" && hasRe){
+        p.type = "신환 ▶ 재진";
+      } else if(hasNew && !hasRe){
+        p.type = "신환";
+      } else if(!hasNew && hasRe){
+        p.type = "재진";
+      } else {
+        // fallback: if unknown labels exist, keep conservative
+        p.type = hasNew ? "신환" : "재진";
+      }
+    }
+    p.total = p.visits.length;
+  });
+
+  $('statTotalVisits').innerText = totalV.toLocaleString();
+}
+
+function parsePatientsDoctorang(rows){
+  // DOCTORANG: 헤더가 반복될 수 있고, "신규"가 신환 방문 표시.
+  // 규칙: "신규"가 있는 행 + 같은 행에 차트번호(숫자)가 있으면 신환 방문.
+  // 빈칸 행은 재진 방문(의사랑 성격).
+  const mapData = new Map(); let totalV = 0;
+
+  function getChartId(row){
+    if(!row) return null;
+    for(const v of row){
+      if(typeof v === "number" && isFinite(v) && v > 0) return String(Math.trunc(v));
+      if(typeof v === "string"){
+        const s = v.trim();
+        if(/^[0-9]+$/.test(s)) return s;
+      }
+    }
+    return null;
+  }
+
+  function hasNewFlag(row){
+    return row && row.some(v => typeof v === "string" && v.includes("신규"));
+  }
+
+  // Heuristic: find name/address columns if present (optional)
+  // We'll just keep empty addr if not available, map still works if later geocoding succeeds.
+  for(let i=0;i<rows.length;i++){
+    const r = rows[i]; if(!r) continue;
+    const pid = getChartId(r);
+    if(!pid) continue; // 헤더(차트번호 없는 행) 자동 제외
+    totalV++;
+
+    if(!mapData.has(pid)){
+      mapData.set(pid, { id: pid, numId: parseInt(pid,10)||0, name:"미상", addr:"", visits: [] });
+    }
+    const p = mapData.get(pid);
+
+    const isNew = hasNewFlag(r);
+    // 의사랑 방문 저장: 신규 or 빈칸(재진 성격)
+    p.visits.push({ source:"doctorang", raw: isNew ? "신규" : "" });
+  }
+
+  patients = Array.from(mapData.values());
+
+  // ---- DOCTORANG PATIENT CLASSIFICATION (exact spec) ----
+  patients.forEach(p => {
+    const hasNew = p.visits.some(v=>v.source==="doctorang" && String(v.raw||"").includes("신규"));
+    const hasBlank = p.visits.some(v=>v.source==="doctorang" && (!v.raw || String(v.raw).trim()===""));
+    if(hasNew && hasBlank) p.type = "신환 ▶ 재진";
+    else if(hasNew) p.type = "신환";
+    else p.type = "재진";
+    p.total = p.visits.length;
+  });
+
+  $('statTotalVisits').innerText = totalV.toLocaleString();
+}
 
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
