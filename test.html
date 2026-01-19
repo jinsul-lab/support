@@ -770,7 +770,7 @@
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
 const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
-const REP_COLOR = { "신환 (1회만)": "#ff0000", "신환 ▶ 재진 전환": "#00c853", "90일초": "#ffd400", "재진": "#228be6" };
+const REP_COLOR = { "신환 (1회만)": "#ff0000", "신환 ▶ 재진 전환": "#00c853", "(비사용)": "#ffd400", "재진": "#228be6" };
 const SVG_MARKERS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
   welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
@@ -1126,20 +1126,22 @@ function parsePatients(rows){
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
-  patients.forEach(p => {
-    const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
-    const has90 = p.visits.some(v => /90/.test(v.bit||""));
-    const hasRevisit = p.visits.some(v => /재진/.test(v.bit||"") || ((v.bit||"").trim()===""));
+  
+patients.forEach(p => {
+  const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
+  const hasRevisitBit = p.visits.some(v => /재진/.test(v.bit||""));
 
-    // 환자 유형 (서로 배타, 의사랑 기준)
-    if(has90) p.type = "90일초";
-    else if(hasNew && hasRevisit) p.type = "신환 ▶ 재진 전환";
-    else if(hasNew) p.type = "신환 (1회만)";
-    else p.type = "재진";
+  if (hasNew) {
+    if (hasRevisitBit) p.type = "신환 ▶ 재진 전환";
+    else p.type = "신환 (1회만)";
+  } else {
+    p.type = "재진";
+  }
 
-    p.total = p.visits.length;
-    if(p.type === "신환 (1회만)") p.total = 1;
-  });
+  p.total = p.visits.length;
+  if (p.type === "신환 (1회만)") p.total = 1;
+});
+
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
   clusterer.clear();
@@ -1167,7 +1169,7 @@ function applyFilter(){
   const data = drawingManager.getData(); const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
   const visibleMarkers = []; let uCount = 0; let vCount = 0;
   patients.forEach(p => {
-    let key = p.type==="신환 (1회만)"?"new_only":p.type==="신환 ▶ 재진 전환"?"new_conv":p.type==="90일초"?"bit_90":"old";
+    let key = p.type==="신환 (1회만)"?"new_only":p.type==="신환 ▶ 재진 전환"?"new_conv":p.type==="(비사용)"?"bit_90":"old";
     if(!toggleState[key]) return;
     if(activeCircles.length > 0) { let inside = false; const line = new kakao.maps.Polyline(); for(const c of activeCircles) { line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) { inside = true; break; } } if(!inside) return; }
     if(p.marker) { visibleMarkers.push(p.marker); uCount++; vCount += p.total; }
@@ -1183,7 +1185,7 @@ $('btnStats').onclick = () => {
   if(!patients.length) return toast("데이터 없음"); $('statsModal').style.display = 'flex';
   const data = drawingManager.getData(); const circles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
   const visible = patients.filter(p => {
-    let key = p.type==="신환 (1회만)"?"new_only":p.type==="신환 ▶ 재진 전환"?"new_conv":p.type==="90일초"?"bit_90":"old";
+    let key = p.type==="신환 (1회만)"?"new_only":p.type==="신환 ▶ 재진 전환"?"new_conv":p.type==="(비사용)"?"bit_90":"old";
     if(!toggleState[key]) return false;
     if(circles.length > 0) { const line = new kakao.maps.Polyline(); for(const c of circles){ line.setPath([c.center, p.latlng]); if(line.getLength() <= c.radius) return true; } return false; } return true;
   });
@@ -1259,7 +1261,7 @@ window.openStatPopup = function(){
 
 function renderSummaryCharts(){
   // 내원 유형
-  const typeCount={"신환 (1회만)":0,"신환 ▶ 재진 전환":0,"90일초":0,"재진":0};
+  const typeCount={"신환 (1회만)":0,"신환 ▶ 재진 전환":0,"(비사용)":0,"재진":0};
   patients.forEach(p=>typeCount[p.type]++);
   new Chart(summaryTypeChart,{type:'pie',data:{labels:Object.keys(typeCount),datasets:[{data:Object.values(typeCount)}]}});
 
