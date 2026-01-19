@@ -1127,14 +1127,14 @@ function parsePatients(rows){
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   patients.forEach(p => {
-    const hasNewBit = p.visits.some(v => v.isNew);
+    const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
     const has90 = p.visits.some(v => /90/.test(v.bit||""));
-    const hasOld = p.visits.some(v => /재진/.test(v.bit||""));
+    const hasRevisit = p.visits.some(v => /재진/.test(v.bit||"") || ((v.bit||"").trim()===""));
 
-    // 환자 유형(토글 기준)은 환자수 기준으로만 결정
-    if(hasOld && (hasNewBit || has90)) p.type = "신환 ▶ 재진 전환";
-    else if(has90) p.type = "90일초";
-    else if(hasNewBit) p.type = "신환 (1회만)";
+    // 환자 유형 (서로 배타, 의사랑 기준)
+    if(has90) p.type = "90일초";
+    else if(hasNew && hasRevisit) p.type = "신환 ▶ 재진 전환";
+    else if(hasNew) p.type = "신환 (1회만)";
     else p.type = "재진";
 
     p.total = p.visits.length;
