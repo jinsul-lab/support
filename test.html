@@ -1122,26 +1122,43 @@ function parsePatients(rows){
     if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
     else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
-    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
+    p.visits.push({ isNew: isNewVisit, bit: bit, source: "bit" }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   
 
-patients.forEach(p => {
-  const hasNew = p.visits.some(v => v.isNew === true);
-  const hasRevisitBit = p.visits.some(v => /재진/.test(v.bit||""));
 
-  if (hasNew) {
-    if (hasRevisitBit) p.type = "신환 ▶ 재진 전환";
-    else p.type = "신환 (1회만)";
+patients.forEach(p => {
+  // ---- BIT FLAGS (explicit) ----
+  const bitNewVisits = p.visits.filter(v => v.source==="bit" && v.bit==="신환");
+  const bit90Visits  = p.visits.filter(v => v.source==="bit" && typeof v.bit==="string" && v.bit.includes("90"));
+  const bitReVisits  = p.visits.filter(v => v.source==="bit" && v.bit==="재진");
+
+  // ---- DOCTORANG FLAGS (inferred) ----
+  const daNewVisits = p.visits.filter(v => v.source==="doctorang" && typeof v.raw==="string" && v.raw.includes("신규"));
+  const daBlankVisits = p.visits.filter(v => v.source==="doctorang" && (!v.raw || String(v.raw).trim()===""));
+
+  // ---- FINAL PATIENT CLASSIFICATION ----
+  // Priority: BIT (explicit) > DOCTORANG (inferred)
+  if (bit90Visits.length > 0) {
+    p.type = "90일초";
+  } else if (bitNewVisits.length > 0 && bitReVisits.length > 0) {
+    p.type = "신환 ▶ 재진";
+  } else if (bitNewVisits.length > 0) {
+    p.type = "신환";
+  } else if (daNewVisits.length > 0 && daBlankVisits.length > 0) {
+    p.type = "신환 ▶ 재진";
+  } else if (daNewVisits.length > 0) {
+    p.type = "신환";
   } else {
     p.type = "재진";
   }
 
+  // ---- COUNTS ----
   p.total = p.visits.length;
-  if (p.type === "신환 (1회만)") p.total = 1;
 });
+
 
 
   $('statTotalUsers').innerText = patients.length.toLocaleString();
