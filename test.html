@@ -1298,5 +1298,22 @@ function renderSummaryCharts(){
 </script>
 <!-- ===== END POPUP STATISTICS ===== -->
 
+
+<script>
+(function(){
+  function safe(fn){ try{ typeof fn==="function" && fn(); }catch(e){ console.warn(e); } }
+  window.addEventListener('load', function(){
+    // open popup if exists
+    if (typeof openStatPopup === 'function') {
+      openStatPopup();
+    }
+    // render charts if individual functions exist
+    safe(window.renderSummaryCharts);
+    safe(window.renderVisitDistribution);
+    safe(window.renderConversionStats);
+  });
+})();
+</script>
+
 </body>
 </html>
