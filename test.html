@@ -1197,5 +1197,85 @@ function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
 window.switchTab = (id) => { document.querySelectorAll('.tabPane').forEach(e => e.style.display='none'); document.getElementById(id).style.display='block'; document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); };
 </script>
+
+<!-- ===== POPUP STATISTICS (ADDED) ===== -->
+<style>
+#statPopup{position:fixed;top:5%;left:5%;width:90%;height:90%;background:#fff;border:1px solid #ccc;z-index:9999;display:none;overflow:auto}
+#statPopup .tabs{display:flex;border-bottom:1px solid #ddd}
+#statPopup .tab{padding:10px 14px;cursor:pointer}
+#statPopup .tab.active{font-weight:bold;border-bottom:2px solid #000}
+#statPopup .tab-content{display:none;padding:16px}
+#statPopup .tab-content.active{display:block}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+</style>
+
+<div id="statPopup">
+  <div class="tabs">
+    <div class="tab active" data-tab="summary">요약</div>
+    <div class="tab" data-tab="dong">행정동</div>
+    <div class="tab" data-tab="visit">내원횟수</div>
+    <div class="tab" data-tab="conversion">신환→재진</div>
+    <div style="margin-left:auto;padding:10px;cursor:pointer" onclick="document.getElementById('statPopup').style.display='none'">✖</div>
+  </div>
+
+  <div id="summary" class="tab-content active">
+    <div class="summary-grid">
+      <canvas id="summaryTypeChart"></canvas>
+      <canvas id="summaryDongChart"></canvas>
+      <canvas id="summaryAgeChart"></canvas>
+    </div>
+  </div>
+
+  <div id="dong" class="tab-content">
+    <div id="dongContent"></div>
+  </div>
+
+  <div id="visit" class="tab-content">
+    <canvas id="visitDistChart"></canvas>
+    <table id="visitTable"></table>
+  </div>
+
+  <div id="conversion" class="tab-content">
+    <canvas id="conversionChart"></canvas>
+  </div>
+</div>
+
+<script>
+// ===== POPUP TAB HANDLER =====
+document.querySelectorAll('#statPopup .tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('#statPopup .tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('#statPopup .tab-content').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.tab).classList.add('active');
+  }
+});
+
+// ===== OPEN POPUP (CALL THIS WHEN NEEDED) =====
+window.openStatPopup = function(){
+  document.getElementById('statPopup').style.display='block';
+  renderSummaryCharts();
+};
+
+function renderSummaryCharts(){
+  // 내원 유형
+  const typeCount={"신환 (1회만)":0,"신환 ▶ 재진 전환":0,"90일초":0,"재진":0};
+  patients.forEach(p=>typeCount[p.type]++);
+  new Chart(summaryTypeChart,{type:'pie',data:{labels:Object.keys(typeCount),datasets:[{data:Object.values(typeCount)}]}});
+
+  // 연령
+  const ageB={"0~19":0,"20~29":0,"30~39":0,"40~49":0,"50~59":0,"60~69":0,"70대 이상":0};
+  patients.forEach(p=>{
+    const a=Number(p.age); if(isNaN(a))return;
+    if(a<20)ageB["0~19"]++; else if(a<30)ageB["20~29"]++;
+    else if(a<40)ageB["30~39"]++; else if(a<50)ageB["40~49"]++;
+    else if(a<60)ageB["50~59"]++; else if(a<70)ageB["60~69"]++;
+    else ageB["70대 이상"]++;
+  });
+  new Chart(summaryAgeChart,{type:'pie',data:{labels:Object.keys(ageB),datasets:[{data:Object.values(ageB)}]}});
+}
+</script>
+<!-- ===== END POPUP STATISTICS ===== -->
+
 </body>
 </html>
