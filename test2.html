@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>JINSUL MAP v2.3.8</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    /* 디자인 성역: v2.3.7 스타일 그대로 유지 */
+    body{margin:0;font-family:system-ui,sans-serif;font-size:13px}
+    .wrap{display:flex;height:100vh}
+    .left{width:360px;border-right:1px solid #ddd;padding:10px;box-sizing:border-box}
+    .right{flex:1}
+    #map{width:100%;height:100%}
+    .btn{padding:8px 10px;border:1px solid #ccc;border-radius:6px;cursor:pointer;margin-right:5px}
+    .row{margin-bottom:8px}
+    .stat{margin-top:10px;font-weight:700;white-space:pre-wrap;line-height:1.6}
+    .ver{font-size:10px;color:#999}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="left">
+    <div class="ver">v2.3.8</div>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" />
+    </div>
+    <div class="stat" id="stat"></div>
+    <div style="margin-top:20px; font-size:11px; color:#ccc;">© 2024 JINSUL MAP. All Rights Reserved.</div>
+  </div>
+  <div class="right">
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+let map, clusterer, geocoder;
+let patients = [];
+
+function initMap(){
+  kakao.maps.load(()=>{
+    map = new kakao.maps.Map(document.getElementById('map'), {
+      center: new kakao.maps.LatLng(37.5665,126.9780), level:7
+    });
+    clusterer = new kakao.maps.MarkerClusterer({ map, averageCenter:true, minLevel:5 });
+    geocoder = new kakao.maps.services.Geocoder();
+  });
+}
+initMap();
+
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    parsePatients(rows);
+  };
+  r.readAsArrayBuffer(f);
+});
+
+/* [입구 해결] 로직 수정 시 기존 코드를 건드리지 않고 입구 필터 신설 */
+function parsePatients(rows){
+  let hIdx=-1;
+  for(let i=0;i<Math.min(rows.length,50);i++){
+    if(JSON.stringify(rows[i]).includes('주소')){hIdx=i;break;}
+  }
+  if(hIdx<0){alert('헤더를 찾지 못했습니다');return;}
+  
+  const h=rows[hIdx].map(x=>String(x||''));
+  const isBit = h.some(s=>/초재진/.test(s));
+  
+  const idx={
+    id: h.findIndex(s=>/차트/.test(s)),
+    name: h.findIndex(s=>/이름|성명/.test(s)),
+    addr: h.findIndex(s=>/주소/.test(s)),
+    typeCol: h.findIndex(s=>/초재진|구분|비고/.test(s))
+  };
+
+  const mapData=new Map();
+  let totalVisits = 0;
+
+  for(let i=hIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r || !r[idx.id] || isNaN(r[idx.id])) continue;
+
+    const pid=String(r[idx.id]);
+    const val = String(r[idx.typeCol]||'').trim();
+
+    if(!mapData.has(pid)){
+      mapData.set(pid,{id:pid, name:r[idx.name]||'미상', addr:r[idx.addr]||'', types:[], count:0});
+    }
+    const p = mapData.get(pid);
+    p.types.push(val);
+    p.count++;
+    totalVisits++;
+  }
+
+  let sPureNew=0, sConvNew=0, s90=0, sOld=0;
+
+  patients=Array.from(mapData.values()).map(p=>{
+    if(isBit){
+      // 비트 필터: 90일초 우선 > 신환+재진 여부
+      if(p.types.some(v=>v.includes('90'))){ p.type='90일초'; s90++; }
+      else if(p.types.includes('신환')){
+        if(p.types.includes('재진')){ p.type='신환 ▶ 재진'; sConvNew++; }
+        else { p.type='신환'; sPureNew++; }
+      } else { p.type='재진'; sOld++; }
+    } else {
+      // 의사랑 필터: 신규 유무 > 빈칸 유무
+      const hasNew = p.types.some(v=>v.includes('신규'));
+      const hasEmpty = p.types.some(v=>v === '');
+      if(hasNew){
+        if(hasEmpty){ p.type='신환 ▶ 재진'; sConvNew++; }
+        else { p.type='신환'; sPureNew++; }
+      } else { p.type='재진'; sOld++; }
+    }
+    return p;
+  });
+
+  document.getElementById('stat').innerText = 
+    `[${isBit?'비트':'의사랑'} 방식 분석]\n` +
+    `신환: ${sPureNew + sConvNew}명 (순수 ${sPureNew} / 전환 ${sConvNew})\n` +
+    `90일초: ${s90}명\n` +
+    `재진: ${sOld}명\n` +
+    `총 환자: ${patients.length}명 / 총 내원: ${totalVisits}건`;
+
+  drawMarkers();
+}
+
+/* [코드 성역] drawMarkers 로직 수정 금지 */
+function drawMarkers(){
+  clusterer.clear();
+  patients.forEach(p=>{
+    if(!p.addr) return;
+    geocoder.addressSearch(p.addr,(res,st)=>{
+      if(st!==kakao.maps.services.Status.OK) return;
+      const latlng=new kakao.maps.LatLng(res[0].y,res[0].x);
+      const marker=new kakao.maps.Marker({position:latlng});
+      const iw=new kakao.maps.InfoWindow({
+        content:`<div style="padding:6px"><b>${p.id} ${p.name}</b><br/>${p.type}<br/>내원 ${p.count}회</div>`
+      });
+      kakao.maps.event.addListener(marker,'click',()=>iw.open(map,marker));
+      clusterer.addMarker(marker);
+    });
+  });
+}
+</script>
+</body>
+</html>
