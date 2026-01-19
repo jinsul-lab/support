@@ -1127,9 +1127,8 @@ function parsePatients(rows){
   patients = Array.from(mapData.values());
   patients.forEach(p => {
     let hasNew = p.visits.some(v=>v.isNew); let oldV = p.visits.filter(v=>!v.isNew).length;
-    if(hasNew){ if(oldV > 0) p.type = "신환 ▶ 재진 전환"; // [PATCH] percentile-based 90일초진 분류 제거
-    // else if(p.numId < threshold && p.numId > 0) p.type = "90일초"; else p.type = "신환 (1회만)"; } else p.type = "재진";
-    p.total = p.visits.length; if(p.type === "신환 (1회만)") p.total = 1; // [PATCH] 90일초진은 비트 기준 카운트 유지
+    if(hasNew){ if(oldV > 0) p.type = "신환 ▶ 재진 전환"; else if(false) p.type = "90일초"; else p.type = "신환 (1회만)"; } else p.type = "재진";
+    p.total = p.visits.length; if(p.type === "신환 (1회만)") p.total = 1;
   });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
