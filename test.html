@@ -1128,7 +1128,7 @@ function parsePatients(rows){
       }
     }
 
-    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
+    p.visits.push({ isNew: isNewVisit, bit: (idx.type >= 0 ? String(r[idx.type]||"") : "") }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
