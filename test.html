@@ -1119,59 +1119,75 @@ function parsePatients(rows){
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
     if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
     const p = mapData.get(pid); let isNewVisit = false;
-    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
-    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
+
+    // === 의사랑 신규 판정 (정확 버전) ===
+    if (idx.new >= 0) {
+      const v = String(r[idx.new] || "").trim();
+      if (v === "신규") {
+        isNewVisit = true;
+      }
+    }
+
     p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   patients.forEach(p => {
-    const visits = p.visits;
-    const totalVisits = visits.length;
+  const visits = p.visits || [];
+  const totalVisits = visits.length;
 
-    // 비트 여부 판단 (초재진구분이 명확한 경우)
-    const isBIT = visits.some(v =>
-      /신환|재진|90일/.test(v.bit || "")
-    );
+  // 비트 여부 판단: 초재진구분(bit) 값이 의미 있는 문자열을 가질 때
+  const isBit = visits.some(v => v.bit && v.bit !== "");
 
-    // =====================
-    // 비트 분류
-    // =====================
-    if (isBIT) {
-      const first = visits[0].bit || "";
+  let type = "";
 
-      if (/90일/.test(first)) {
-        p.type = "90일초";
-      } else if (/신환/.test(first)) {
-        if (totalVisits === 1) {
-          p.type = "신환 (1회만)";
-        } else {
-          p.type = "신환 ▶ 재진 전환";
-        }
+  if (isBit) {
+    // ===== 비트 기준 =====
+    const has90 = visits.some(v => /90일초진/.test(v.bit));
+    if (has90) {
+      type = "90일초";
+    } else {
+      // 방문 순서 기준
+      const firstVisit = visits[0];
+      const firstIsNew = /신환/.test(firstVisit.bit || "");
+      const hasRevisitAfter =
+        firstIsNew &&
+        visits.slice(1).some(v => /재진/.test(v.bit || ""));
+
+      if (firstIsNew && hasRevisitAfter) {
+        type = "신환 ▶ 재진 전환";
+      } else if (firstIsNew && totalVisits === 1) {
+        type = "신환 (1회만)";
+      } else if (firstIsNew) {
+        type = "신환";
       } else {
-        p.type = "재진";
+        type = "재진";
       }
     }
+  } else {
+    // ===== 의사랑 기준 =====
+    let seenNew = false;
+    let blankAfterNew = false;
 
-    // =====================
-    // 의사랑 분류
-    // =====================
-    else {
-      const hasNewRecord = visits.some(v => /신환|신규/.test(v.bit || ""));
-      if (hasNewRecord) {
-        if (totalVisits === 1) {
-          p.type = "신환 (1회만)";
-        } else {
-          p.type = "신환 ▶ 재진 전환";
-        }
-      } else {
-        p.type = "재진";
-      }
+    visits.forEach(v => {
+      if (v.isNew) seenNew = true;
+      else if (seenNew && v.isNew === false) blankAfterNew = true;
+    });
+
+    if (seenNew && blankAfterNew) {
+      type = "신환 ▶ 재진 전환";
+    } else if (seenNew && totalVisits === 1) {
+      type = "신환 (1회만)";
+    } else if (seenNew) {
+      type = "신환";
+    } else {
+      type = "재진";
     }
+  }
 
-    p.total = totalVisits;
-  });
+  p.type = type;
+  p.total = totalVisits;
+});
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
   clusterer.clear();
