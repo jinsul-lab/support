@@ -1121,15 +1121,24 @@ function parsePatients(rows){
     const p = mapData.get(pid); let isNewVisit = false;
     if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
     else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
-    p.visits.push({ isNew: isNewVisit }); if(isNewVisit) newIds.push(numId);
+    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
+    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   patients.forEach(p => {
-    let hasNew = p.visits.some(v=>v.isNew); let oldV = p.visits.filter(v=>!v.isNew).length;
-    let has90 = p.visits.some(v => /90/.test(v.bit||""));
-    if(hasNew){ if(oldV > 0) p.type = "신환 ▶ 재진 전환"; else if(p.numId < threshold && p.numId > 0) p.type = "90일초"; else p.type = "신환 (1회만)"; } else p.type = "재진";
-    p.total = p.visits.length; if(p.type === "신환 (1회만)") p.total = 1;
+    const hasNewBit = p.visits.some(v => v.isNew);
+    const has90 = p.visits.some(v => /90/.test(v.bit||""));
+    const hasOld = p.visits.some(v => /재진/.test(v.bit||""));
+
+    // 환자 유형(토글 기준)은 환자수 기준으로만 결정
+    if(hasOld && (hasNewBit || has90)) p.type = "신환 ▶ 재진 전환";
+    else if(has90) p.type = "90일초";
+    else if(hasNewBit) p.type = "신환 (1회만)";
+    else p.type = "재진";
+
+    p.total = p.visits.length;
+    if(p.type === "신환 (1회만)") p.total = 1;
   });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
