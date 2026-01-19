@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>JINSUL MAP v2.3.7</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <style>
+    :root { 
+      --blue:#228be6; --blue-light:#e7f5ff;
+      --red:#fa5252; --red-light:#fff5f5;
+      --border:#dee2e6; --text:#343a40; --bg:#f8f9fa; --card:#fff;
+      --c-new:#ff0000; --c-conv:#00c853; --c-90:#ffd400; --c-ret:#228be6;
+      --shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    
+    *{box-sizing:border-box;font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);overflow:hidden;font-size:13px;}
+    .app{display:flex;height:100%;width:100%;}
+    
+    .sidebar{width:360px;min-width:360px;height:100%;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20;}
+    .sidebarHeader{padding:15px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .brand{font-weight:900;font-size:16px;}
+    .sidebarBody{flex:1;overflow-y:auto;padding:15px;}
+    
+    .section{background:#fff;border:1px solid var(--border);border-radius:8px;padding:15px;margin-bottom:12px;}
+    .sectionTitle{font-weight:800;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+    .pill{font-size:10px;background:var(--blue);color:white;padding:3px 6px;border-radius:4px;font-weight:normal;}
+    
+    .uploadBox{border:2px dashed #adb5bd;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#f8f9fa;transition:0.2s;}
+    .uploadBox:hover, .uploadBox.dragover{border-color:var(--blue);background:var(--blue-light);}
+    
+    .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;background:#f8f9fa;padding:10px;border-radius:6px;}
+    .statItem{text-align:center;}
+    .statLabel{font-size:11px;color:#868e96;margin-bottom:2px;}
+    .statValue{font-size:16px;font-weight:800;color:var(--text);}
+    
+    .input-group { display: flex; gap: 5px; margin-bottom: 5px; }
+    .input-box { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    
+    .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #f1f3f5; }
+    .row:last-child { border-bottom: none; }
+    .toggle { width: 36px; height: 20px; background: #e9ecef; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
+    .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .toggle.on { background: var(--blue); }
+    .toggle.on::after { transform: translateX(16px); }
+    
+    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+    .btn{width:100%;padding:10px;border-radius:6px;border:none;font-weight:700;cursor:pointer;font-size:12px;transition:0.2s; text-align:center;}
+    .btn.primary{background:var(--blue);color:white;}
+    .btn.danger{background:var(--red-light);color:var(--red);}
+    .btn.outline{background:#fff;border:1px solid var(--border);color:var(--text);}
+    .btn.purple{background:#7048e8;color:white;}
+
+    .search-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+    .search-btn{
+      padding:8px 4px;border:1px solid var(--border);border-radius:6px;background:#fff;
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
+      font-weight:600;color:#495057; transition:0.2s; font-size:11px;
+    }
+    .search-btn.active{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
+    .search-btn span:first-child { font-size: 14px; }
+
+    .mapArea{flex:1;position:relative;}
+    #map{width:100%;height:100%;}
+
+    .info-overlay {
+      background: #fff; border: 2px solid #333; border-radius: 6px;
+      padding: 8px 12px; font-size: 13px; font-weight: 800; color: #000;
+      white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.4); pointer-events: none;
+      z-index: 99999 !important;
+    }
+
+    .route-marker {
+      width: 24px; height: 24px; background: #7048e8; color: white;
+      border-radius: 50%; text-align: center; line-height: 24px;
+      font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      font-size: 12px;
+    }
+
+    .modalBack{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;justify-content:center;align-items:center;}
+    .modalPanel{width:90%;max-width:800px;background:white;border-radius:12px;height:85vh;display:flex;flex-direction:column;}
+    .modalHeader{padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-weight:bold;font-size:16px;}
+    .modalBody{flex:1;overflow-y:auto;padding:20px;}
+    
+    .result-list { list-style:none; padding:0; margin:0; }
+    .result-item { padding:10px; border-bottom:1px solid #eee; cursor:pointer; transition:0.1s; }
+    .result-item:hover { background: #f8f9fa; }
+    .result-item .place { font-weight:bold; font-size:14px; color:var(--blue); }
+    .result-item .addr { font-size:12px; color:#666; margin-top:2px; }
+
+    .tabBar{display:flex;gap:10px;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;}
+    .tabBtn{padding:6px 14px;border-radius:20px;border:1px solid #ddd;background:white;cursor:pointer;font-size:13px;}
+    .tabBtn.active{background:#333;color:white;border-color:#333;}
+    .tabPane{display:none;}
+    table.miniTable{width:100%;border-collapse:collapse;text-align:center;font-size:12px;}
+    table.miniTable th{background:#f8f9fa;padding:8px;position:sticky;top:0;z-index:10;}
+    table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
+
+    #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:12px;opacity:0;transition:0.3s;pointer-events:none;z-index:2000;}
+    #toast.show{opacity:1;bottom:50px;}
+    
+    #mapLegend{
+      position:absolute;top:12px;left:12px;z-index:20;
+      background:rgba(255,255,255,0.95);padding:10px;border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);font-size:11px;
+      display:flex;flex-direction:column;gap:5px;
+    }
+    .legend-item{display:flex;align-items:center;gap:6px;}
+    .dot{width:10px;height:10px;border-radius:50%;}
+   
+    .info {
+      position: relative; border-radius: 6px; border: 1px solid #ccc;
+      border-bottom: 2px solid #ddd; font-size: 12px; padding: 6px 8px;
+      background: #fff; list-style: none; margin: 0;
+      box-shadow: 0px 1px 2px rgba(0,0,0,0.3);
+    }
+    .info .label { display:inline-block; width:50px; color:#555; }
+    .number { font-weight:bold; color:#00a0e9; }
+
+    .map-controls-container {
+      position: absolute; top: 12px; right: 12px; z-index: 150;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+    }
+
+    .map-type-group {
+      display: flex; background: white; border-radius: 4px; 
+      box-shadow: var(--shadow); overflow: hidden; border: 1px solid #b8b8b8;
+    }
+    .map-type-btn {
+      padding: 7px 12px; border: none; background: white; 
+      font-size: 12px; font-weight: 600; color: #444; cursor: pointer;
+      border-right: 1px solid #ddd; transition: 0.1s;
+    }
+    .map-type-btn:last-child { border-right: none; }
+    .map-type-btn:hover { background: #f1f1f1; }
+    .map-type-btn.active { background: #228be6; color: white; }
+
+    .vertical-toolbar {
+      width: 44px; background: white; border-radius: 4px;
+      box-shadow: var(--shadow); border: 1px solid #b8b8b8;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .v-tool-btn {
+      width: 44px; height: 44px; border: none; background: white;
+      cursor: pointer; display: flex; flex-direction: column; 
+      align-items: center; justify-content: center; gap: 2px;
+      border-bottom: 1px solid #eee; color: #333;
+      transition: 0.1s;
+    }
+    .v-tool-btn:last-child { border-bottom: none; }
+    .v-tool-btn span { font-size: 18px; }
+    .v-tool-btn .lbl { font-size: 9px; font-weight: 600; line-height: 1; color: #666; }
+    
+    .v-tool-btn:hover { background: #f8f9fa; }
+    .v-tool-btn.active { background: #e7f5ff; color: #228be6; }
+    .v-tool-btn.active .lbl { color: #228be6; }
+    .v-tool-btn.danger { color: #fa5252; }
+    .v-tool-btn.danger .lbl { color: #fa5252; }
+    .v-divider { height: 4px; background: #f1f3f5; border-bottom: 1px solid #eee; }
+
+    #roadviewModal {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 80%; height: 70%; background: black; z-index: 2000;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none;
+      border-radius: 8px; overflow: hidden; border: 2px solid white;
+    }
+    #roadviewContainer { width: 100%; height: 100%; }
+    .rv-close {
+      position: absolute; top: 10px; right: 10px; z-index: 2001;
+      background: white; border: none; border-radius: 4px; 
+      padding: 5px 10px; font-weight: bold; cursor: pointer;
+    }
+
+    /* MODERN SAAS OVERRIDE (UI/UX 성역 유지) */
+    .sidebar { background: radial-gradient(900px 500px at -200px -200px, rgba(59,130,246,0.18), transparent 45%), radial-gradient(700px 400px at 120% 10%, rgba(168,85,247,0.18), transparent 45%), #f6f8fc; color: #1f2937; }
+    .section { background: rgba(255,255,255,0.85); border-radius: 18px; border: 1px solid rgba(0,0,0,0.04); backdrop-filter: blur(8px); box-shadow: 0 16px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8); }
+    .sectionTitle { font-weight: 800; background: linear-gradient(90deg, #2563eb, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .btn.primary { background: linear-gradient(135deg, #3b82f6, #60a5fa); box-shadow: 0 14px 28px rgba(59,130,246,0.45); }
+    #btnRouteOpt { height: 52px; font-size: 14px; background: linear-gradient(135deg, #8b5cf6, #a78bfa); box-shadow: 0 18px 36px rgba(139,92,246,0.5); }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebarHeader">
+      <div class="brand">JINSUL MAP v2.3</div>
+      <div style="font-size:11px;color:#868e96;" id="versionTag">v2.3.7</div>
+    </div>
+    
+    <div class="sidebarBody">
+      <div class="section">
+        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">Excel</span></div>
+        <div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
+          📂 환자 엑셀 업로드<br>
+          <span style="font-size:11px;color:#868e96;">클릭 또는 파일 드래그</span>
+          <input type="file" id="fileInput" hidden accept=".xlsx, .xls, .csv">
+        </div>
+        <div class="statGrid">
+          <div class="statItem">
+            <div class="statLabel">총 인원</div>
+            <div class="statValue" id="statTotalUsers">0</div>
+          </div>
+          <div class="statItem">
+            <div class="statLabel">총 방문</div>
+            <div class="statValue" id="statTotalVisits">0</div>
+          </div>
+        </div>
+        <div class="btnRow">
+          <button class="btn primary" id="btnStats">📊 통계 상세 분석</button>
+          <button class="btn outline" id="btnClear">초기화</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">환자 필터 <span class="pill">ON/OFF</span></div>
+        <div class="row">
+          <span>전체 보기</span>
+          <div class="toggle on" data-toggle="all"></div>
+        </div>
+        <div class="row">
+          <span style="color:var(--c-new)">● 신환 (1회만)</span>
+          <div class="toggle on" data-toggle="new_only"></div>
+        </div>
+        <div class="row">
+          <span style="color:var(--c-conv)">● 신환 ▶ 재진 전환</span>
+          <div class="toggle on" data-toggle="new_conv"></div>
+        </div>
+        <div class="row">
+          <span style="color:var(--c-90)">● 90일초</span>
+          <div class="toggle on" data-toggle="bit_90"></div>
+        </div>
+        <div class="row">
+          <span style="color:var(--c-ret)">● 재진</span>
+          <div class="toggle on" data-toggle="old"></div>
+        </div>
+        <button class="btn outline" id="btnFit" style="width:100%;margin-top:10px;">지도 범위 최적화</button>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">우리 병원 및 시설 검색</div>
+        <div class="input-group">
+          <input type="text" class="input-box" id="myHospitalInput" placeholder="우리 병원명/주소 입력">
+          <button class="btn primary" id="btnSetHospital" style="width:50px;">설정</button>
+        </div>
+        <button class="btn outline" id="btnClearHospital" style="width:100%;margin-bottom:10px;font-size:11px;padding:5px;">설정 해제</button>
+
+        <div class="search-grid">
+          <div class="search-btn" data-target="senior"><span>🏠</span><span>경로당</span></div>
+          <div class="search-btn" data-target="welfare"><span>💜</span><span>복지관</span></div>
+          <div class="search-btn" data-target="ortho"><span>🏥</span><span>경쟁병원</span></div>
+        </div>
+        <div style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;" id="searchStatus">대기</div>
+        <div class="btnRow">
+          <button class="btn primary" id="btnSearch">시설 스캔</button>
+          <button class="btn outline" id="btnResetSearch">초기화</button>
+        </div>
+        <button class="btn outline" id="btnExportExcel" style="width:100%;margin-top:8px;">📥 시설목록 엑셀 저장</button>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">홍보 방문 루트</div>
+        <button class="btn purple" id="btnRouteOpt">🚀 최적 방문 경로 생성</button>
+      </div>
+    </div>
+    
+    <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
+      JINSUL MAP v2.3.7<br>All Rights Reserved.
+    </div>
+  </div>
+
+  <div class="mapArea">
+    <div id="map"></div>
+    <div id="mapLegend">
+      <div class="legend-item"><div class="dot" style="background:#ff0000"></div>신환(1회)</div>
+      <div class="legend-item"><div class="dot" style="background:#00c853"></div>재진전환</div>
+      <div class="legend-item"><div class="dot" style="background:#ffd400"></div>90일초</div>
+      <div class="legend-item"><div class="dot" style="background:#228be6"></div>재진</div>
+    </div>
+
+    <div class="map-controls-container">
+      <div class="map-type-group">
+        <button class="map-type-btn active" id="btnMapRoad">지도</button>
+        <button class="map-type-btn" id="btnMapSky">스카이</button>
+        <button class="map-type-btn" id="btnMapTopo">지형도</button>
+      </div>
+      <div class="vertical-toolbar">
+        <button class="v-tool-btn" id="btnCadastral"><span>🗺️</span><span class="lbl">지적</span></button>
+        <button class="v-tool-btn" id="btnTraffic"><span>🚦</span><span class="lbl">교통</span></button>
+        <button class="v-tool-btn" id="btnBike"><span>🚲</span><span class="lbl">자전거</span></button>
+        <div class="v-divider"></div>
+        <button class="v-tool-btn" id="btnRoadview"><span>📷</span><span class="lbl">로드뷰</span></button>
+        <div class="v-divider"></div>
+        <button class="v-tool-btn" id="btnRadius"><span>⭕</span><span class="lbl">반경</span></button>
+        <button class="v-tool-btn" id="btnDist"><span>📏</span><span class="lbl">거리</span></button>
+        <button class="v-tool-btn" id="btnArea"><span>📐</span><span class="lbl">면적</span></button>
+        <div class="v-divider"></div>
+        <button class="v-tool-btn" id="btnPoint"><span>🚩</span><span class="lbl">포인트</span></button>
+        <button class="v-tool-btn danger" id="btnClearTools"><span>🗑️</span><span class="lbl">삭제</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast">알림</div>
+
+<div id="hospitalListModal" class="modalBack">
+  <div class="modalPanel" style="height:500px;max-width:400px;">
+    <div class="modalHeader">병원 검색 결과<span style="cursor:pointer;" onclick="$('hospitalListModal').style.display='none'">✕</span></div>
+    <div class="modalBody"><ul id="hospitalResults" class="result-list"></ul></div>
+  </div>
+</div>
+
+<div id="routeModal" class="modalBack">
+  <div class="modalPanel">
+    <div class="modalHeader">최적 방문 경로<span style="cursor:pointer;" onclick="$('routeModal').style.display='none'">✕</span></div>
+    <div class="modalBody">
+      <table class="miniTable">
+        <thead><tr><th>순서</th><th>시설명</th><th>주소</th><th>이동거리</th></tr></thead>
+        <tbody id="tblRoute"></tbody>
+      </table>
+    </div>
+    <div style="padding:15px;border-top:1px solid #eee;"><button class="btn purple" id="btnExportRoute">📥 경로 엑셀 다운로드</button></div>
+  </div>
+</div>
+
+<div id="statsModal" class="modalBack">
+  <div class="modalPanel">
+    <div class="modalHeader">상세 통계 분석<span style="cursor:pointer;" onclick="$('statsModal').style.display='none'">✕</span></div>
+    <div class="modalBody">
+      <div class="tabBar">
+        <button class="tabBtn active" onclick="switchTab('tabType')">유형별</button>
+        <button class="tabBtn" onclick="switchTab('tabDong')">동별 분포</button>
+      </div>
+      <div id="tabType" class="tabPane" style="display:block;">
+        <div style="display:flex;gap:20px;align-items:flex-start;">
+          <div style="flex:1;"><table class="miniTable"><thead><tr><th>구분</th><th>인원 / 내원</th><th>비율</th></tr></thead><tbody id="tblSummary"></tbody></table></div>
+          <div style="width:300px;height:300px;"><canvas id="chartType"></canvas></div>
+        </div>
+      </div>
+      <div id="tabDong" class="tabPane">
+        <table class="miniTable"><thead><tr><th>행정동</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th><th>합계</th></tr></thead><tbody id="tblDong"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="roadviewModal"><div id="roadviewContainer"></div><button class="rv-close" id="btnCloseRoadview">닫기</button></div>
+
+<script>
+/* [코드 성역] 핵심 변수 및 UI 상수 유지 */
+const WALK_SPEED = 67; const BIKE_SPEED = 227;
+const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
+const REP_COLOR = { "신환 (1회만)": "#ff0000", "신환 ▶ 재진 전환": "#00c853", "90일초": "#ffd400", "재진": "#228be6" };
+const SVG_MARKERS = { senior: "data:image/svg+xml;charset=utf-8,%3Csvg...", welfare: "data:image/svg+xml;charset=utf-8,%3Csvg...", ortho: "data:image/svg+xml;charset=utf-8,%3Csvg..." };
+
+let map, clusterer, geocoder, places, roadview, roadviewClient;
+let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
+let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
+let pointMode = false, promoPoints = [], roadviewMode = false;
+const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
+let chartObj1 = null;
+
+const $ = (id) => document.getElementById(id);
+const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
+
+/* [입구 해결] 환자 데이터 분류 로직 수정 (v2.3.7) */
+function parsePatients(rows){
+  let headIdx = -1; 
+  for(let i=0; i<Math.min(rows.length, 50); i++){ 
+    if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } 
+  }
+  if(headIdx < 0) return toast("환자 데이터 형식이 아닙니다");
+
+  const h = rows[headIdx].map(x => String(x||""));
+  const idx = { 
+    id: h.findIndex(s => /차트|번호|ID/.test(s)), 
+    addr: h.findIndex(s => /주소/.test(s)), 
+    name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), 
+    new: h.findIndex(s => /신규|신환/.test(s)), 
+    type: h.findIndex(s => /구분|분류|초재진/.test(s))
+  };
+
+  const mapData = new Map(); 
+  let totalV = 0; 
+
+  // [전처리] 엑셀 행을 읽어 차트별 내원 이력 수집
+  for(let i=headIdx+1; i<rows.length; i++){
+    const r = rows[i]; 
+    if(!r || !r[idx.id]) continue; // 차트번호 없는 행 제외 (의사랑 헤더 등)
+
+    const pid = String(r[idx.id]);
+    totalV++;
+
+    if(!mapData.has(pid)) { 
+      mapData.set(pid, { id: pid, name: r[idx.name]||"미상", addr: r[idx.addr]||"", history: [] }); 
+    }
+    
+    const p = mapData.get(pid);
+    const typeVal = idx.type >= 0 ? String(r[idx.type]||"") : "";
+    const newVal = idx.new >= 0 ? String(r[idx.new]||"") : "";
+
+    // 논리 판독 (의사랑: 신규/빈칸, 비트: 신환/재진/90일초진)
+    let status = "재진";
+    if (typeVal.includes("90")) {
+      status = "90일";
+    } else if (newVal.includes("신규") || typeVal.includes("신환")) {
+      status = "신환";
+    } else if (typeVal.includes("재진") || typeVal.trim() === "") {
+      status = "재진";
+    }
+    p.history.push(status);
+  }
+
+  // [최종 분류] 이력을 대조하여 유형 확정
+  patients = Array.from(mapData.values());
+  patients.forEach(p => {
+    const has90 = p.history.includes("90일");
+    const hasNew = p.history.includes("신환");
+    const hasRevisit = p.history.includes("재진");
+
+    if (has90) {
+      p.type = "90일초";
+    } else if (hasNew && hasRevisit) {
+      p.type = "신환 ▶ 재진 전환";
+    } else if (hasNew && !hasRevisit) {
+      p.type = "신환 (1회만)";
+    } else {
+      p.type = "재진";
+    }
+    p.total = p.history.length;
+  });
+
+  $('statTotalUsers').innerText = patients.length.toLocaleString();
+  $('statTotalVisits').innerText = totalV.toLocaleString();
+  
+  clusterer.clear();
+  patients.forEach((p, i) => {
+    setTimeout(() => {
+      geocoder.addressSearch(p.addr, (res, status) => {
+        if(status === kakao.maps.services.Status.OK){
+          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x); 
+          p.latlng = latlng; p.dong = res[0].address?.region_3depth_name || "미상";
+          const color = REP_COLOR[p.type];
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
+          p.marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
+          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.id} ${p.name}</b><br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
+          kakao.maps.event.addListener(p.marker, 'click', () => iw.open(map, p.marker));
+          if(toggleState["all"]) clusterer.addMarker(p.marker);
+        }
+        if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("로딩 완료 (v2.3.7)"); }
+      });
+    }, i * 25);
+  });
+}
+
+/* [기존 핵심 로직 성역 유지] */
+function initKakao(){
+  kakao.maps.load(() => {
+    map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
+    geocoder = new kakao.maps.services.Geocoder();
+    places = new kakao.maps.services.Places();
+    clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
+    roadview = new kakao.maps.Roadview($('roadviewContainer'));
+    roadviewClient = new kakao.maps.RoadviewClient();
+    setupMapListeners();
+  });
+}
+
+function applyFilter(){
+  if(!patients.length) return; clusterer.clear();
+  const visibleMarkers = []; let uCount = 0; let vCount = 0;
+  patients.forEach(p => {
+    let key = p.type==="신환 (1회만)"?"new_only":p.type==="신환 ▶ 재진 전환"?"new_conv":p.type==="90일초"?"bit_90":"old";
+    if(!toggleState[key]) return;
+    if(p.marker) { visibleMarkers.push(p.marker); uCount++; vCount += p.total; }
+  });
+  clusterer.addMarkers(visibleMarkers); 
+  $('statTotalUsers').innerText = uCount.toLocaleString(); 
+  $('statTotalVisits').innerText = vCount.toLocaleString();
+}
+
+function switchTab(id) { 
+  document.querySelectorAll('.tabPane').forEach(e => e.style.display='none'); 
+  $(id).style.display='block'; 
+  document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active')); 
+  event.target.classList.add('active'); 
+}
+
+/* 엑셀 업로드 리스너 */
+$('fileInput').addEventListener('change', e => { 
+  if(e.target.files.length) {
+    const fr = new FileReader();
+    fr.onload = (ev) => {
+      const data = new Uint8Array(ev.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
+      parsePatients(rows);
+    };
+    fr.readAsArrayBuffer(e.target.files[0]);
+  }
+  e.target.value = ""; 
+});
+
+window.onload = initKakao;
+</script>
+</body>
+</html>
