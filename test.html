@@ -2,47 +2,108 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.8 (입구 필터 강화)</title>
+  <title>JINSUL MAP v2.3.7 (분류 정상화)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,clusterer">
+/* === v2.3.8 분류 로직 교체 === */
+function classifyBit(visits){
+  // 1) 90일초진이 있으면 사람 분류는 '90일초진'으로 고정
+  const has90 = visits.some(v => /90일초진/.test(v.flag));
+  if (has90) return '90일초진';
+
+  // 2) 일반 신환/재진 로직
+  const hasNew = visits.some(v => /신환/.test(v.flag));
+  const hasOld = visits.some(v => /재진/.test(v.flag));
+  if (!hasNew && !hasOld) return '';
+
+  if (hasNew && hasOld){
+    const firstNew = visits
+      .filter(v => /신환/.test(v.flag) && v.date)
+      .reduce((min, v) => (min===null || v.date < min ? v.date : min), null);
+
+    if (firstNew){
+      const oldAfter = visits.some(v => /재진/.test(v.flag) && v.date && v.date > firstNew);
+      if (oldAfter) return '신환 ▶ 재진 전환';
+      return '신환';
+    }
+    return '신환';
+  }
+
+  if (hasNew) return '신환';
+  return '재진';
+}
+
+function classifyDoctor(rowsForPid){
+  let seenNew = false;
+  for (const r of rowsForPid){
+    if (r.isNew) seenNew = true;
+    else if (seenNew && r.isBlank) return '신환 ▶ 재진 전환';
+  }
+  if (seenNew) return '신환';
+  return '재진';
+}
+/* === v2.3.8 분류 로직 끝 === */
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+/* === v2.3.8 분류 로직 교체 === */
+function classifyBit(visits){
+  // 1) 90일초진이 있으면 사람 분류는 '90일초진'으로 고정
+  const has90 = visits.some(v => /90일초진/.test(v.flag));
+  if (has90) return '90일초진';
+
+  // 2) 일반 신환/재진 로직
+  const hasNew = visits.some(v => /신환/.test(v.flag));
+  const hasOld = visits.some(v => /재진/.test(v.flag));
+  if (!hasNew && !hasOld) return '';
+
+  if (hasNew && hasOld){
+    const firstNew = visits
+      .filter(v => /신환/.test(v.flag) && v.date)
+      .reduce((min, v) => (min===null || v.date < min ? v.date : min), null);
+
+    if (firstNew){
+      const oldAfter = visits.some(v => /재진/.test(v.flag) && v.date && v.date > firstNew);
+      if (oldAfter) return '신환 ▶ 재진 전환';
+      return '신환';
+    }
+    return '신환';
+  }
+
+  if (hasNew) return '신환';
+  return '재진';
+}
+
+function classifyDoctor(rowsForPid){
+  let seenNew = false;
+  for (const r of rowsForPid){
+    if (r.isNew) seenNew = true;
+    else if (seenNew && r.isBlank) return '신환 ▶ 재진 전환';
+  }
+  if (seenNew) return '신환';
+  return '재진';
+}
+/* === v2.3.8 분류 로직 끝 === */
+
+</script>
   <style>
-    body{margin:0;font-family:system-ui,sans-serif;font-size:13px;line-height:1.4}
+    body{margin:0;font-family:system-ui,sans-serif;font-size:13px}
     .wrap{display:flex;height:100vh}
-    .left{width:380px;border-right:1px solid #ddd;padding:15px;box-sizing:border-box;display:flex;flex-direction:column}
+    .left{width:360px;border-right:1px solid #ddd;padding:10px;box-sizing:border-box}
     .right{flex:1}
     #map{width:100%;height:100%}
-    .row{margin-bottom:15px}
-    .stat-card{background:#f8f9fa;padding:12px;border-radius:8px;border:1px solid #eee;font-size:12px}
-    .stat-title{font-weight:700;margin-bottom:8px;color:#333;display:block;border-bottom:1px solid #ddd;padding-bottom:4px}
-    .stat-line{display:flex;justify-content:space-between;margin-bottom:4px}
-    .ver{font-size:10px;color:#999;margin-bottom:5px}
-    .footer{margin-top:auto;font-size:11px;color:#bbb;text-align:center;padding-top:10px}
+    .btn{padding:8px 10px;border:1px solid #ccc;border-radius:6px;cursor:pointer;margin-right:5px}
+    .row{margin-bottom:8px}
+    .stat{margin-top:10px;font-weight:700}
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="left">
-    <div class="ver">v2.3.8</div>
     <div class="row">
       <input type="file" id="fileInput" accept=".xlsx,.xls" />
     </div>
-    <div id="statArea" style="display:none">
-        <div class="stat-card">
-            <span class="stat-title" id="fileTypeDisp">파일 분석 결과</span>
-            <div class="stat-line"><span>신환 (순수 + 전환)</span><b id="totalNew">0명</b></div>
-            <div style="padding-left:10px; color:#666; margin-bottom:8px">
-                <div class="stat-line"><span>- 순수 신환</span><span id="pureNew">0명</span></div>
-                <div class="stat-line"><span>- 신환▶재진 전환</span><span id="convNew">0명</span></div>
-            </div>
-            <div class="stat-line"><span>90일초진</span><b id="bit90">0명</b></div>
-            <div class="stat-line"><span>순수 재진</span><b id="onlyOld">0명</b></div>
-            <hr style="border:0; border-top:1px dashed #ccc">
-            <div class="stat-line" style="margin-top:8px"><span>총 환자 수</span><b id="totalPat">0명</b></div>
-            <div class="stat-line"><span>총 내원 횟수</span><b id="totalVisits">0건</b></div>
-        </div>
-    </div>
-    <div class="footer">© 2024 JINSUL MAP. All Rights Reserved.</div>
+    <div class="stat" id="stat"></div>
   </div>
   <div class="right">
     <div id="map"></div>
@@ -50,6 +111,14 @@
 </div>
 
 <script>
+/*
+수정 요약
+1) 차트번호 퍼센타일 기반 90일초진 '환자 분류' 제거
+2) 환자 최종 분류: 신환 / 재진 / 신환▶재진 전환
+3) 90일초진은 '비트(방문)' 단위로만 카운트
+4) 환자 표시: '차트번호 이름'
+*/
+
 let map, clusterer, geocoder;
 let patients = [];
 
@@ -77,88 +146,209 @@ document.getElementById('fileInput').addEventListener('change', e=>{
 });
 
 function parsePatients(rows){
-  let hIdx=-1;
-  for(let i=0;i<Math.min(rows.length,50);i++){
-    if(JSON.stringify(rows[i]).includes('주소')){hIdx=i;break;}
-  }
-  if(hIdx<0){alert('헤더(주소)를 찾지 못했습니다');return;}
-  
-  const h=rows[hIdx].map(x=>String(x||''));
-  const isBit = h.some(s=>/초재진/.test(s));
-  
-  const idx={
-    id: h.findIndex(s=>/차트/.test(s)),
-    name: h.findIndex(s=>/이름|성명/.test(s)),
-    addr: h.findIndex(s=>/주소/.test(s)),
-    typeCol: h.findIndex(s=>/초재진|구분|비고/.test(s))
+  // 유틸: 셀을 문자열로
+  const s = (x)=>String(x==null?'':x).trim();
+
+  // 유틸: 날짜 파싱(비트)
+  const parseDate = (x)=>{
+    if(x==null || x==='') return null;
+    // SheetJS가 Date 객체/숫자(serial)/문자열로 줄 수 있음
+    if(x instanceof Date) return x;
+    if(typeof x === 'number'){
+      // Excel serial -> JS Date (Excel epoch 1899-12-30)
+      const utc = Math.round((x - 25569) * 86400 * 1000);
+      return new Date(utc);
+    }
+    const str = s(x);
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
   };
 
-  const mapData=new Map();
-  let totalVCount = 0;
+  // 헤더 행 판별: 차트번호가 있고, 초재진구분(비트) 또는 신규환자(의사랑) 중 하나가 있음
+  const isHeaderRow = (row)=>{
+    const joined = row.map(s).join(' ');
+    return /차트번호/.test(joined) && (/(초재진|초재진구분)/.test(joined) || /신규환자/.test(joined));
+  };
 
-  for(let i=hIdx+1;i<rows.length;i++){
-    const r=rows[i];
-    if(!r || !r[idx.id] || isNaN(r[idx.id])) continue; // 차트번호가 없는 행(헤더 반복 등) 제외
+  // 인덱스 추출
+  const buildIdx = (headerRow)=>{
+    const h = headerRow.map(s);
+    return {
+      id: h.findIndex(v=>/차트/.test(v)),
+      name: h.findIndex(v=>/이름|성명|수진자명/.test(v)),
+      addr: h.findIndex(v=>/주소/.test(v)),
+      bit: h.findIndex(v=>/(초재진|초재진구분)/.test(v)),
+      date: h.findIndex(v=>/내원날짜|내원일|진료일/.test(v)),
+      docNew: h.findIndex(v=>/신규환자/.test(v))
+    };
+  };
 
-    const pid=String(r[idx.id]);
-    const val=String(r[idx.typeCol]||'').trim();
+  // 1) 첫 헤더 찾기 (파일 초반 뿐 아니라 중간에 헤더가 다시 나올 수 있음)
+  let idx = null;
+  let mode = null; // 'bit' | 'doctor'
+  for(let i=0;i<rows.length;i++){
+    if(isHeaderRow(rows[i])){
+      idx = buildIdx(rows[i]);
+      mode = idx.bit >= 0 ? 'bit' : 'doctor';
+      break;
+    }
+  }
+  if(!idx || !mode){
+    alert('헤더(차트번호 + 초재진구분/신규환자)를 찾지 못했습니다');
+    return;
+  }
+
+  // 2) 데이터 누적 (차트번호 단위)
+  const mapData = new Map();
+
+  // 통계용(내원 수)
+  let visitCountByType = new Map(); // type -> visits
+  let personCountByType = new Map(); // type -> persons
+  const addCount = (m,k,delta)=>m.set(k,(m.get(k)||0)+delta);
+
+  // 비트: 90일초진 방문 수(행 단위)
+  let bit90Visits = 0;
+
+  // 헤더가 중간에 다시 나오면 인덱스 갱신
+  for(let i=0;i<rows.length;i++){
+    const r = rows[i];
+    if(!r) continue;
+
+    if(isHeaderRow(r)){
+      const newIdx = buildIdx(r);
+      // 같은 파일 내에서 모드가 바뀌는 경우는 없다고 했지만, 안전하게:
+      if(newIdx.bit >= 0) mode = 'bit';
+      else if(newIdx.docNew >= 0) mode = 'doctor';
+      idx = newIdx;
+      continue; // 헤더 행은 데이터 아님
+    }
+
+    // 차트번호가 없으면 스킵
+    const pidRaw = idx.id >= 0 ? r[idx.id] : null;
+    const pid = s(pidRaw);
+    if(!pid || /차트번호/.test(pid)) continue;
 
     if(!mapData.has(pid)){
       mapData.set(pid,{
-        id:pid, 
-        name:r[idx.name]||'미상', 
-        addr:r[idx.addr]||'', 
-        rawTypes:[], 
-        vCount:0
+        id: pid,
+        name: idx.name>=0 ? s(r[idx.name]) : '',
+        addr: idx.addr>=0 ? s(r[idx.addr]) : '',
+        visits: [],
+        // 공통 플래그
+        has90: false,
+        // 비트용
+        bitHasNew: false,
+        bitHasOld: false,
+        bitFirstNewDate: null,
+        bitHasOldAfterNew: false,
+        // 의사랑용
+        docSeenNew: false,
+        docHasBlankAfterNew: false
       });
     }
-    const p=mapData.get(pid);
-    p.rawTypes.push(val);
-    p.vCount++;
-    totalVCount++;
+
+    const p = mapData.get(pid);
+
+    if(mode === 'bit'){
+      const flag = idx.bit>=0 ? s(r[idx.bit]) : '';
+      const dt = idx.date>=0 ? parseDate(r[idx.date]) : null;
+
+      // 방문 저장
+      p.visits.push({flag, date: dt});
+
+      // 90일초진 방문(행) 카운트 + 사람 플래그
+      if(/90일초진/.test(flag)){
+        bit90Visits++;
+        p.has90 = true;
+      }
+
+      // 신환/재진 플래그 및 "최초 신환 이후 재진" 판정용
+      if(/신환/.test(flag)){
+        p.bitHasNew = true;
+        if(dt && (!p.bitFirstNewDate || dt < p.bitFirstNewDate)) p.bitFirstNewDate = dt;
+      }
+      if(/재진/.test(flag)){
+        p.bitHasOld = true;
+        if(p.bitFirstNewDate && dt && dt > p.bitFirstNewDate) p.bitHasOldAfterNew = true;
+      }
+
+    } else { // doctor
+      const newCell = idx.docNew>=0 ? s(r[idx.docNew]) : '';
+      const isNew = /신규/.test(newCell);
+      const isBlank = (newCell === '');
+
+      // 방문 저장(의사랑은 날짜 없이 순서가 의미)
+      p.visits.push({isNew, isBlank});
+
+      if(isNew) p.docSeenNew = true;
+      else if(p.docSeenNew && isBlank) p.docHasBlankAfterNew = true;
+    }
   }
 
-  let sPureNew=0, sConvNew=0, s90=0, sOld=0;
+  // 3) 사람 분류 + 통계 집계
+  patients = Array.from(mapData.values()).map(p=>{
+    const totalVisits = p.visits.length;
+    let type = '';
 
-  patients=Array.from(mapData.values()).map(p=>{
-    if(isBit){
-        // --- 비트 로직 ---
-        if(p.rawTypes.some(v=>v.includes('90'))){
-            p.type='90일초'; s90++;
-        } else if(p.rawTypes.includes('신환')){
-            if(p.rawTypes.includes('재진')){ p.type='신환 ▶ 재진'; sConvNew++; }
-            else { p.type='신환'; sPureNew++; }
-        } else {
-            p.type='재진'; sOld++;
-        }
-    } else {
-        // --- 의사랑 로직 ---
-        const hasNewSign = p.rawTypes.some(v=>v.includes('신규'));
-        const hasEmptySign = p.rawTypes.some(v=>v === '');
-        
-        if(hasNewSign){
-            if(hasEmptySign){ p.type='신환 ▶ 재진'; sConvNew++; }
-            else { p.type='신환'; sPureNew++; }
-        } else {
-            p.type='재진'; sOld++;
-        }
+    if(mode === 'bit'){
+      if(p.has90){
+        type = '90일초';
+      } else if(p.bitHasNew && p.bitHasOld && p.bitHasOldAfterNew){
+        type = '신환 ▶ 재진';
+      } else if(p.bitHasNew){
+        type = (totalVisits === 1) ? '신환(1회만)' : '신환';
+      } else if(p.bitHasOld){
+        type = '재진';
+      } else {
+        type = ''; // 강제 분류 금지
+      }
+    } else { // doctor
+      if(p.docSeenNew && p.docHasBlankAfterNew){
+        type = '신환 ▶ 재진';
+      } else if(p.docSeenNew){
+        type = (totalVisits === 1) ? '신환(1회만)' : '신환';
+      } else {
+        type = '재진';
+      }
+    }
+
+    p.total = totalVisits;
+    p.type = type;
+
+    // 사람/내원 통계 (빈칸 분류는 집계 제외)
+    if(type){
+      addCount(personCountByType, type, 1);
+      addCount(visitCountByType, type, totalVisits);
     }
     return p;
   });
 
-  // UI 업데이트
-  document.getElementById('statArea').style.display='block';
-  document.getElementById('fileTypeDisp').innerText = isBit ? "파일 분석: 비트 방식" : "파일 분석: 의사랑 방식";
-  document.getElementById('totalNew').innerText = (sPureNew + sConvNew) + "명";
-  document.getElementById('pureNew').innerText = sPureNew + "명";
-  document.getElementById('convNew').innerText = sConvNew + "명";
-  document.getElementById('bit90').innerText = s90 + "명";
-  document.getElementById('onlyOld').innerText = sOld + "명";
-  document.getElementById('totalPat').innerText = patients.length + "명";
-  document.getElementById('totalVisits').innerText = totalVCount + "건";
+  // 4) 통계 표시
+  const get = (m,k)=>m.get(k)||0;
+  const totalPeople = patients.filter(p=>p.type).length;
+  const totalVisits = Array.from(visitCountByType.values()).reduce((a,b)=>a+b,0);
 
+  const newPeople = get(personCountByType,'신환') + get(personCountByType,'신환(1회만)') + get(personCountByType,'신환 ▶ 재진');
+  const newVisits  = get(visitCountByType,'신환') + get(visitCountByType,'신환(1회만)') + get(visitCountByType,'신환 ▶ 재진');
+
+  let statLines = [];
+  statLines.push(`모드: ${mode === 'bit' ? '비트' : '의사랑'}`);
+  statLines.push(`집계 대상(분류 있는 환자): ${totalPeople}명 / 내원 ${totalVisits}회`);
+  statLines.push(`총 신환(신환+전환): ${newPeople}명 / 내원 ${newVisits}회`);
+  statLines.push(`- 신환(1회만): ${get(personCountByType,'신환(1회만)')}명 / 내원 ${get(visitCountByType,'신환(1회만)')}회`);
+  statLines.push(`- 신환: ${get(personCountByType,'신환')}명 / 내원 ${get(visitCountByType,'신환')}회`);
+  statLines.push(`- 신환 ▶ 재진: ${get(personCountByType,'신환 ▶ 재진')}명 / 내원 ${get(visitCountByType,'신환 ▶ 재진')}회`);
+  statLines.push(`- 재진: ${get(personCountByType,'재진')}명 / 내원 ${get(visitCountByType,'재진')}회`);
+  if(mode === 'bit'){
+    statLines.push(`- 90일초: ${get(personCountByType,'90일초')}명 / 내원 ${get(visitCountByType,'90일초')}회 (90일초진 방문행 ${bit90Visits}건)`);
+  }
+
+  document.getElementById('stat').innerText = statLines.join('\n');
+
+  // 5) 지도 갱신
   drawMarkers();
 }
+
 
 function drawMarkers(){
   clusterer.clear();
@@ -169,17 +359,53 @@ function drawMarkers(){
       const latlng=new kakao.maps.LatLng(res[0].y,res[0].x);
       const marker=new kakao.maps.Marker({position:latlng});
       const iw=new kakao.maps.InfoWindow({
-        content:`<div style="padding:10px; min-width:150px">
-                  <small style="color:#999">${p.id}</small><br/>
-                  <b>${p.name}</b> [${p.type}]<br/>
-                  <div style="border-top:1px solid #eee; margin-top:5px; padding-top:5px">내원: ${p.vCount}회</div>
-                 </div>`
+        content:`<div style="padding:6px"><b>${p.id} ${p.name}</b><br/>${p.type}<br/>내원 ${p.total}회</div>`
       });
       kakao.maps.event.addListener(marker,'click',()=>iw.open(map,marker));
       clusterer.addMarker(marker);
     });
   });
 }
+
+/* === v2.3.8 분류 로직 교체 === */
+function classifyBit(visits){
+  // 1) 90일초진이 있으면 사람 분류는 '90일초진'으로 고정
+  const has90 = visits.some(v => /90일초진/.test(v.flag));
+  if (has90) return '90일초진';
+
+  // 2) 일반 신환/재진 로직
+  const hasNew = visits.some(v => /신환/.test(v.flag));
+  const hasOld = visits.some(v => /재진/.test(v.flag));
+  if (!hasNew && !hasOld) return '';
+
+  if (hasNew && hasOld){
+    const firstNew = visits
+      .filter(v => /신환/.test(v.flag) && v.date)
+      .reduce((min, v) => (min===null || v.date < min ? v.date : min), null);
+
+    if (firstNew){
+      const oldAfter = visits.some(v => /재진/.test(v.flag) && v.date && v.date > firstNew);
+      if (oldAfter) return '신환 ▶ 재진 전환';
+      return '신환';
+    }
+    return '신환';
+  }
+
+  if (hasNew) return '신환';
+  return '재진';
+}
+
+function classifyDoctor(rowsForPid){
+  let seenNew = false;
+  for (const r of rowsForPid){
+    if (r.isNew) seenNew = true;
+    else if (seenNew && r.isBlank) return '신환 ▶ 재진 전환';
+  }
+  if (seenNew) return '신환';
+  return '재진';
+}
+/* === v2.3.8 분류 로직 끝 === */
+
 </script>
 </body>
 </html>
