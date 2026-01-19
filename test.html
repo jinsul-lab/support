@@ -1127,8 +1127,9 @@ function parsePatients(rows){
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   
+
 patients.forEach(p => {
-  const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
+  const hasNew = p.visits.some(v => v.isNew === true);
   const hasRevisitBit = p.visits.some(v => /재진/.test(v.bit||""));
 
   if (hasNew) {
@@ -1141,6 +1142,7 @@ patients.forEach(p => {
   p.total = p.visits.length;
   if (p.type === "신환 (1회만)") p.total = 1;
 });
+
 
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
