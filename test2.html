@@ -1126,63 +1126,30 @@ function parsePatients(rows){
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
-  patients.forEach(p => {
-  const visits = p.visits || [];
-  const totalVisits = visits.length;
+  
+patients.forEach(p => {
+  const bits = p.visits.map(v => String(v.bit||"").trim());
+  const has90 = bits.some(b => b.includes("90"));
+  const hasNew = bits.some(b => b === "신환");
+  const hasRe = bits.some(b => b === "재진" || b === "");
 
-  // 비트 여부 판단: 초재진구분(bit) 값이 의미 있는 문자열을 가질 때
-  const isBit = visits.some(v => v.bit && v.bit !== "");
-
-  let type = "";
-
-  if (isBit) {
-    // ===== 비트 기준 =====
-    const has90 = visits.some(v => /90일초진/.test(v.bit));
-    if (has90) {
-      type = "90일초";
-    } else {
-      // 방문 순서 기준
-      const firstVisit = visits[0];
-      const firstIsNew = /신환/.test(firstVisit.bit || "");
-      const hasRevisitAfter =
-        firstIsNew &&
-        visits.slice(1).some(v => /재진/.test(v.bit || ""));
-
-      if (firstIsNew && hasRevisitAfter) {
-        type = "신환 ▶ 재진 전환";
-      } else if (firstIsNew && totalVisits === 1) {
-        type = "신환 (1회만)";
-      } else if (firstIsNew) {
-        type = "신환";
-      } else {
-        type = "재진";
-      }
-    }
+  // 비트/의사랑 공통 분류 (요구 명세 그대로)
+  if(has90){
+    p.type = "90일초";
+  } else if(hasNew && hasRe){
+    p.type = "신환 ▶ 재진 전환";
+  } else if(hasNew && p.visits.length === 1){
+    p.type = "신환 (1회만)";
+  } else if(hasNew){
+    p.type = "신환 ▶ 재진 전환";
   } else {
-    // ===== 의사랑 기준 =====
-    let seenNew = false;
-    let blankAfterNew = false;
-
-    visits.forEach(v => {
-      if (v.isNew) seenNew = true;
-      else if (seenNew && v.isNew === false) blankAfterNew = true;
-    });
-
-    if (seenNew && blankAfterNew) {
-      type = "신환 ▶ 재진 전환";
-    } else if (seenNew && totalVisits === 1) {
-      type = "신환 (1회만)";
-    } else if (seenNew) {
-      type = "신환";
-    } else {
-      type = "재진";
-    }
+    p.type = "재진";
   }
 
-  p.type = type;
-  p.total = totalVisits;
+  p.total = p.visits.length;
 });
-  $('statTotalUsers').innerText = patients.length.toLocaleString();
+$('statTotalUsers')
+.innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
   clusterer.clear();
   patients.forEach((p, i) => {
