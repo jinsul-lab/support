@@ -1126,20 +1126,37 @@ function parsePatients(rows){
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
-  patients.forEach(p => {
-    const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
-    const has90 = p.visits.some(v => /90/.test(v.bit||""));
-    const hasRevisit = p.visits.some(v => /재진/.test(v.bit||"") || ((v.bit||"").trim()===""));
+  
+patients.forEach(p => {
+  const hasBit = p.visits.some(v => typeof v.bit === "string" && v.bit.trim() !== "");
 
-    // 환자 유형 (서로 배타, 의사랑 기준)
-    if(has90) p.type = "90일초";
-    else if(hasNew && hasRevisit) p.type = "신환 ▶ 재진 전환";
-    else if(hasNew) p.type = "신환 (1회만)";
+  if (hasBit) {
+    // BIT
+    const bits = p.visits.map(v => String(v.bit||""));
+    const has90 = bits.some(b => b.includes("90"));
+    const hasNew = bits.some(b => b.includes("신환"));
+    const hasRe = bits.some(b => b.includes("재진"));
+
+    if (has90) p.type = "90일초";
+    else if (hasNew && hasRe) p.type = "신환 ▶ 재진 전환";
+    else if (hasNew && p.visits.length === 1) p.type = "신환 (1회만)";
+    else if (hasNew) p.type = "신환 ▶ 재진 전환";
     else p.type = "재진";
 
-    p.total = p.visits.length;
-    if(p.type === "신환 (1회만)") p.total = 1;
-  });
+  } else {
+    // 의사랑 (기존 isNewVisit 사용)
+    const hasNew = p.visits.some(v => v.isNew === true);
+    const hasBlank = p.visits.some(v => v.isNew === false);
+
+    if (hasNew && hasBlank) p.type = "신환 ▶ 재진 전환";
+    else if (hasNew && p.visits.length === 1) p.type = "신환 (1회만)";
+    else if (hasNew) p.type = "신환 ▶ 재진 전환";
+    else p.type = "재진";
+  }
+
+  p.total = p.visits.length;
+});
+
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
   clusterer.clear();
