@@ -1127,7 +1127,8 @@ function parsePatients(rows){
   patients = Array.from(mapData.values());
   patients.forEach(p => {
     let hasNew = p.visits.some(v=>v.isNew); let oldV = p.visits.filter(v=>!v.isNew).length;
-    if(hasNew){ if(oldV > 0) p.type = "신환 ▶ 재진 전환"; else if(false) p.type = "90일초"; else p.type = "신환 (1회만)"; } else p.type = "재진";
+    let has90 = p.visits.some(v => /90/.test(v.bit||""));
+    if(hasNew){ if(oldV > 0) p.type = "신환 ▶ 재진 전환"; else if(p.numId < threshold && p.numId > 0) p.type = "90일초"; else p.type = "신환 (1회만)"; } else p.type = "재진";
     p.total = p.visits.length; if(p.type === "신환 (1회만)") p.total = 1;
   });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
