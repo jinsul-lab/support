@@ -1113,7 +1113,7 @@ function parsePatients(rows){
   if(headIdx < 0) return toast("환자 데이터 형식이 아닙니다");
   const h = rows[headIdx].map(x => String(x||""));
   const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
-// 신규환자 컬럼 인덱스 보강
+// 의사랑 신규환자 컬럼 인덱스 (headers 스코프)
 idx.newPatient = headers.findIndex(h => String(h).includes("신규환자"));
 
   const mapData = new Map(); let totalV = 0; let newIds = [];
