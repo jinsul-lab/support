@@ -725,7 +725,6 @@
         <button class="tabBtn" onclick="switchTab('tabDong')">동별 분포</button>
         <button class="tabBtn" onclick="switchTab('tabAge')">연령별</button>
         <button class="tabBtn" onclick="switchTab('tabVisit')">방문수</button>
-        <button class="tabBtn" onclick="switchTab('tabAgeType')">연령×유형</button>
       </div>
 
       <div id="tabType" class="tabPane" style="display:block;">
@@ -776,18 +775,7 @@
           <thead><tr><th>방문수</th><th>인원</th><th>비율</th></tr></thead>
           <tbody id="tblVisit"></tbody>
         </table>
-      
-      <div id="tabAgeType" class="tabPane">
-        <div style="height:260px;margin-bottom:20px;">
-          <canvas id="chartAgeType"></canvas>
-        </div>
-        <table class="miniTable">
-          <thead><tr><th>연령대</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th><th>합계</th></tr></thead>
-          <tbody id="tblAgeType"></tbody>
-        </table>
       </div>
-
-</div>
 
 </div>
 
@@ -801,12 +789,6 @@
 </div>
 
 <script>
-// global chart holders
-window.chartObjAge = null;
-window.chartObjAgeType = null;
-window.chartObjDong = null;
-window.chartObjVisit = null;
-
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
 const MY_HOSPITAL_IMG = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
@@ -819,7 +801,7 @@ const SVG_MARKERS = {
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
-let chartObj1, chartObjDong, chartObjAge, chartObjVisit, chartObjAgeType = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null;
+let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null;
 let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
 let pointMode = false, promoPoints = [];
 let roadviewMode = false;
@@ -1249,12 +1231,10 @@ if(has90){
   clusterer.clear();
   patients.forEach((p, i) => {
     setTimeout(() => {
-      if(!p.dong){ const dd = extractDongFromAddr(p.addr); if(dd) p.dong = dd; else p.dong = "미상"; }
       geocoder.addressSearch(p.addr, (res, status) => {
         if(status === kakao.maps.services.Status.OK){
           const latlng = new kakao.maps.LatLng(res[0].y, res[0].x); p.latlng = latlng;
-          const rd = res[0].address?.region_3depth_name;
-          if(rd) p.dong = rd; else if(!p.dong) p.dong = "미상";
+          p.dong = res[0].address?.region_3depth_name || "미상";
           const color = REP_COLOR[p.type];
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
           p.marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
@@ -1297,22 +1277,6 @@ function bucketAge(age){
   if(a <= 59) return "50~59";
   if(a <= 69) return "60~69";
   return "70+";
-}
-
-
-function extractDongFromAddr(addr){
-  if(!addr) return null;
-  const s = String(addr).trim();
-  // 괄호 안 동 (예: (수택동))
-  const m1 = s.match(/\(([^)]+동)\)/);
-  if(m1) return m1[1];
-  // 문자열 내 'OO동' 패턴
-  const m2 = s.match(/([가-힣]+동)\b/);
-  if(m2) return m2[1];
-  // 'OO가' 주소 케이스도 지원
-  const m3 = s.match(/([가-힣]+가)\b/);
-  if(m3) return m3[1];
-  return null;
 }
 
 function buildVisiblePatients(){
@@ -1389,46 +1353,7 @@ $('btnStats').onclick = () => {
     plugins:[ChartDataLabels]
   });
 
-  
-  // ===== 연령×유형 (신환/전환/90일/재진) =====
-  const ageTypeLabels = ['0~19','20~29','30~39','40~49','50~59','60~69','70+'];
-  const types = ['신환 (1회만)','신환 ▶ 재진 전환','90일초','재진'];
-  const typeKey = { '신환 (1회만)':'신환', '신환 ▶ 재진 전환':'전환', '90일초':'90일', '재진':'재진' };
-  const mat = {};
-  ageTypeLabels.forEach(a => { mat[a] = { '신환':0,'전환':0,'90일':0,'재진':0,total:0 }; });
-
-  visible.forEach(p=>{
-    const ag = bucketAge(p.age);
-    if(!mat[ag]) return;
-    const k = typeKey[p.type] || '재진';
-    mat[ag][k] += 1;
-    mat[ag].total += 1;
-  });
-
-  $('tblAgeType').innerHTML = ageTypeLabels.map(a => {
-    const r = mat[a];
-    return `<tr><td>${a}</td><td>${r['신환']}</td><td>${r['전환']}</td><td>${r['90일']}</td><td>${r['재진']}</td><td><b>${r.total}</b></td></tr>`;
-  }).join('');
-
-  const dsAgeType = [
-    { label:'신환', data: ageTypeLabels.map(a=>mat[a]['신환']) },
-    { label:'전환', data: ageTypeLabels.map(a=>mat[a]['전환']) },
-    { label:'90일', data: ageTypeLabels.map(a=>mat[a]['90일']) },
-    { label:'재진', data: ageTypeLabels.map(a=>mat[a]['재진']) },
-  ];
-
-  if(chartObjAgeType) chartObjAgeType.destroy();
-  chartObjAgeType = new Chart($('chartAgeType'), {
-    type:'bar',
-    data:{ labels:ageTypeLabels, datasets:dsAgeType },
-    options:{
-      responsive:true,
-      plugins:{ datalabels:{ display:false } },
-      scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true, ticks:{ precision:0 } } }
-    }
-  });
-
-// ===== 방문수 분포 =====
+  // ===== 방문수 분포 =====
   const visitBuckets = { '1회':0,'2회':0,'3회':0,'4회':0,'5회+':0 };
   visible.forEach(p=>{
     if(p.total<=1) visitBuckets['1회']++;
@@ -1443,8 +1368,8 @@ $('btnStats').onclick = () => {
   if(chartObjVisit) chartObjVisit.destroy();
   chartObjVisit = new Chart($('chartVisit'), {
     type:'bar',
-    data:{ labels:vbLabels, datasets:[{ label:'인원', data:vbData }] },
-    options:{ plugins:{ legend:{ display:false }, legend:{ display:false }, plugins:{ datalabels:{ anchor:'end', align:'end', font:{weight:'bold'} } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } },
+    data:{ labels:vbLabels, datasets:[{ data:vbData }] },
+    options:{ plugins:{ datalabels:{ anchor:'end', align:'end', font:{weight:'bold'} } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } },
     plugins:[ChartDataLabels]
   });
 
@@ -1458,6 +1383,38 @@ window.switchTab = (id) => {
   const ev = window.event;
   if(ev && ev.target) ev.target.classList.add('active');
 };
+
+// === 추가: 요약 차트 복제 ===
+new Chart(document.getElementById('chartSummaryType'), chartType.config);
+new Chart(document.getElementById('chartSummaryDong'), chartDong.config);
+new Chart(document.getElementById('chartSummaryAge'), chartAge.config);
+
+// === 추가: 연령 × 유형 스택 막대 ===
+const ageBuckets = ['0~19','20~29','30~39','40~49','50~59','60~69','70+'];
+const types = ['신환','전환','90일','재진'];
+const ageType = {};
+ageBuckets.forEach(a=>ageType[a]={신환:0,전환:0,'90일':0,재진:0});
+
+patients.forEach(p=>{
+  const a = bucketAge(p.age);
+  if(ageType[a]) ageType[a][p.type]++;
+});
+
+const datasets = types.map(t=>({
+  label:t,
+  data: ageBuckets.map(a=>ageType[a][t]),
+  stack:'stack1'
+}));
+
+const c = document.createElement('canvas');
+document.getElementById('tab-age').appendChild(c);
+
+new Chart(c,{
+  type:'bar',
+  data:{labels:ageBuckets,datasets},
+  options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true}}}
+});
 </script>
 </body>
+
 </html>
