@@ -1118,41 +1118,35 @@ function parsePatients(rows){
     const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
     if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
+    const isFirstVisit = !mapData.has(pid);
     const p = mapData.get(pid); let isNewVisit = false;
-    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
+
+    // 의사랑: 차트번호 첫 등장 + 신규 표시일 때만 신환
+    if(isFirstVisit && idx.new >= 0 && r[idx.new]) {
+      isNewVisit = true;
+    }
+    else if(isFirstVisit && idx.type >= 0) {
+      const t = String(r[idx.type]||"");
+      if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true;
+    }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
     p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   patients.forEach(p => {
-    const visits = p.visits;
-    const totalVisits = visits.length;
+    const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
+    const has90 = p.visits.some(v => /90/.test(v.bit||""));
+    const hasRevisit = p.visits.some(v => /재진/.test(v.bit||"") || ((v.bit||"").trim()===""));
 
-    // 비트 여부 판단 (초재진구분이 명확한 경우)
-    const isBIT = visits.some(v => /신환|재진|90일/.test(v.bit || ""));
+    // 환자 유형 (서로 배타, 의사랑 기준)
+    if(has90) p.type = "90일초";
+    else if(hasNew && hasRevisit) p.type = "신환 ▶ 재진 전환";
+    else if(hasNew) p.type = "신환 (1회만)";
+    else p.type = "재진";
 
-    if (isBIT) {
-      const first = visits[0].bit || "";
-      if (/90일/.test(first)) {
-        p.type = "90일초";
-      } else if (/신환/.test(first)) {
-        p.type = totalVisits === 1 ? "신환 (1회만)" : "신환 ▶ 재진 전환";
-      } else {
-        p.type = "재진";
-      }
-    } else {
-      // 의사랑: 신규/신환 컬럼(isNew) 기준
-      const hasNewRecord = visits.some(v => v.isNew === true);
-      if (hasNewRecord) {
-        p.type = totalVisits === 1 ? "신환 (1회만)" : "신환 ▶ 재진 전환";
-      } else {
-        p.type = "재진";
-      }
-    }
-
-    p.total = totalVisits;
+    p.total = p.visits.length;
+    if(p.type === "신환 (1회만)") p.total = 1;
   });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
