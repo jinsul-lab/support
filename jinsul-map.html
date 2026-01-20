@@ -1143,7 +1143,17 @@ function parsePatients(rows){
       else if(v.isNew === true) hasNew = true;
     });
 
-    if(has90){
+    
+
+
+// ===============================
+// ❌ 엑셀 헤더 행 제거 (차트번호 / 수진자명)
+// ===============================
+patients = patients.filter(p =>
+  p.id !== "차트번호" && p.name !== "수진자명"
+);
+
+if(has90){
       p.type = "90일초";
     }
     else if(hasNew){
