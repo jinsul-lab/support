@@ -1117,18 +1117,13 @@ function parsePatients(rows){
   for(let i=headIdx+1; i<rows.length; i++){
     const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
-    if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
     const isFirstVisit = !mapData.has(pid);
+    if(isFirstVisit){
+      mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] });
+    }
     const p = mapData.get(pid); let isNewVisit = false;
-
-    // 의사랑: 차트번호 첫 등장 + 신규 표시일 때만 신환
-    if(isFirstVisit && idx.new >= 0 && r[idx.new]) {
-      isNewVisit = true;
-    }
-    else if(isFirstVisit && idx.type >= 0) {
-      const t = String(r[idx.type]||"");
-      if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true;
-    }
+    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
     p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
