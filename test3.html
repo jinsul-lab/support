@@ -1119,26 +1119,41 @@ function parsePatients(rows){
     const r = rows[i];
     if(!r) continue;
 
-    // 🔑 의사랑 헤더 상태 머신
     const rowText = r.map(x => String(x||"")).join(" ");
+
+    // 🔑 신규환자 헤더 감지
     if(rowText.includes("신규환자")){
       currentSection = "신환";
       continue;
     }
 
     if(!r[idx.id]) continue;
+
     const pid = String(r[idx.id]);
     totalV++;
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
 
     if(!mapData.has(pid)){
-      mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] });
+      mapData.set(pid, {
+        id: pid,
+        numId: numId,
+        name: r[idx.name]||"미상",
+        addr: r[idx.addr]||"",
+        visits: []
+      });
     }
 
     const p = mapData.get(pid);
-    const isNewVisit = (currentSection === "신환");
-    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
 
+    // ✅ 보정 핵심:
+    // 신규환자 구간이라도 '차트번호가 나온 첫 행만' 신환
+    let isNewVisit = false;
+    if(currentSection === "신환"){
+      isNewVisit = true;
+      currentSection = "재진"; // 다음 행부터는 재진
+    }
+
+    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
     p.visits.push({ isNew: isNewVisit, bit: bit });
 }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
