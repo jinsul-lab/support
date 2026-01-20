@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.6 (Fixed)</title>
+  <title>JINSUL MAP v2.3.6</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -187,6 +187,257 @@
 
 /* Sidebar 전체 */
 .sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Header */
+.sidebarHeader {
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+
+/* Body 스크롤 개선 */
+.sidebarBody {
+  scrollbar-width: thin;
+  scrollbar-color: #ced4da transparent;
+}
+.sidebarBody::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebarBody::-webkit-scrollbar-thumb {
+  background: #ced4da;
+  border-radius: 6px;
+}
+
+/* Section 카드화 */
+.section {
+  border-radius: 12px;
+  border: none;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 6px 16px rgba(0,0,0,0.05);
+}
+
+/* Section Title 강조 */
+.sectionTitle {
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+/* 업로드 박스 */
+.uploadBox {
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8f9fa, #ffffff);
+}
+.uploadBox:hover,
+.uploadBox.dragover {
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
+
+/* 통계 카드 */
+.statGrid {
+  background: linear-gradient(180deg, #f1f3f5, #ffffff);
+}
+.statItem {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 8px 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* 입력 필드 */
+.input-box {
+  border-radius: 8px;
+  border-color: #e9ecef;
+}
+.input-box:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(34,139,230,0.15);
+}
+
+/* 버튼 전반 */
+.btn {
+  border-radius: 10px;
+}
+.btn.primary {
+  box-shadow: 0 4px 10px rgba(34,139,230,0.25);
+}
+.btn.purple {
+  box-shadow: 0 4px 10px rgba(112,72,232,0.25);
+}
+.btn.outline:hover {
+  background: #f8f9fa;
+}
+
+/* 검색 버튼 카드화 */
+.search-btn {
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.search-btn.active {
+  box-shadow: 0 4px 10px rgba(34,139,230,0.25);
+}
+
+/* 토글 스위치 고급화 */
+.toggle {
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+}
+.toggle.on {
+  box-shadow: inset 0 0 0 1px rgba(34,139,230,0.4);
+}
+
+/* 하단 Footer */
+.sidebar > div:last-child {
+  background: #ffffff;
+}
+
+
+
+
+
+
+
+
+
+ /* ⬇️⬇️⬇️ 여기부터 전부 붙여넣기 ⬇️⬇️⬇️ */
+
+  /* =========================
+     👇 여기서부터 "디자이너 보정"
+     ========================= */
+
+
+  /* ① Sidebar 배경 */
+  .sidebar {
+    background:
+      radial-gradient(1200px 600px at -200px -200px, rgba(34,139,230,0.12), transparent 40%),
+      radial-gradient(800px 400px at 120% 20%, rgba(112,72,232,0.12), transparent 40%),
+      #f4f6fb;
+  }
+
+  /* ② Section 카드 */
+  .section {
+    background: linear-gradient(180deg, #ffffff, #fafbff);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  }
+
+  /* ③ Section 타이틀 강조 */
+  .sectionTitle {
+    position: relative;
+    padding-left: 16px;
+  }
+
+  .sectionTitle::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 3px;
+    bottom: 3px;
+    width: 5px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #228be6, #7048e8);
+  }
+
+  /* ④ Primary 버튼 */
+  .btn.primary {
+    background: linear-gradient(135deg, #228be6, #4dabf7);
+    box-shadow: 0 10px 24px rgba(34,139,230,0.45);
+  }
+
+  /* ⑤ Purple 버튼 */
+  .btn.purple {
+    background: linear-gradient(135deg, #7048e8, #9775fa);
+    box-shadow: 0 12px 28px rgba(112,72,232,0.55);
+  }
+
+  /* ⑥ 검색 버튼 Active */
+  .search-btn.active {
+    background: linear-gradient(180deg, #e7f5ff, #ffffff);
+    box-shadow: 0 8px 20px rgba(34,139,230,0.25);
+  }
+
+
+
+.sidebar {
+  background:
+    radial-gradient(900px 500px at 0% 0%, rgba(99,102,241,0.25), transparent 45%),
+    radial-gradient(600px 400px at 100% 30%, rgba(236,72,153,0.25), transparent 45%),
+    linear-gradient(180deg, #0f172a, #111827);
+  color: #e5e7eb;
+}
+
+
+.section {
+  background: rgba(255,255,255,0.08);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+
+
+
+.sectionTitle {
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  background: linear-gradient(90deg, #a5b4fc, #f0abfc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+
+
+
+
+.btn.primary {
+  height: 46px;
+  font-size: 13px;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  box-shadow:
+    0 20px 40px rgba(59,130,246,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+}
+
+
+#btnRouteOpt {
+  height: 54px;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  background: linear-gradient(135deg, #f472b6, #c084fc);
+  box-shadow:
+    0 26px 52px rgba(192,132,252,0.75),
+    inset 0 1px 0 rgba(255,255,255,0.45);
+}
+
+.section,
+.btn {
+  transition: all 0.35s cubic-bezier(.4,0,.2,1);
+}
+
+.section:hover {
+  transform: translateY(-2px);
+}
+
+.btn:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+
+/* ===============================
+   LIGHT COMMERCIAL SAAS OVERRIDE
+   =============================== */
+
+/* Sidebar – 밝은 캔버스 + 컬러 연출 */
+.sidebar {
   background:
     radial-gradient(900px 500px at -200px -200px, rgba(59,130,246,0.18), transparent 45%),
     radial-gradient(700px 400px at 120% 10%, rgba(168,85,247,0.18), transparent 45%),
@@ -247,18 +498,32 @@
   transform: translateY(-2px) scale(1.02);
 }
 
-/* Sidebar Body 스크롤 개선 */
-.sidebarBody {
-  scrollbar-width: thin;
-  scrollbar-color: #ced4da transparent;
-}
-.sidebarBody::-webkit-scrollbar {
-  width: 6px;
-}
-.sidebarBody::-webkit-scrollbar-thumb {
-  background: #ced4da;
-  border-radius: 6px;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   </style>
 </head>
 <body>
@@ -267,7 +532,7 @@
   <div class="sidebar">
     <div class="sidebarHeader">
       <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.6 (Fixed)</div>
+      <div style="font-size:11px;color:#868e96;">v2.3.6</div>
     </div>
     
     <div class="sidebarBody">
@@ -854,13 +1119,12 @@ function parsePatients(rows){
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
     if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
     const p = mapData.get(pid); let isNewVisit = false;
+    
+// [의사랑 규칙]
+// 보험구분/급여구분 값은 신환/재진 판정에 사용하지 않음
+
     if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { 
-      let t = String(r[idx.type]||"");
-      // [의사랑 예외처리] 의료급여1종 등이 신환(1)으로 잡히는 문제 해결
-      if(t.includes("의료급여")) t = t.replace(/[0-9]/g, ""); 
-      if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; 
-    }
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규/.test(t)) isNewVisit = true; }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
     p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
@@ -879,7 +1143,17 @@ function parsePatients(rows){
       else if(v.isNew === true) hasNew = true;
     });
 
-    if(has90){
+    
+
+
+// ===============================
+// ❌ 엑셀 헤더 행 제거 (차트번호 / 수진자명)
+// ===============================
+patients = patients.filter(p =>
+  p.id !== "차트번호" && p.name !== "수진자명"
+);
+
+if(has90){
       p.type = "90일초";
     }
     else if(hasNew){
