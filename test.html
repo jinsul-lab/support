@@ -1131,8 +1131,8 @@ patients.forEach(p => {
   const hasBit = p.visits.some(v => typeof v.bit === "string" && v.bit.trim() !== "");
 
   if (hasBit) {
-    // BIT 기준 (고정)
-    const bits = p.visits.map(v => String(v.bit||""));
+    // ===== BIT (고정) =====
+    const bits = p.visits.map(v => String(v.bit || ""));
     const has90 = bits.some(b => b.includes("90"));
     const hasNew = bits.some(b => b.includes("신환"));
     const hasRe = bits.some(b => b.includes("재진"));
@@ -1144,14 +1144,24 @@ patients.forEach(p => {
     else p.type = "재진";
 
   } else {
-    // 의사랑 기준 (parsePatients에서 이미 isNew 세팅됨)
-    const hasNew = p.visits.some(v => v.isNew === true);
-    const hasBlank = p.visits.some(v => v.isNew === false);
+    // ===== 의사랑 (환자 누적 상태 기반) =====
+    let hasNewEver = false;
+    let hasReEver = false;
 
-    if (hasNew && hasBlank) p.type = "신환 ▶ 재진 전환";
-    else if (hasNew && p.visits.length === 1) p.type = "신환 (1회만)";
-    else if (hasNew) p.type = "신환 ▶ 재진 전환";
-    else p.type = "재진";
+    p.visits.forEach(v => {
+      if (v.isNew === true) hasNewEver = true;
+      else hasReEver = true;
+    });
+
+    if (hasNewEver && hasReEver) {
+      p.type = "신환 ▶ 재진 전환";
+    } else if (hasNewEver && p.visits.length === 1) {
+      p.type = "신환 (1회만)";
+    } else if (hasNewEver) {
+      p.type = "신환 ▶ 재진 전환";
+    } else {
+      p.type = "재진";
+    }
   }
 
   p.total = p.visits.length;
