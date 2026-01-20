@@ -1119,8 +1119,12 @@ function parsePatients(rows){
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
     if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
     const p = mapData.get(pid); let isNewVisit = false;
+    
+// [의사랑 규칙]
+// 보험구분/급여구분 값은 신환/재진 판정에 사용하지 않음
+
     if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규/.test(t)) isNewVisit = true; }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
     p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
