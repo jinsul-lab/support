@@ -1148,10 +1148,16 @@ patients.forEach(p => {
     let hasNewEver = false;
     let hasReEver = false;
 
-    p.visits.forEach(v => {
-      if (v.isNew === true) hasNewEver = true;
-      else hasReEver = true;
-    });
+    
+p.visits.forEach(v => {
+  const chart = (v.chartNo !== undefined ? v.chartNo : p.chartNo);
+  const isValidChart = chart !== undefined && /^[0-9]+$/.test(String(chart));
+  if (!isValidChart) return;
+
+  if (v.isNew === true) hasNewEver = true;
+  else hasReEver = true;
+});
+
 
     if (hasNewEver && hasReEver) {
       p.type = "신환 ▶ 재진 전환";
