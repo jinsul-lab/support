@@ -1121,8 +1121,8 @@ function parsePatients(rows){
     const p = mapData.get(pid); let isNewVisit = false;
     if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
     else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
-    const visitBit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
-    p.visits.push({ isNew: isNewVisit, bit: visitBit }); if(isNewVisit) newIds.push(numId);
+    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
+    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
@@ -1197,5 +1197,12 @@ function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
 window.switchTab = (id) => { document.querySelectorAll('.tabPane').forEach(e => e.style.display='none'); document.getElementById(id).style.display='block'; document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); };
 </script>
+
+<div id="debug-new-list" style="position:fixed; right:10px; bottom:10px; width:320px; max-height:60vh;
+  overflow:auto; background:#fff; border:1px solid #ccc; padding:8px; font-size:12px; z-index:9999;">
+  <b>🧪 신환 디버그 리스트</b>
+  <div id="debug-new-items"></div>
+</div>
 </body>
+
 </html>
