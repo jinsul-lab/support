@@ -1114,48 +1114,48 @@ function parsePatients(rows){
   const h = rows[headIdx].map(x => String(x||""));
   const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
   const mapData = new Map(); let totalV = 0; let newIds = [];
-  let currentSection = "재진";
   for(let i=headIdx+1; i<rows.length; i++){
-    const r = rows[i];
-    if(!r) continue;
-
-    // 🔑 의사랑 헤더 상태 머신
-    const rowText = r.map(x => String(x||"")).join(" ");
-    if(rowText.includes("신규환자")){
-      currentSection = "신환";
-      continue;
-    }
-
-    if(!r[idx.id]) continue;
-    const pid = String(r[idx.id]);
-    totalV++;
+    const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
+    if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
+    const p = mapData.get(pid); let isNewVisit = false;
+    
+// [의사랑 규칙]
+// 보험구분/급여구분 값은 신환/재진 판정에 사용하지 않음
 
-    if(!mapData.has(pid)){
-      mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] });
-    }
-
-    const p = mapData.get(pid);
-    const isNewVisit = (currentSection === "신환");
+    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규/.test(t)) isNewVisit = true; }
     const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
-
-    p.visits.push({ isNew: isNewVisit, bit: bit });
-}
+    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
+  }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
   patients.forEach(p => {
-    const hasNew = p.visits.some(v => /신환/.test(v.bit||""));
-    const has90 = p.visits.some(v => /90/.test(v.bit||""));
-    const hasRevisit = p.visits.some(v => /재진/.test(v.bit||"") || ((v.bit||"").trim()===""));
+    const visits = p.visits;
+    const totalVisits = visits.length;
 
-    // 환자 유형 (서로 배타, 의사랑 기준)
-    if(has90) p.type = "90일초";
-    else if(hasNew && hasRevisit) p.type = "신환 ▶ 재진 전환";
-    else if(hasNew) p.type = "신환 (1회만)";
-    else p.type = "재진";
+    let hasNew = false;
+    let has90 = false;
 
-    p.total = p.visits.length;
-    if(p.type === "신환 (1회만)") p.total = 1;
+    visits.forEach(v => {
+      // 의사랑은 bit이 아니라 isNew 기준
+      if(v.bit && v.bit.includes("90")) has90 = true;
+      else if(v.isNew === true) hasNew = true;
+    });
+
+    if(has90){
+      p.type = "90일초";
+    }
+    else if(hasNew){
+      p.type = (totalVisits === 1)
+        ? "신환 (1회만)"
+        : "신환 ▶ 재진 전환";
+    }
+    else{
+      p.type = "재진";
+    }
+
+    p.total = totalVisits;
   });
   $('statTotalUsers').innerText = patients.length.toLocaleString();
   $('statTotalVisits').innerText = totalV.toLocaleString();
