@@ -1118,10 +1118,11 @@ function parsePatients(rows){
     const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
     const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
     if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", visits: [] }); }
-    const p = mapData.get(pid); // 👇 의사랑 심플 최종 로직: 차트번호 최초 등장 = 신환
-    let isNewVisit = (p.visits.length === 0);
-
-    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
+    const p = mapData.get(pid); let isNewVisit = false;
+    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
+    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규|1/.test(t)) isNewVisit = true; }
+    const visitBit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
+    p.visits.push({ isNew: isNewVisit, bit: visitBit }); if(isNewVisit) newIds.push(numId);
   }
   newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
   patients = Array.from(mapData.values());
