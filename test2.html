@@ -1131,40 +1131,22 @@ function parsePatients(rows){
     const totalVisits = visits.length;
 
     // 비트 여부 판단 (초재진구분이 명확한 경우)
-    const isBIT = visits.some(v =>
-      /신환|재진|90일/.test(v.bit || "")
-    );
+    const isBIT = visits.some(v => /신환|재진|90일/.test(v.bit || ""));
 
-    // =====================
-    // 비트 분류
-    // =====================
     if (isBIT) {
       const first = visits[0].bit || "";
-
       if (/90일/.test(first)) {
         p.type = "90일초";
       } else if (/신환/.test(first)) {
-        if (totalVisits === 1) {
-          p.type = "신환 (1회만)";
-        } else {
-          p.type = "신환 ▶ 재진 전환";
-        }
+        p.type = totalVisits === 1 ? "신환 (1회만)" : "신환 ▶ 재진 전환";
       } else {
         p.type = "재진";
       }
-    }
-
-    // =====================
-    // 의사랑 분류
-    // =====================
-    else {
-      const hasNewRecord = visits.some(v => /신환|신규/.test(v.bit || ""));
+    } else {
+      // 의사랑: 신규/신환 컬럼(isNew) 기준
+      const hasNewRecord = visits.some(v => v.isNew === true);
       if (hasNewRecord) {
-        if (totalVisits === 1) {
-          p.type = "신환 (1회만)";
-        } else {
-          p.type = "신환 ▶ 재진 전환";
-        }
+        p.type = totalVisits === 1 ? "신환 (1회만)" : "신환 ▶ 재진 전환";
       } else {
         p.type = "재진";
       }
