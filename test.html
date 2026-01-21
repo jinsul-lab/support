@@ -534,7 +534,23 @@
 .strategyBox ul{margin:6px 0 0 18px;padding:0;}
 .strategyBox li{margin:4px 0;}
 
-.chartWrap{height:320px;}
+
+/* === FINAL AGE CHART FIX === */
+.ageSection{
+  display:flex;
+  flex-direction:column;
+}
+.ageSection .chartWrap{
+  height:320px;
+  margin-bottom:24px;
+  position:relative;
+}
+.ageSection table{
+  position:relative;
+  z-index:2;
+  background:#fff;
+}
+
 </style>
 </head>
 <body>
