@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.5.4</title>
+  <title>JINSUL MAP v2.5.6</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
-    /* ===========================   [v2.3.6 원본 디자인 성역 보존]   =========================== */
+    /* ===========================   [v2.3.6 원본 디자인 성역]   =========================== */
     :root { 
       --blue:#228be6; --blue-light:#e7f5ff;
       --red:#fa5252; --red-light:#fff5f5;
@@ -153,8 +153,8 @@
 <div class="app">
   <div class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL MAP v2.5.4</div>
-      <div style="font-size:11px;color:#868e96;">Strategic Edition</div>
+      <div class="brand">JINSUL MAP v2.5.6</div>
+      <div style="font-size:11px;color:#868e96;">Permitted Edition</div>
     </div>
     <div class="sidebarBody">
       <div class="section">
@@ -216,7 +216,7 @@
       </div>
     </div>
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.5.4<br>All Rights Reserved.
+      JINSUL MAP v2.5.6<br>All Rights Reserved.
     </div>
   </div>
   
@@ -318,7 +318,7 @@ function calcAgeFromRow(ageVal, rrnVal){ const cleanNum = (v) => { if(v === null
 
 function getTimeHTML(distance) { var walkTime = distance / WALK_SPEED | 0; var walkHour = '', walkMin = ''; if (walkTime > 60) walkHour = '<span class="number">' + Math.floor(walkTime / 60) + '</span>시간 '; walkMin = '<span class="number">' + walkTime % 60 + '</span>분'; var bikeTime = distance / BIKE_SPEED | 0; var bikeHour = '', bikeMin = ''; if (bikeTime > 60) bikeHour = '<span class="number">' + Math.floor(bikeTime / 60) + '</span>시간 '; bikeMin = '<span class="number">' + bikeTime % 60 + '</span>분'; return '<ul class="info"><li><span class="label">총거리</span><span class="number">' + distance + '</span>m</li><li><span class="label">도보</span>' + walkHour + walkMin + '</li><li><span class="label">자전거</span>' + bikeHour + bikeMin + '</li></ul>';}
 
-function initKakao(){ if(!window.kakao || !kakao.maps) { setTimeout(initKakao, 100); return; } kakao.maps.load(() => { if(!$('map')) return; map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 }); const zoomControl = new kakao.maps.ZoomControl(); map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT); geocoder = new kakao.maps.services.Geocoder(); places = new kakao.maps.services.Places(); clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 }); drawingManager = new kakao.maps.drawing.DrawingManager({ map: map, drawingMode: [], circleOptions: { draggable: true, removable: true, strokeColor: '#228be6', fillColor: '#228be6', fillOpacity: 0.1 } }); drawingManager.addListener('drawend', function(data) { if (!data || !data.overlay) return; deactivateDrawTools(); if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) { const circle = data.overlay; let r = 0; try { r = Math.round(circle.getRadius()); } catch(e){ return; } applyFilter(); const walk = Math.round(r / WALK_SPEED); const bike = Math.round(r / BIKE_SPEED); const count = countInCircle(circle); const content = `<div class="info-overlay">반경 <b>${r.toLocaleString()}</b>m<br/>🚶${walk}분 · 🚲${bike}분<br/><span style="color:#228be6">총 ${count}명 포함</span></div>`; const overlay = new kakao.maps.CustomOverlay({ position: circle.getPosition(), content: content, yAnchor: 1.6, zIndex: 99999 }); overlay.setMap(map); kakao.maps.event.addListener(drawingManager, 'remove', e => { if(e.overlay === circle) { overlay.setMap(null); setTimeout(applyFilter, 100); } }); } }); roadview = new kakao.maps.Roadview($('roadviewContainer')); roadviewClient = new kakao.maps.RoadviewClient(); setupMapListeners(); setupToolbar(); toast("시스템 준비 완료 (v2.5.4)"); });}
+function initKakao(){ if(!window.kakao || !kakao.maps) { setTimeout(initKakao, 100); return; } kakao.maps.load(() => { if(!$('map')) return; map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 }); const zoomControl = new kakao.maps.ZoomControl(); map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT); geocoder = new kakao.maps.services.Geocoder(); places = new kakao.maps.services.Places(); clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 }); drawingManager = new kakao.maps.drawing.DrawingManager({ map: map, drawingMode: [], circleOptions: { draggable: true, removable: true, strokeColor: '#228be6', fillColor: '#228be6', fillOpacity: 0.1 } }); drawingManager.addListener('drawend', function(data) { if (!data || !data.overlay) return; deactivateDrawTools(); if (data.overlayType === kakao.maps.drawing.OverlayType.CIRCLE) { const circle = data.overlay; let r = 0; try { r = Math.round(circle.getRadius()); } catch(e){ return; } applyFilter(); const walk = Math.round(r / WALK_SPEED); const bike = Math.round(r / BIKE_SPEED); const count = countInCircle(circle); const content = `<div class="info-overlay">반경 <b>${r.toLocaleString()}</b>m<br/>🚶${walk}분 · 🚲${bike}분<br/><span style="color:#228be6">총 ${count}명 포함</span></div>`; const overlay = new kakao.maps.CustomOverlay({ position: circle.getPosition(), content: content, yAnchor: 1.6, zIndex: 99999 }); overlay.setMap(map); kakao.maps.event.addListener(drawingManager, 'remove', e => { if(e.overlay === circle) { overlay.setMap(null); setTimeout(applyFilter, 100); } }); } }); roadview = new kakao.maps.Roadview($('roadviewContainer')); roadviewClient = new kakao.maps.RoadviewClient(); setupMapListeners(); setupToolbar(); toast("시스템 준비 완료 (v2.5.6)"); });}
 window.onload = initKakao;
 
 function deactivateDrawTools() { $('btnRadius').classList.remove('active'); $('btnDist').classList.remove('active'); $('btnArea').classList.remove('active'); $('btnPoint').classList.remove('active'); pointMode = false; drawingManager.cancel(); drawingFlag = false; if(drawingCircle) drawingCircle.setMap(null); if(drawingLine) drawingLine.setMap(null); if(drawingOverlay) drawingOverlay.setMap(null); distDrawing = false; if(distLine) { distLine.setMap(null); distLine=null; } if(distOverlay) { distOverlay.setMap(null); distOverlay=null; } distPathData = []; areaDrawing = false; areaPath=[]; if(areaPoly) areaPoly.setMap(null); if(areaOverlay) areaOverlay.setMap(null); map.setDraggable(true); map.setZoomable(true); map.setCursor('auto');}
