@@ -102,6 +102,11 @@
     .tabPane{display:none;}
     table.miniTable{width:100%;border-collapse:collapse;text-align:center;font-size:12px;}
     table.miniTable th{background:#f8f9fa;padding:8px;position:sticky;top:0;z-index:10;}
+    /* Stats modal: prevent sticky header overlay over charts */
+    #statsModal table.miniTable th{position:static;top:auto;}
+    /* Stats modal: canvases should fit their container heights */
+    #statsModal canvas{max-width:100%;max-height:100%;}
+
     table.miniTable td{padding:8px;border-bottom:1px solid #eee;}
 
     #toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:12px;opacity:0;transition:0.3s;pointer-events:none;z-index:2000;}
@@ -778,7 +783,8 @@
           <thead><tr><th>방문수</th><th>인원</th><th>비율</th></tr></thead>
           <tbody id="tblVisit"></tbody>
         </table>
-      
+      </div>
+
       <div id="tabRegion" class="tabPane">
         <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
           <div style="flex:1;min-width:320px;">
@@ -1436,7 +1442,7 @@ $('btnStats').onclick = () => {
   chartObjAge = new Chart($('chartAge'), {
     type:'doughnut',
     data:{ labels:ageLabels, datasets:[{ data:ageCounts }] },
-    options:{ plugins:{ datalabels:{ color:'white', font:{weight:'bold'} } } },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ datalabels:{ color:'white', font:{weight:'bold'} } } },
     plugins:[ChartDataLabels]
   });
 
@@ -1456,7 +1462,7 @@ $('btnStats').onclick = () => {
   chartObjVisit = new Chart($('chartVisit'), {
     type:'bar',
     data:{ labels:vbLabels, datasets:[{ data:vbData }] },
-    options:{ plugins:{ datalabels:{ anchor:'end', align:'end', font:{weight:'bold'} } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ datalabels:{ anchor:'end', align:'end', font:{weight:'bold'} } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } },
     plugins:[ChartDataLabels]
   });
 
@@ -1466,17 +1472,12 @@ $('btnStats').onclick = () => {
   window.__lastStatsVisible = visible;
   window.__lastStatsDongRows = dongRows;
 
-  // (1) 스택바 + (2) 파레토
-  try { renderRegionCharts(dongRows); } catch(e){ console.error(e); }
-
-  // (3) 전환률 랭킹 + (4) 평균 방문수
-  try { renderValueCharts(dongRows); } catch(e){ console.error(e); }
-
-  // (거리/반경) 거리 분포 + 거리 버킷별 전환률
-  try { renderDistanceCharts(visible); } catch(e){ console.error(e); }
-
-  // 탭 전환 시 차트가 숨김 상태에서 생성되는 문제 완화용 리사이즈
-  setTimeout(() => resizeAllStatCharts(), 80);
+  // ✅ 추가 탭 차트는 "탭이 열릴 때" 렌더(숨김 상태 생성 이슈 방지)
+  // 데이터만 캐시해두고, switchTab에서 필요 시 렌더합니다.
+  setTimeout(() => {
+    try { maybeRenderExtraStatsForActiveTab(); } catch(e){ console.error(e); }
+    try { resizeAllStatCharts(); } catch(e){}
+  }, 50);
 
 };
 function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
@@ -1760,6 +1761,30 @@ function renderDistanceCharts(visible){
   }
 }
 
+function getActiveStatsTabId(){
+  const panes = Array.from(document.querySelectorAll('.tabPane'));
+  const shown = panes.find(p => (p.style && p.style.display === 'block'));
+  return shown ? shown.id : 'tabType';
+}
+
+function maybeRenderExtraStats(tabId){
+  // 안전장치: 통계 데이터가 없으면 스킵
+  const dongRows = window.__lastStatsDongRows || [];
+  const visible = window.__lastStatsVisible || [];
+  if(tabId === 'tabRegion'){
+    if(dongRows.length) renderRegionCharts(dongRows);
+  } else if(tabId === 'tabValue'){
+    if(dongRows.length) renderValueCharts(dongRows);
+  } else if(tabId === 'tabRadius'){
+    renderDistanceCharts(visible);
+  }
+}
+
+function maybeRenderExtraStatsForActiveTab(){
+  const tabId = getActiveStatsTabId();
+  maybeRenderExtraStats(tabId);
+}
+
 function resizeAllStatCharts(){
   const list = [chartObj1, chartObjDong, chartObjAge, chartObjVisit, chartObjRegionStack, chartObjRegionPareto, chartObjConvRank, chartObjAvgVisits, chartObjDistHist, chartObjDistConv];
   list.forEach(ch => { try { ch && ch.resize(); } catch(e){} });
@@ -1776,10 +1801,15 @@ document.addEventListener('click', (e) => {
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
 window.switchTab = (id) => {
   document.querySelectorAll('.tabPane').forEach(e => e.style.display='none');
-  document.getElementById(id).style.display='block';
+  const pane = document.getElementById(id);
+  if(pane) pane.style.display='block';
   document.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active'));
   const ev = window.event;
   if(ev && ev.target) ev.target.classList.add('active');
+
+  // ✅ 새 탭: 표시된 뒤 렌더
+  try { maybeRenderExtraStats(id); } catch(e){ console.error(e); }
+  setTimeout(() => resizeAllStatCharts(), 80);
 };
 </script>
 </body>
