@@ -725,6 +725,9 @@
         <button class="tabBtn" onclick="switchTab('tabDong')">동별 분포</button>
         <button class="tabBtn" onclick="switchTab('tabAge')">연령별</button>
         <button class="tabBtn" onclick="switchTab('tabVisit')">방문수</button>
+        <button class="tabBtn" onclick="switchTab('tabRegion')">지역 분석</button>
+        <button class="tabBtn" onclick="switchTab('tabValue')">전환/가치</button>
+        <button class="tabBtn" onclick="switchTab('tabRadius')">거리/반경</button>
       </div>
 
       <div id="tabType" class="tabPane" style="display:block;">
@@ -775,7 +778,90 @@
           <thead><tr><th>방문수</th><th>인원</th><th>비율</th></tr></thead>
           <tbody id="tblVisit"></tbody>
         </table>
+      
+      <div id="tabRegion" class="tabPane">
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:320px;">
+            <div style="height:320px;margin-bottom:18px;">
+              <canvas id="chartRegionStack" width="900" height="320"></canvas>
+            </div>
+            <table class="miniTable">
+              <thead><tr><th>행정동</th><th>합계</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th></tr></thead>
+              <tbody id="tblRegionTop"></tbody>
+            </table>
+          </div>
+          <div style="width:460px;max-width:100%;flex:0 0 460px;">
+            <div style="height:320px;margin-bottom:12px;">
+              <canvas id="chartRegionPareto" width="460" height="320"></canvas>
+            </div>
+            <div id="txtParetoSummary" style="font-size:11px;color:#666;line-height:1.5;"></div>
+          </div>
+        </div>
       </div>
+
+      <div id="tabValue" class="tabPane">
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:320px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div style="font-weight:bold;color:#495057;">전환률 랭킹</div>
+              <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+                <input type="checkbox" id="chkMinSample" checked>
+                표본(신환+전환) 5명 미만 제외
+              </label>
+            </div>
+            <div style="height:320px;margin-bottom:18px;">
+              <canvas id="chartConvRank" width="900" height="320"></canvas>
+            </div>
+            <table class="miniTable">
+              <thead><tr><th>행정동</th><th>전환률</th><th>전환</th><th>신환</th><th>표본</th></tr></thead>
+              <tbody id="tblConvRank"></tbody>
+            </table>
+          </div>
+
+          <div style="flex:1;min-width:320px;">
+            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">평균 방문수 (행정동별)</div>
+            <div style="height:320px;margin-bottom:18px;">
+              <canvas id="chartAvgVisits" width="900" height="320"></canvas>
+            </div>
+            <table class="miniTable">
+              <thead><tr><th>행정동</th><th>평균 방문수</th><th>총 방문수</th><th>인원</th></tr></thead>
+              <tbody id="tblAvgVisits"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tabRadius" class="tabPane">
+        <div id="radiusNeedHospital" style="display:none;padding:10px;background:#fff3bf;border:1px solid #ffe066;border-radius:8px;margin-bottom:12px;font-size:12px;color:#856404;">
+          병원 설정이 필요합니다. 왼쪽 패널에서 <b>우리 병원</b>을 먼저 설정해주세요.
+        </div>
+
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:320px;">
+            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 분포 (병원 기준)</div>
+            <div style="height:320px;margin-bottom:18px;">
+              <canvas id="chartDistHist" width="900" height="320"></canvas>
+            </div>
+            <table class="miniTable">
+              <thead><tr><th>거리</th><th>인원</th><th>비율</th></tr></thead>
+              <tbody id="tblDist"></tbody>
+            </table>
+          </div>
+
+          <div style="flex:1;min-width:320px;">
+            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 버킷별 전환률</div>
+            <div style="height:320px;margin-bottom:18px;">
+              <canvas id="chartDistConv" width="900" height="320"></canvas>
+            </div>
+            <table class="miniTable">
+              <thead><tr><th>거리</th><th>전환률</th><th>전환</th><th>신환</th><th>표본</th></tr></thead>
+              <tbody id="tblDistConv"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+</div>
 
 </div>
 
@@ -801,7 +887,7 @@ const SVG_MARKERS = {
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
-let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null;
+let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjDistHist = null, chartObjDistConv = null;
 let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
 let pointMode = false, promoPoints = [];
 let roadviewMode = false;
@@ -1315,13 +1401,14 @@ $('btnStats').onclick = () => {
   const dongMap = {};
   visible.forEach(p => {
     const d = p.dong || "미상";
-    if(!dongMap[d]) dongMap[d] = { dong:d, n:0, conv:0, d90:0, ret:0, total:0 };
+    if(!dongMap[d]) dongMap[d] = { dong:d, n:0, conv:0, d90:0, ret:0, total:0, sumVisits:0 };
     const row = dongMap[d];
     if(p.type==="신환 (1회만)") row.n++;
     else if(p.type==="신환 ▶ 재진 전환") row.conv++;
     else if(p.type==="90일초") row.d90++;
     else row.ret++;
     row.total++;
+    row.sumVisits += (p.total || 0);
   });
   const dongRows = Object.values(dongMap).sort((a,b)=>b.total-a.total);
   $('tblDong').innerHTML = dongRows.map(r=>`<tr><td>${r.dong}</td><td>${r.n}</td><td>${r.conv}</td><td>${r.d90}</td><td>${r.ret}</td><td><b>${r.total}</b></td></tr>`).join('');
@@ -1373,8 +1460,319 @@ $('btnStats').onclick = () => {
     plugins:[ChartDataLabels]
   });
 
+  // ===============================
+  // ✅ 추가 상세 통계 (지역 분석 / 전환·가치 / 거리·반경)
+  // ===============================
+  window.__lastStatsVisible = visible;
+  window.__lastStatsDongRows = dongRows;
+
+  // (1) 스택바 + (2) 파레토
+  try { renderRegionCharts(dongRows); } catch(e){ console.error(e); }
+
+  // (3) 전환률 랭킹 + (4) 평균 방문수
+  try { renderValueCharts(dongRows); } catch(e){ console.error(e); }
+
+  // (거리/반경) 거리 분포 + 거리 버킷별 전환률
+  try { renderDistanceCharts(visible); } catch(e){ console.error(e); }
+
+  // 탭 전환 시 차트가 숨김 상태에서 생성되는 문제 완화용 리사이즈
+  setTimeout(() => resizeAllStatCharts(), 80);
+
 };
 function pct(v, t) { return t ? ((v/t)*100).toFixed(1) : "0.0"; }
+
+/** ===== 추가 상세 통계 유틸/렌더러 ===== */
+function buildTopRowsWithOther(rows, topN){
+  const top = rows.slice(0, topN);
+  const rest = rows.slice(topN);
+  if(!rest.length) return { rows: top, hasOther:false };
+  const other = rest.reduce((acc,r)=>{
+    acc.n += r.n; acc.conv += r.conv; acc.d90 += r.d90; acc.ret += r.ret; acc.total += r.total; acc.sumVisits += (r.sumVisits||0);
+    return acc;
+  }, { dong:"기타", n:0, conv:0, d90:0, ret:0, total:0, sumVisits:0 });
+  return { rows: top.concat([other]), hasOther:true };
+}
+
+function safeNum(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
+
+function renderRegionCharts(dongRows){
+  const topN = 10;
+  const pack = buildTopRowsWithOther(dongRows, topN);
+  const rows = pack.rows;
+  const labels = rows.map(r=>r.dong);
+
+  // Table (Top N + 기타)
+  const tb = document.getElementById('tblRegionTop');
+  if(tb){
+    tb.innerHTML = rows.map(r => (
+      `<tr><td>${r.dong}</td><td><b>${r.total}</b></td><td>${r.n}</td><td>${r.conv}</td><td>${r.d90}</td><td>${r.ret}</td></tr>`
+    )).join('');
+  }
+
+  // (1) Stacked Bar
+  if(chartObjRegionStack) chartObjRegionStack.destroy();
+  chartObjRegionStack = new Chart(document.getElementById('chartRegionStack'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '신환', data: rows.map(r=>r.n), backgroundColor: REP_COLOR["신환 (1회만)"] },
+        { label: '전환', data: rows.map(r=>r.conv), backgroundColor: REP_COLOR["신환 ▶ 재진 전환"] },
+        { label: '90일', data: rows.map(r=>r.d90), backgroundColor: REP_COLOR["90일초"] },
+        { label: '재진', data: rows.map(r=>r.ret), backgroundColor: REP_COLOR["재진"] },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+
+  // (2) Pareto (Bar + Line)
+  const totals = rows.map(r=>r.total);
+  const grand = totals.reduce((a,b)=>a+b,0) || 1;
+  let cum = 0;
+  const cumPct = totals.map(v => { cum += v; return (cum/grand)*100; });
+
+  if(chartObjRegionPareto) chartObjRegionPareto.destroy();
+  chartObjRegionPareto = new Chart(document.getElementById('chartRegionPareto'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { type:'bar', label:'인원(총합)', data: totals, yAxisID:'y', backgroundColor:'#74c0fc' },
+        { type:'line', label:'누적(%)', data: cumPct, yAxisID:'y1', borderColor:'#495057', backgroundColor:'#495057', tension:0.2, pointRadius:2 }
+      ]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top' }, tooltip:{ callbacks:{ label:(ctx)=>{
+        if(ctx.dataset.yAxisID==='y1') return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`;
+        return `${ctx.dataset.label}: ${ctx.parsed.y}`;
+      }}}},
+      scales:{
+        y:{ beginAtZero:true, ticks:{ precision:0 } },
+        y1:{ beginAtZero:true, min:0, max:100, position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback:(v)=>v+'%' } }
+      }
+    }
+  });
+
+  // Summary text
+  const s = document.getElementById('txtParetoSummary');
+  if(s){
+    const top3 = dongRows.slice(0,3).reduce((a,r)=>a+r.total,0);
+    const top5 = dongRows.slice(0,5).reduce((a,r)=>a+r.total,0);
+    s.innerHTML =
+      `총 <b>${grand}</b>명 기준<br>` +
+      `Top3 집중도: <b>${(top3/grand*100).toFixed(1)}%</b> (상위 3개 동 합계 ${top3}명)<br>` +
+      `Top5 집중도: <b>${(top5/grand*100).toFixed(1)}%</b> (상위 5개 동 합계 ${top5}명)`;
+  }
+}
+
+function getMinSampleToggle(){
+  const el = document.getElementById('chkMinSample');
+  return el ? el.checked : true;
+}
+
+function renderValueCharts(dongRows){
+  // --- (3) Conversion rate ranking ---
+  const minSampleOn = getMinSampleToggle();
+  const rows = dongRows
+    .map(r => {
+      const denom = (r.n + r.conv);
+      const rate = denom ? (r.conv / denom) : 0;
+      return { ...r, denom, rate };
+    })
+    .filter(r => !minSampleOn || r.denom >= 5)
+    .sort((a,b)=> b.rate - a.rate);
+
+  const top = rows.slice(0, 15);
+  const labels = top.map(r=>r.dong);
+  const ratePct = top.map(r=> +(r.rate*100).toFixed(2));
+
+  if(chartObjConvRank) chartObjConvRank.destroy();
+  chartObjConvRank = new Chart(document.getElementById('chartConvRank'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'전환률(%)', data: ratePct, backgroundColor:'#51cf66' }] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:'y',
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
+        const r = top[ctx.dataIndex];
+        return `전환 ${r.conv} / 신환 ${r.n} (표본 ${r.denom})`;
+      }}}},
+      scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } } }
+    }
+  });
+
+  const tbl = document.getElementById('tblConvRank');
+  if(tbl){
+    tbl.innerHTML = top.map(r => (
+      `<tr><td>${r.dong}</td><td><b>${(r.rate*100).toFixed(1)}%</b></td><td>${r.conv}</td><td>${r.n}</td><td>${r.denom}</td></tr>`
+    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
+  }
+
+  // --- (4) Average visits by dong ---
+  const avgRows = dongRows
+    .map(r => {
+      const avg = r.total ? (safeNum(r.sumVisits)/r.total) : 0;
+      return { ...r, avg, sumVisits: safeNum(r.sumVisits) };
+    })
+    .sort((a,b)=> b.avg - a.avg);
+
+  const topAvg = avgRows.slice(0, 15);
+  const labelsAvg = topAvg.map(r=>r.dong);
+  const dataAvg = topAvg.map(r=> +r.avg.toFixed(2));
+
+  if(chartObjAvgVisits) chartObjAvgVisits.destroy();
+  chartObjAvgVisits = new Chart(document.getElementById('chartAvgVisits'), {
+    type:'bar',
+    data:{ labels: labelsAvg, datasets:[{ label:'평균 방문수', data: dataAvg, backgroundColor:'#339af0' }] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:'y',
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
+        const r = topAvg[ctx.dataIndex];
+        return `총 방문수 ${r.sumVisits} / 인원 ${r.total}`;
+      }}}},
+      scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }
+    }
+  });
+
+  const tbl2 = document.getElementById('tblAvgVisits');
+  if(tbl2){
+    tbl2.innerHTML = topAvg.map(r => (
+      `<tr><td>${r.dong}</td><td><b>${r.avg.toFixed(2)}</b></td><td>${r.sumVisits}</td><td>${r.total}</td></tr>`
+    )).join('') || `<tr><td colspan="4" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
+  }
+
+  // checkbox binding (1회만)
+  const chk = document.getElementById('chkMinSample');
+  if(chk && !chk.__bound){
+    chk.__bound = true;
+    chk.addEventListener('change', () => {
+      if(window.__lastStatsDongRows) renderValueCharts(window.__lastStatsDongRows);
+      setTimeout(() => resizeAllStatCharts(), 80);
+    });
+  }
+}
+
+function renderDistanceCharts(visible){
+  const need = document.getElementById('radiusNeedHospital');
+  const hasHosp = !!myHospitalMarker;
+
+  if(!hasHosp){
+    if(need) need.style.display = 'block';
+    // Clear / destroy charts & tables
+    if(chartObjDistHist) { chartObjDistHist.destroy(); chartObjDistHist = null; }
+    if(chartObjDistConv) { chartObjDistConv.destroy(); chartObjDistConv = null; }
+    const t1=document.getElementById('tblDist'); if(t1) t1.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#868e96;">병원 설정 후 확인 가능</td></tr>`;
+    const t2=document.getElementById('tblDistConv'); if(t2) t2.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#868e96;">병원 설정 후 확인 가능</td></tr>`;
+    return;
+  }
+  if(need) need.style.display = 'none';
+
+  const hospPos = myHospitalMarker.getPosition();
+  const bins = [
+    { label:'0~0.5km', min:0, max:500 },
+    { label:'0.5~1km', min:500, max:1000 },
+    { label:'1~2km', min:1000, max:2000 },
+    { label:'2~3km', min:2000, max:3000 },
+    { label:'3km+', min:3000, max:Infinity },
+  ];
+  const agg = bins.map(b => ({ ...b, cnt:0, new:0, conv:0 }));
+  const line = new kakao.maps.Polyline();
+
+  visible.forEach(p => {
+    if(!p || !p.latlng) return;
+    line.setPath([hospPos, p.latlng]);
+    const d = line.getLength(); // meters
+    const b = agg.find(x => d >= x.min && d < x.max);
+    if(!b) return;
+    b.cnt++;
+    if(p.type === "신환 (1회만)") b.new++;
+    else if(p.type === "신환 ▶ 재진 전환") b.conv++;
+  });
+
+  const labels = agg.map(a=>a.label);
+  const counts = agg.map(a=>a.cnt);
+  const total = counts.reduce((a,b)=>a+b,0) || 1;
+
+  // Distance histogram
+  if(chartObjDistHist) chartObjDistHist.destroy();
+  chartObjDistHist = new Chart(document.getElementById('chartDistHist'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'인원', data: counts, backgroundColor:'#ff922b' }] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }
+    }
+  });
+
+  const tbl = document.getElementById('tblDist');
+  if(tbl){
+    tbl.innerHTML = agg.map(a => (
+      `<tr><td>${a.label}</td><td>${a.cnt}</td><td>${pct(a.cnt, total)}%</td></tr>`
+    )).join('') + `<tr style="background:#f1f3f5;font-weight:bold;"><td>합계</td><td>${total}</td><td>100%</td></tr>`;
+  }
+
+  // Distance conversion rate
+  const rates = agg.map(a => {
+    const denom = a.new + a.conv;
+    return denom ? +(a.conv/denom*100).toFixed(2) : null;
+  });
+  const denomArr = agg.map(a => a.new + a.conv);
+
+  if(chartObjDistConv) chartObjDistConv.destroy();
+  chartObjDistConv = new Chart(document.getElementById('chartDistConv'), {
+    type:'line',
+    data:{ labels, datasets:[{ label:'전환률(%)', data: rates, borderColor:'#228be6', backgroundColor:'#228be6', spanGaps:true, tension:0.2, pointRadius:2 }] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
+        const i = ctx.dataIndex;
+        const a = agg[i];
+        const denom = a.new + a.conv;
+        return denom ? `전환 ${a.conv} / 신환 ${a.new} (표본 ${denom})` : '표본 없음';
+      }}}},
+      scales:{ y:{ beginAtZero:true, min:0, max:100, ticks:{ callback:(v)=>v+'%' } } }
+    }
+  });
+
+  const tbl2 = document.getElementById('tblDistConv');
+  if(tbl2){
+    tbl2.innerHTML = agg.map(a => {
+      const denom = a.new + a.conv;
+      const rate = denom ? (a.conv/denom*100).toFixed(1)+'%' : '-';
+      return `<tr><td>${a.label}</td><td><b>${rate}</b></td><td>${a.conv}</td><td>${a.new}</td><td>${denom}</td></tr>`;
+    }).join('');
+  }
+}
+
+function resizeAllStatCharts(){
+  const list = [chartObj1, chartObjDong, chartObjAge, chartObjVisit, chartObjRegionStack, chartObjRegionPareto, chartObjConvRank, chartObjAvgVisits, chartObjDistHist, chartObjDistConv];
+  list.forEach(ch => { try { ch && ch.resize(); } catch(e){} });
+}
+
+// 탭 클릭 후 숨김->표시 전환 시 차트 리사이즈
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if(t && t.classList && t.classList.contains('tabBtn')){
+    setTimeout(() => resizeAllStatCharts(), 80);
+  }
+});
+
 $('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
 window.switchTab = (id) => {
   document.querySelectorAll('.tabPane').forEach(e => e.style.display='none');
@@ -1383,38 +1781,6 @@ window.switchTab = (id) => {
   const ev = window.event;
   if(ev && ev.target) ev.target.classList.add('active');
 };
-
-// === 추가: 요약 차트 복제 ===
-new Chart(document.getElementById('chartSummaryType'), chartType.config);
-new Chart(document.getElementById('chartSummaryDong'), chartDong.config);
-new Chart(document.getElementById('chartSummaryAge'), chartAge.config);
-
-// === 추가: 연령 × 유형 스택 막대 ===
-const ageBuckets = ['0~19','20~29','30~39','40~49','50~59','60~69','70+'];
-const types = ['신환','전환','90일','재진'];
-const ageType = {};
-ageBuckets.forEach(a=>ageType[a]={신환:0,전환:0,'90일':0,재진:0});
-
-patients.forEach(p=>{
-  const a = bucketAge(p.age);
-  if(ageType[a]) ageType[a][p.type]++;
-});
-
-const datasets = types.map(t=>({
-  label:t,
-  data: ageBuckets.map(a=>ageType[a][t]),
-  stack:'stack1'
-}));
-
-const c = document.createElement('canvas');
-document.getElementById('tab-age').appendChild(c);
-
-new Chart(c,{
-  type:'bar',
-  data:{labels:ageBuckets,datasets},
-  options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true}}}
-});
 </script>
 </body>
-
 </html>
