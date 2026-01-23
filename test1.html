@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v2.3.10</title>
+  <title>JINSUL MAP v3.0.0</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
@@ -313,7 +313,7 @@
  /* ⬇️⬇️⬇️ 여기부터 전부 붙여넣기 ⬇️⬇️⬇️ */
 
   /* =========================
-     👇 여기서부터 "디자이너 보정"
+     👇 여기서부터 "디자이너 스타일링"
      ========================= */
 
 
@@ -536,8 +536,8 @@
 <div class="app">
   <div class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL MAP v2.3</div>
-      <div style="font-size:11px;color:#868e96;">v2.3.6</div>
+      <div class="brand">JINSUL MAP v3.0.0</div>
+      <div style="font-size:11px;color:#868e96;">v3.0.0</div>
     </div>
     
     <div class="sidebarBody">
@@ -627,7 +627,7 @@
     </div>
     
     <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v2.3.6<br>All Rights Reserved.
+      JINSUL MAP v3.0.0<br>All Rights Reserved.
     </div>
   </div>
 
@@ -788,7 +788,7 @@
         </div>
 
         <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
           <div id="dongExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
         </details>
       </div>
@@ -929,7 +929,7 @@
         </div>
 
         <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
           <div id="visitExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
         </details>
       </div>
@@ -1031,7 +1031,7 @@
             </div>
 
             <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-              <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+              <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
               <div id="valueExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
             </details>
           </div>
@@ -1144,7 +1144,7 @@ const SVG_MARKERS = {
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
 let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjVisitPareto = null, chartObjVisitImpact = null, chartObjAgeRetentionStack = null, chartObjAgeRetentionRates = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjValueScatter = null, chartObjDistHist = null, chartObjDistConv = null, chartObjDistCoverage = null, chartObjDistImpact = null;
-let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
+let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [], lastRoute = [];
 let pointMode = false, promoPoints = [];
 let roadviewMode = false;
 const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
@@ -1245,7 +1245,7 @@ function initKakao(){
     roadview = new kakao.maps.Roadview($('roadviewContainer'));
     roadviewClient = new kakao.maps.RoadviewClient();
     setupMapListeners(); setupToolbar(); 
-    toast("시스템 준비 완료 (v2.3.6)");
+    toast("시스템 준비 완료 (v3.0.0)");
   });
 }
 initKakao();
@@ -1489,7 +1489,87 @@ $('btnRouteOpt').onclick = () => {
     if(nearestIdx !== -1){ const nextNode = unvisited.splice(nearestIdx, 1)[0]; route.push({ order: order++, ...nextNode, distFromPrev: Math.round(minDist) }); currentPos = nextNode.latlng; pathPoints.push(nextNode.latlng); bounds.extend(nextNode.latlng); const numOv = new kakao.maps.CustomOverlay({ position: nextNode.latlng, content: `<div class="route-marker">${route.length}</div>`, yAnchor: 1.5, zIndex: 20 }); numOv.setMap(map); routeMarkers.push(numOv); }
   }
   routeLine = new kakao.maps.Polyline({ path: pathPoints, strokeWeight: 5, strokeColor: '#7048e8', strokeOpacity: 0.8, strokeStyle: 'solid' }); routeLine.setMap(map); map.setBounds(bounds);
+  lastRoute = route;
   $('tblRoute').innerHTML = route.map(r => `<tr><td>${r.order}</td><td>${r.name}</td><td>${r.addr}</td><td>${r.distFromPrev}m</td></tr>`).join(""); $('routeModal').style.display = 'flex';
+};
+
+// ✅ 엑셀 저장: 시설목록
+$('btnExportExcel').onclick = () => {
+  try{
+    if(!searchedData || !searchedData.length) return toast("저장할 시설이 없습니다. 먼저 '시설 스캔'을 실행하세요.");
+    const hasHospital = !!myHospitalMarker;
+    const hospPos = hasHospital ? myHospitalMarker.getPosition() : null;
+    const hospName = ($('myHospitalInput') && $('myHospitalInput').value || '').trim() || "우리 병원";
+
+    const rows = searchedData.map((p, i) => {
+      let distM = "";
+      if(hasHospital && hospPos && p.latlng){
+        try{
+          const line = new kakao.maps.Polyline({ path:[hospPos, p.latlng] });
+          distM = Math.round(line.getLength());
+        }catch(e){}
+      }
+      const typeLabel = (p.type === 'senior') ? '경로당' : (p.type === 'welfare') ? '복지관' : (p.type === 'ortho') ? '경쟁병원' : (p.type || '');
+      return {
+        '번호': i + 1,
+        '구분': typeLabel,
+        '시설명': p.name || '',
+        '주소': p.addr || '',
+        '전화': p.phone || '',
+        [`${hospName}거리(m)`]: distM,
+        '위도': p.lat || '',
+        '경도': p.lng || ''
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, '시설목록');
+    const fname = `시설목록_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fname);
+    toast("시설목록 엑셀 저장 완료");
+  }catch(e){
+    console.error(e);
+    toast("엑셀 저장 실패");
+  }
+};
+
+// ✅ 엑셀 저장: 최적 방문 경로
+$('btnExportRoute').onclick = () => {
+  try{
+    if(!lastRoute || !lastRoute.length) return toast("먼저 '최적 방문 경로 생성'을 실행하세요.");
+    const hospName = ($('myHospitalInput') && $('myHospitalInput').value || '').trim() || "우리 병원";
+    let cum = 0;
+
+    const rows = [
+      { '순서': 0, '구분': '출발', '시설명': hospName, '주소': '', '이동거리(m)': 0, '누적거리(m)': 0, '위도': '', '경도': '' }
+    ];
+
+    lastRoute.forEach(r => {
+      cum += (r.distFromPrev || 0);
+      const typeLabel = (r.type === 'senior') ? '경로당' : (r.type === 'welfare') ? '복지관' : (r.type === 'ortho') ? '경쟁병원' : (r.type || '');
+      rows.push({
+        '순서': r.order,
+        '구분': typeLabel,
+        '시설명': r.name || '',
+        '주소': r.addr || '',
+        '이동거리(m)': r.distFromPrev || 0,
+        '누적거리(m)': cum,
+        '위도': r.lat || '',
+        '경도': r.lng || ''
+      });
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, '방문경로');
+    const fname = `방문경로_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fname);
+    toast("방문 경로 엑셀 저장 완료");
+  }catch(e){
+    console.error(e);
+    toast("엑셀 저장 실패");
+  }
 };
 
 const uploadBox = $('uploadBox');
@@ -1817,7 +1897,7 @@ function renderDongTab(dongRows){
     plugins:[ChartDataLabels]
   });
 
-  // 표 해석 (Top/기타 포함)
+  // 해석 & 제안 (Top/기타 포함)
   if(expl){
     const topOnly = showRows.filter(r=>r.dong !== '기타').slice(0, Math.min(10, showRows.length));
     const metricName = (topBy==='visits') ? '총 내원수' : '환자수(신환+전환)';
@@ -1826,13 +1906,58 @@ function renderDongTab(dongRows){
       const avg = r.total ? (safeNum(r.sumVisits)/r.total) : 0;
       return `${i+1}) <b>${r.dong}</b> · ${metricName} <b>${fmt(metric)}</b> · 합계 ${fmt(r.total)}명 · 총 내원수 ${fmt(r.sumVisits)}회 · 1인 평균 ${avg.toFixed(2)}회`;
     });
+
     const other = showRows.find(r=>r.dong==='기타');
     const otherTxt = other ? `<br><span style="color:#868e96;">* 기타: 상위 TopN 외 나머지 동 합산</span>` : '';
     const unkTxt = excludeUnknown ? ` (미상 제외)` : '';
-    expl.innerHTML = `현재 기준: <b>${metricName}</b>${unkTxt}<br>` + lines.join('<br>') + otherTxt;
-  }
 
-  setTimeout(()=>{ try{ chartObjDong && chartObjDong.resize(); }catch(e){} }, 60);
+    // --- 추천(액션) ---
+    const rec = [];
+    const focusTop = topOnly.slice(0,3).map(r=>r.dong).join(', ');
+    if(focusTop) rec.push(`• <b>우선 집중</b>: ${focusTop} (현재 기준으로 상위 지역)`);
+
+    // 전환률 상위(표본≥5, 기타 제외)
+    const denom = (r)=> safeNum(r.n) + safeNum(r.conv);
+    const convRate = (r)=> denom(r) ? (safeNum(r.conv)/denom(r)*100) : 0;
+    const topConv = showRows
+      .filter(r=>r.dong!=='기타' && denom(r) >= 5)
+      .slice()
+      .sort((a,b)=>convRate(b)-convRate(a))
+      .slice(0,2);
+
+    if(topConv.length){
+      rec.push(`• <b>전환 효율 상위</b>(표본≥5): ` + topConv.map(r=>`${r.dong} ${convRate(r).toFixed(1)}%`).join(', '));
+    }
+
+    if(!excludeUnknown && base.some(r=>r.dong==='미상')){
+      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 순위/비중이 더 명확해집니다`);
+    }
+
+    if(other){
+      const totalMetric = base.reduce((s,r)=>s+keyFn(r),0) || 1;
+      const otherShare = (keyFn(other)/totalMetric*100);
+      rec.push(`• <b>기타 비중</b>: ${otherShare.toFixed(1)}% (상위 밖이 크면 TopN을 10/전체로 늘려 분산 여부를 확인해보세요)`);
+    }
+
+    // 내원수 기준이면 소수 VIP의 영향 가능
+    if(topBy === 'visits'){
+      const smallHigh = showRows
+        .filter(r=>r.dong!=='기타' && safeNum(r.total) > 0)
+        .map(r=>({dong:r.dong, total:safeNum(r.total), avg:(safeNum(r.sumVisits)/safeNum(r.total))}))
+        .filter(x=>x.total < 5 && x.avg >= 6)
+        .slice(0,3);
+      if(smallHigh.length){
+        rec.push(`• <b>주의</b>: 내원수 기준에서는 표본이 작은 동(예: 1~4명)의 영향이 커질 수 있습니다. (예: ${smallHigh.map(x=>`${x.dong} ${x.total}명·평균 ${x.avg.toFixed(1)}회`).join(', ')})`);
+      }
+    }
+
+    const recHtml = rec.length
+      ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`
+      : '';
+
+    expl.innerHTML = `현재 기준: <b>${metricName}</b>${unkTxt}<br>` + lines.join('<br>') + otherTxt + recHtml;
+  }
+setTimeout(()=>{ try{ chartObjDong && chartObjDong.resize(); }catch(e){} }, 60);
 }
 
 // ===== 연령 분포(도넛) =====
@@ -2064,13 +2189,36 @@ function renderVisitTab(visible){
   if(expl){
     const topLiftIdx = liftArr.reduce((best,i,idx)=> (i>liftArr[best] ? idx : best), 0);
     const topLiftBucket = labels[topLiftIdx];
+
+    const t2 = byBucket['1회'].people + byBucket['2회'].people;
+    const t2pct = totalPatients ? (t2/totalPatients*100) : 0;
+    const p3pct = totalPatients ? (p3/totalPatients*100) : 0;
+    const p5pct = totalPatients ? (p5/totalPatients*100) : 0;
+    const idx5 = labels.indexOf('5회+');
+    const lift5 = (idx5>=0) ? liftArr[idx5] : 0;
+
+    const rec = [];
+    if(t2pct >= 60){
+      rec.push(`• <b>2회 이하 비중</b>이 ${t2pct.toFixed(1)}%로 큽니다 → 1~2회 구간 리마인드/재예약 안내를 우선 강화해보세요`);
+    } else {
+      rec.push(`• <b>2회 이하 비중</b>이 ${t2pct.toFixed(1)}%입니다 → 3회+ 고객층을 늘릴 여지가 있습니다`);
+    }
+    rec.push(`• <b>Lift 최고 구간</b>: ${topLiftBucket} → 이 구간의 고객 경험/재예약 동선을 점검하면 효율이 큽니다`);
+    if(p3pct){
+      rec.push(`• <b>3회+ 비중</b>: ${p3pct.toFixed(1)}% · <b>5회+ 비중</b>: ${p5pct.toFixed(1)}%`);
+    }
+    if(lift5 && lift5 >= 1.2){
+      rec.push(`• <b>5회+</b> 구간은 인원은 적어도 내원 기여가 큰 편(Lift ${lift5.toFixed(2)}x) → VIP/단골 케어(리콜·정기검진) 후보로 관리해보세요`);
+    }
+
+    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
+
     expl.innerHTML =
       `• 이 탭은 <b>인원 분포</b>(왼쪽)와, 그 인원들이 만들어내는 <b>내원수 기여</b>(오른쪽)를 함께 봅니다.<br>` +
-      `• Lift는 “인원 비중 대비 내원 비중”입니다. 1보다 크면, 그 방문수 구간이 평균보다 더 많은 내원수를 만들어낸다는 뜻입니다.<br>` +
-      `• 현재(연령: ${af==='all'?'전체':af})에서 가장 Lift가 큰 구간은 <b>${topLiftBucket}</b> 입니다.`;
+      `• Lift는 “인원 비중 대비 내원 비중”입니다. 1보다 크면, 그 방문수 구간이 평균보다 더 많은 내원수를 만들어낸다는 뜻입니다.` +
+      recHtml;
   }
-
-  setTimeout(()=>{ try{ chartObjVisit && chartObjVisit.resize(); }catch(e){}; try{ chartObjVisitPareto && chartObjVisitPareto.resize(); }catch(e){}; try{ chartObjVisitImpact && chartObjVisitImpact.resize(); }catch(e){}; }, 60);
+setTimeout(()=>{ try{ chartObjVisit && chartObjVisit.resize(); }catch(e){}; try{ chartObjVisitPareto && chartObjVisitPareto.resize(); }catch(e){}; try{ chartObjVisitImpact && chartObjVisitImpact.resize(); }catch(e){}; }, 60);
 }
 
 
@@ -2349,7 +2497,7 @@ function renderValueCharts(dongRows){
   // --- (4) 평균 방문수 랭킹 (표본 필터 + VIP 후보 분리) ---
   const sortBy = (document.getElementById('selAvgSortBy')?.value) || 'avg';
 
-  const K = 10; // 내부 보정 강도(고정)
+  const K = 10; // 내부 완화 강도(고정, UI 미노출)
   const totalP = baseRows.reduce((a,r)=>a+safeNum(r.total),0);
   const totalV = baseRows.reduce((a,r)=>a+safeNum(r.sumVisits),0);
   const overallAvg = totalP ? (totalV/totalP) : 0;
@@ -2442,14 +2590,42 @@ function renderValueCharts(dongRows){
     const filterTxt = minSampleOn ? ' (표본 5명 미만은 아래 VIP 후보로 분리)' : ' (표본 필터 OFF: 모든 동 포함)';
     const show = topAvg.slice(0,5).map((r,i)=>{
       const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-      return `${i+1}) <b>${r.dong}</b> · 평균 방문수 <b>${r.avgAdj.toFixed(2)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
+      return `${i+1}) <b>${r.dong}</b> · ${metricLabel} <b>${valueFn(r)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
     }).join('<br>');
+
+    // --- 추천(액션) ---
+    const rec = [];
+    if(sortBy === 'avg'){
+      rec.push(`• <b>평균 방문수 상위</b>는 ‘단골화/리콜’ 후보입니다 → 재예약/정기검진 메시지를 우선 적용해보세요`);
+    } else if(sortBy === 'sum'){
+      rec.push(`• <b>총 방문수 상위</b>는 ‘업무량/기여’가 큰 지역입니다 → 운영/스케줄/CRM 우선순위를 높게 두는 게 유리합니다`);
+    } else if(sortBy === 'conv'){
+      rec.push(`• <b>전환률 상위</b>는 ‘효율’이 좋은 지역입니다 → 신환 유입 캠페인/안내를 집중해보세요`);
+    }
+    rec.push(`• 정렬 기준을 바꾸면 관점이 달라집니다 (평균 방문수=단골화, 총 방문수=기여, 전환률=효율)`);
+
+    if(!excludeUnknown && baseRows.some(r=>r.dong==='미상')){
+      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 지역 비교가 더 명확해집니다`);
+    }
+    if(minSampleOn){
+      const vipCnt = sortedVip.length || 0;
+      if(vipCnt){
+        const topVip = sortedVip.slice(0,3).map(r=>`${r.dong}(${r.total}명)`).join(', ');
+        rec.push(`• <b>VIP 후보</b>(표본<5): ${vipCnt}개 동 · 상위 후보: ${topVip}`);
+      } else {
+        rec.push(`• 현재 조건에서 VIP 후보(표본<5)가 없습니다`);
+      }
+    } else {
+      rec.push(`• 표본 필터 OFF 상태에서는 표본이 작은 동의 값이 튈 수 있으니 해석에 주의하세요`);
+    }
+
+    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
+
     expl.innerHTML =
       `현재 정렬: <b>${metricLabel}</b>${unkTxt}${filterTxt}<br>` +
-      show;
+      show + recHtml;
   }
-
-  // --- Scatter (선택) ---
+// --- Scatter (선택) ---
   renderValueScatter(dongRows);
 }
 
