@@ -773,6 +773,55 @@
         </table>
       
 
+      
+        <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div style="font-weight:700;color:#495057;">연령대별 리텐션 구조</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="font-size:12px;color:#495057;">표본 기준(n)</label>
+            <select id="ageMinN" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:10px;font-size:12px;">
+              <option value="1">전체</option>
+              <option value="10">n ≥ 10</option>
+              <option value="30" selected>n ≥ 30</option>
+              <option value="50">n ≥ 50</option>
+            </select>
+            <span style="font-size:11px;color:#868e96;">표본이 작은 연령대는 흐리게 표시됩니다.</span>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:1;min-width:320px;">
+            <div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 상태 구성 (100% 스택)</div>
+            <div style="height:240px;">
+              <canvas id="chartAgeRetentionStack"></canvas>
+            </div>
+          </div>
+          <div style="flex:1;min-width:320px;">
+            <div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 전환/재진 지표</div>
+            <div style="height:240px;">
+              <canvas id="chartAgeRetentionRates"></canvas>
+            </div>
+            <div id="ageRetentionSummary" style="margin-top:8px;font-size:12px;color:#495057;"></div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div style="overflow-x:auto;">
+          <table class="miniTable" style="min-width:860px;">
+            <thead>
+              <tr>
+                <th>연령대</th><th>합계</th><th>1회만</th><th>전환</th><th>90일</th><th>재진</th>
+                <th>전환률</th><th>재진 비중</th><th>Lift(전환)</th><th>Lift(재진)</th>
+              </tr>
+            </thead>
+            <tbody id="tblAgeRetention"></tbody>
+          </table>
+        </div>
+
+      
+
       </div>
 
       <div id="tabVisit" class="tabPane">
@@ -966,7 +1015,7 @@ const SVG_MARKERS = {
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
-let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjValueScatter = null, chartObjDistHist = null, chartObjDistConv = null, chartObjDistCoverage = null, chartObjDistImpact = null;
+let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjAgeRetentionStack = null, chartObjAgeRetentionRates = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjValueScatter = null, chartObjDistHist = null, chartObjDistConv = null, chartObjDistCoverage = null, chartObjDistImpact = null;
 let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
 let pointMode = false, promoPoints = [];
 let roadviewMode = false;
@@ -2143,6 +2192,242 @@ function getActiveStatsTabId(){
   return shown ? shown.id : 'tabType';
 }
 
+
+function hexToRgba(hex, alpha){
+  const h = String(hex||'').replace('#','');
+  const v = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+  const r = parseInt(v.substring(0,2),16), g = parseInt(v.substring(2,4),16), b = parseInt(v.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function renderAgeRetentionCharts(visible){
+  // 안전장치: 탭 내 요소가 없으면 스킵
+  const c1 = document.getElementById('chartAgeRetentionStack');
+  const c2 = document.getElementById('chartAgeRetentionRates');
+  const tbl = document.getElementById('tblAgeRetention');
+  const sel = document.getElementById('ageMinN');
+  const summary = document.getElementById('ageRetentionSummary');
+  if(!c1 || !c2 || !tbl || !sel || !summary) return;
+
+  const minN = Number(sel.value || 1);
+
+  const labels = ['0~19','20~29','30~39','40~49','50~59','60~69','70+','미상'];
+  const map = {};
+  labels.forEach(k => map[k] = { age:k, n:0, conv:0, d90:0, ret:0, total:0 });
+
+  (visible||[]).forEach(p => {
+    const ab = bucketAge(p.age);
+    const row = map[ab] || (map[ab] = { age:ab, n:0, conv:0, d90:0, ret:0, total:0 });
+    if(p.type==="신환 (1회만)") row.n++;
+    else if(p.type==="신환 ▶ 재진 전환") row.conv++;
+    else if(p.type==="90일초") row.d90++;
+    else row.ret++;
+    row.total++;
+  });
+
+  // 표용: 미상은 맨 아래로
+  const rows = labels.filter(k=>k!=='미상').map(k=>map[k]).concat(map['미상'].total ? [map['미상']] : []);
+
+  // 전체 기준 전환률/재진비중 (미상 포함, 90일 포함)
+  const totN = rows.reduce((s,r)=>s+r.n,0);
+  const totC = rows.reduce((s,r)=>s+r.conv,0);
+  const totR = rows.reduce((s,r)=>s+r.ret,0);
+  const totAll = rows.reduce((s,r)=>s+r.total,0);
+  const baseConvRate = (totN+totC) ? (totC/(totN+totC)) : 0;
+  const baseRetShare = totAll ? (totR/totAll) : 0;
+
+  // 요약 문구
+  summary.innerHTML = `<b>전체 전환률</b> ${(baseConvRate*100).toFixed(1)}% · <b>전체 재진 비중</b> ${(baseRetShare*100).toFixed(1)}%`;
+
+  // 차트용(미상 제외): 표본 부족은 alpha 낮춤
+  const chartLabels = labels.filter(k=>k!=='미상');
+  const totals = chartLabels.map(k=>map[k].total);
+
+  const alphaArr = totals.map(t => (t && t < minN) ? 0.25 : 1.0);
+
+  const pctArr = (key) => chartLabels.map((k, i) => {
+    const r = map[k];
+    return r.total ? (r[key] / r.total * 100) : 0;
+  });
+
+  const newPct = pctArr('n');
+  const convPct = pctArr('conv');
+  const d90Pct  = pctArr('d90');
+  const retPct  = pctArr('ret');
+
+  // 스택바: 100% 구성
+  try { chartObjAgeRetentionStack && chartObjAgeRetentionStack.destroy(); } catch(e){}
+  chartObjAgeRetentionStack = new Chart(c1, {
+    type:'bar',
+    data:{
+      labels: chartLabels,
+      datasets:[
+        { label:'1회만', data:newPct, backgroundColor: alphaArr.map(a=>hexToRgba('#ff0000', a)), borderWidth:0, stack:'s' },
+        { label:'전환', data:convPct, backgroundColor: alphaArr.map(a=>hexToRgba('#00c853', a)), borderWidth:0, stack:'s' },
+        { label:'90일', data:d90Pct,  backgroundColor: alphaArr.map(a=>hexToRgba('#ffd400', a)), borderWidth:0, stack:'s' },
+        { label:'재진', data:retPct,  backgroundColor: alphaArr.map(a=>hexToRgba('#228be6', a)), borderWidth:0, stack:'s' },
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'top' },
+        tooltip:{
+          callbacks:{
+            label:(ctx)=>{
+              const idx = ctx.dataIndex;
+              const k = chartLabels[idx];
+              const r = map[k];
+              const v = (ctx.raw||0).toFixed(1);
+              return `${ctx.dataset.label}: ${v}% (${r[ctx.dataset.label==='1회만'?'n':ctx.dataset.label==='전환'?'conv':ctx.dataset.label==='90일'?'d90':'ret']}명 / 합계 ${r.total}명)`;
+            }
+          }
+        },
+        datalabels:{ display:false }
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ maxRotation:0, autoSkip:false } },
+        y:{ stacked:true, beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } }
+      }
+    }
+  });
+
+  // 라인차트: 전환률 / 재진비중 (표본 부족은 점선)
+  const convRateArr = chartLabels.map(k => {
+    const r = map[k];
+    const den = r.n + r.conv;
+    return den ? (r.conv/den*100) : null;
+  });
+  const retShareArr = chartLabels.map(k => {
+    const r = map[k];
+    return r.total ? (r.ret/r.total*100) : null;
+  });
+
+  const lowFlags = totals.map(t => (t && t < minN));
+
+  const dashBySegment = (ctx) => {
+    const i0 = ctx.p0DataIndex, i1 = ctx.p1DataIndex;
+    if(lowFlags[i0] || lowFlags[i1]) return [5,5];
+    return [];
+  };
+
+  try { chartObjAgeRetentionRates && chartObjAgeRetentionRates.destroy(); } catch(e){}
+  chartObjAgeRetentionRates = new Chart(c2, {
+    type:'line',
+    data:{
+      labels: chartLabels,
+      datasets:[
+        {
+          label:'전환률(%)',
+          data: convRateArr,
+          tension:0.25,
+          borderWidth:2,
+          pointRadius:4,
+          pointHoverRadius:5,
+          pointBackgroundColor: lowFlags.map(f=>hexToRgba('#00c853', f?0.35:1)),
+          borderColor:'#00c853',
+          segment:{ borderDash: dashBySegment }
+        },
+        {
+          label:'재진 비중(%)',
+          data: retShareArr,
+          tension:0.25,
+          borderWidth:2,
+          pointRadius:4,
+          pointHoverRadius:5,
+          pointBackgroundColor: lowFlags.map(f=>hexToRgba('#228be6', f?0.35:1)),
+          borderColor:'#228be6',
+          segment:{ borderDash: dashBySegment }
+        },
+        {
+          label:'전체 전환률',
+          data: chartLabels.map(()=>baseConvRate*100),
+          tension:0,
+          borderWidth:1,
+          pointRadius:0,
+          borderColor: hexToRgba('#00c853', 0.6),
+          borderDash:[6,6],
+        },
+        {
+          label:'전체 재진 비중',
+          data: chartLabels.map(()=>baseRetShare*100),
+          tension:0,
+          borderWidth:1,
+          pointRadius:0,
+          borderColor: hexToRgba('#228be6', 0.6),
+          borderDash:[6,6],
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'top' },
+        tooltip:{
+          callbacks:{
+            afterBody:(items)=>{
+              const idx = items?.[0]?.dataIndex ?? 0;
+              const k = chartLabels[idx];
+              const r = map[k];
+              return [`합계 ${r.total}명`, `1회만 ${r.n} · 전환 ${r.conv} · 90일 ${r.d90} · 재진 ${r.ret}`];
+            }
+          }
+        },
+        datalabels:{ display:false }
+      },
+      scales:{
+        y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } },
+        x:{ ticks:{ maxRotation:0, autoSkip:false } }
+      }
+    }
+  });
+
+  // 테이블 렌더
+  const fmtPct = (v)=> (v===null || v===undefined || Number.isNaN(v)) ? '-' : `${v.toFixed(1)}%`;
+  const fmtLift = (v)=> (v===null || v===undefined || !Number.isFinite(v)) ? '-' : `${v.toFixed(2)}x`;
+
+  tbl.innerHTML = rows.map(r=>{
+    const den = r.n + r.conv;
+    const convRate = den ? (r.conv/den*100) : null;
+    const retShare = r.total ? (r.ret/r.total*100) : null;
+    const convLift = baseConvRate ? ((convRate/100) / baseConvRate) : null;
+    const retLift  = baseRetShare ? ((retShare/100) / baseRetShare) : null;
+
+    const low = (r.total && r.total < minN);
+    return `<tr style="${low ? 'opacity:0.55;' : ''}">
+      <td>${r.age}</td>
+      <td><b>${r.total}</b></td>
+      <td>${r.n}</td>
+      <td>${r.conv}</td>
+      <td>${r.d90}</td>
+      <td>${r.ret}</td>
+      <td><b>${fmtPct(convRate)}</b></td>
+      <td>${fmtPct(retShare)}</td>
+      <td>${fmtLift(convLift)}</td>
+      <td>${fmtLift(retLift)}</td>
+    </tr>`;
+  }).join('');
+
+  // 마지막 리사이즈 (숨김->표시 전환 대응)
+  setTimeout(()=>{ try{ chartObjAgeRetentionStack && chartObjAgeRetentionStack.resize(); }catch(e){}; try{ chartObjAgeRetentionRates && chartObjAgeRetentionRates.resize(); }catch(e){}; }, 60);
+}
+
+// 연령 탭 옵션 변경 시 즉시 재렌더
+(() => {
+  const sel = document.getElementById('ageMinN');
+  if(sel){
+    sel.addEventListener('change', () => {
+      const active = getActiveStatsTabId && getActiveStatsTabId();
+      if(active === 'tabAge'){
+        try { renderAgeRetentionCharts(window.__lastStatsVisible || []); } catch(e){ console.error(e); }
+      }
+    });
+  }
+})();
+
+
 function maybeRenderExtraStats(tabId){
   // 안전장치: 통계 데이터가 없으면 스킵
   const dongRows = window.__lastStatsDongRows || [];
@@ -2153,6 +2438,8 @@ function maybeRenderExtraStats(tabId){
     if(dongRows.length) renderValueCharts(dongRows);
   } else if(tabId === 'tabRadius'){
     renderDistanceCharts(visible);
+  } else if(tabId === 'tabAge'){
+    renderAgeRetentionCharts(visible);
   }
 }
 
@@ -2163,7 +2450,7 @@ function maybeRenderExtraStatsForActiveTab(){
 
 function resizeAllStatCharts(){
   const list = [
-    chartObj1, chartObjDong, chartObjAge, chartObjVisit,
+    chartObj1, chartObjDong, chartObjAge, chartObjVisit, chartObjAgeRetentionStack, chartObjAgeRetentionRates,
     chartObjRegionStack, chartObjRegionPareto,
     chartObjConvRank, chartObjAvgVisits, chartObjValueScatter,
     chartObjDistHist, chartObjDistConv, chartObjDistCoverage, chartObjDistImpact
