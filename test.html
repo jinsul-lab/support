@@ -2566,8 +2566,9 @@ function renderValueCharts(dongRows){
 
   const vipWrap = document.getElementById('vipAvgSection');
   const vipTbl = document.getElementById('tblVipAvg');
+  let sortedVip = [];
   if(vipWrap && vipTbl){
-    const sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+    sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
     vipWrap.style.display = sortedVip.length ? 'block' : 'none';
     vipTbl.innerHTML = sortedVip.map(r => (
       `<tr style="opacity:0.75;">
