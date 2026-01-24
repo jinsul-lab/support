@@ -1532,73 +1532,272 @@ function detectLatLngColumns(rows){
 }
 
 async function loadBannerPoints(){
-  if(bannerPointsCache) return bannerPointsCache;
-  const url = await resolveLatestBannerCsvUrl();
-  if(!url){ bannerPointsCache = []; return bannerPointsCache; }
-  const res = await fetch(url, {cache:'no-store'});
-  if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
-  // CSV 인코딩(공공데이터 CP949/EUC-KR) 대응: ArrayBuffer로 받아서 디코딩
-  const buf = await res.arrayBuffer();
-  let txt = '';
+  // 캐시가 있으면 즉시 반환
+  if (bannerPointsCache) return bannerPointsCache;
+
   try{
-    // Chrome은 'euc-kr' 지원 (CP949 대부분 커버)
-    txt = new TextDecoder('euc-kr').decode(buf);
-    // 디코딩 실패(  다수)면 utf-8로 fallback
-    const bad = (txt.match(/\uFFFD/g)||[]).length;
-    if(bad > 10) throw new Error('bad decode');
+    const url = await resolveLatestBannerCsvUrl();
+    if(!url){ bannerPointsCache = []; return bannerPointsCache; }
+
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // ⚠️ CSV 인코딩(UTF-8/CP949/EUC-KR) 섞일 수 있어 arrayBuffer로 받아서 TextDecoder로 해석
+    const buf = await res.arrayBuffer();
+    let textUtf8 = new TextDecoder('utf-8').decode(buf);
+    // UTF-8로 읽었을 때 '위도/경도' 같은 헤더가 없거나,  (U+FFFD)가 많이 보이면 CP949(EUC-KR)로 재시도
+    const hasKoreanHeader = (textUtf8.includes('위도') && textUtf8.includes('경도')) || (textUtf8.toLowerCase().includes('latitude') && textUtf8.toLowerCase().includes('longitude'));
+    const repCnt = (textUtf8.match(/\uFFFD/g)||[]).length;
+    let csvText = (hasKoreanHeader && repCnt < 50) ? textUtf8 : new TextDecoder('euc-kr').decode(buf);
+
+    // BOM 제거
+    csvText = csvText.replace(/^\uFEFF/, '');
+
+    // 줄 분리
+    const lines = csvText.split(/\r?\n/).filter(Boolean);
+    if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // CSV 한 줄 파서(따옴표 안의 쉼표 처리)
+    const splitCSV = (line)=>{
+      const out=[]; let cur=''; let inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='\"'){
+          if(inQ && line[i+1]==='\"'){ cur+='\"'; i++; }
+          else inQ=!inQ;
+        }else if(ch===',' && !inQ){
+          out.push(cur); cur='';
+        }else{
+          cur+=ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+
+    const header = splitCSV(lines[0]).map(h=>String(h||'').trim());
+    const findIdx = (keys)=> header.findIndex(h=>{
+      const hh = String(h||'').trim().toLowerCase();
+      return keys.some(k=>hh.includes(k));
+    });
+
+    const latIdx = findIdx(['위도','lat','latitude']);
+    const lngIdx = findIdx(['경도','lng','lon','longitude']);
+    const nameIdx = findIdx(['게시대명','게시대위치명','명칭','name','title']);
+    const addrIdx = findIdx(['소재지도로명주소','소재지지번주소','주소','addr','address']);
+
+    if(latIdx<0 || lngIdx<0){
+      console.warn('[BANNER] 위도/경도 컬럼을 찾지 못했습니다. header=', header);
+      bannerPointsCache = [];
+      return bannerPointsCache;
+    }
+
+    const pts = [];
+    let dropped = 0;
+
+    for(let i=1;i<lines.length;i++){
+      const cols = splitCSV(lines[i]);
+      const lat = parseFloat(String(cols[latIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      const lng = parseFloat(String(cols[lngIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)){ dropped++; continue; }
+
+      const title = String(cols[nameIdx] ?? '현수막 게시대').trim() || '현수막 게시대';
+      const addr = String(cols[addrIdx] ?? '').trim();
+
+      pts.push({
+        type: 'banner',
+        lat, lng,
+        title,
+        addr,
+        raw: cols
+      });
+    }
+
+    if(dropped){
+      console.log('[BANNER] dropped rows (no valid lat/lng):', dropped);
+    }
+
+    bannerPointsCache = pts;
+    // 디버그용(콘솔 점검)
+    window.__bannerAllRows = pts;
+    return bannerPointsCache;
   }catch(e){
-    txt = new TextDecoder('utf-8').decode(buf);
+    console.error('[BANNER] loadBannerPoints failed:', e);
+    bannerPointsCache = [];
+    return bannerPointsCache;
   }
-  const lines = txt.split(/\r?\n/).filter(Boolean);
-  if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
-
-  // parse full file (few thousand rows) so banners show in any region
-  const parsed = lines.map(parseCsvLineLoose);
-  // drop header if it looks like header (contains non-numeric lat/lng)
-  let latCol = -1, lngCol = -1;
-  // header-based detection first
-  const headerRow = parsed[0] || [];
-  const headerLower = headerRow.map(v => String(v||'').toLowerCase());
-  for(let i=0;i<headerLower.length;i++){
-    const h = headerLower[i];
-    if(latCol<0 && /(위도|latitude|lat)/.test(h)) latCol = i;
-    if(lngCol<0 && /(경도|longitude|lng|lon|long)/.test(h)) lngCol = i;
-    // Some Korean public datasets label X/Y: X=경도, Y=위도 (WGS84)
-    if(latCol<0 && /y/.test(h) && /(좌표|위치|point|wgs)/.test(h)) latCol = i;
-    if(lngCol<0 && /x/.test(h) && /(좌표|위치|point|wgs)/.test(h)) lngCol = i;
-  }
-  if(!(latCol>=0 && lngCol>=0)){
-    const det = detectLatLngColumns(parsed.slice(1));
-    latCol = det.lat; lngCol = det.lng;
-  }
-  if(latCol<0 || lngCol<0){ bannerPointsCache = []; return bannerPointsCache; }
-
-  const pts = [];
-  for(const row of parsed.slice(1)){
-    const lat = parseFloat((row[latCol]||'').replace(/[^0-9\.-]/g,''));
-    const lng = parseFloat((row[lngCol]||'').replace(/[^0-9\.-]/g,''));
-    if(!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    // name / addr heuristics: pick a stringy column that contains '게시대' or an address-like pattern
-    let name = '';
-    for(const v of row){
-      if(!v) continue;
-      if(/게시대/.test(v)){ name = v; break; }
-    }
-    if(!name){
-      // fallback to first non-empty string
-      name = row.find(v => v && v.length>=2) || '현수막 게시대';
-    }
-    let addr = '';
-    const addrLike = row.find(v => v && (/(로|길|동|읍|면|리)/.test(v)) && v.length>=6);
-    if(addrLike) addr = addrLike;
-    pts.push({ name, addr, lat, lng });
-  }
-  bannerPointsCache = pts;
-  return bannerPointsCache;
 }
 // ===== /현수막 게시대 =====
 
-searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
+  // ===== 현수막 게시대: "레이어"처럼 동작 (버튼 ON 상태면 지도 이동/줌에 맞춰 자동 갱신) =====
+  const bannerBtn = document.querySelector('.search-btn[data-target="banner"]');
+  const isBannerActive = () => !!(bannerBtn && bannerBtn.classList.contains('active'));
+
+  // 너무 많은 게시대가 한 번에 뜨면 브라우저가 버벅일 수 있어, 줌 레벨에 따라 상한을 둠
+  const getBannerMax = () => {
+    const lv = (window.map && map.getLevel) ? map.getLevel() : 7;
+    // 레벨이 작을수록(확대) 더 많이 보여도 OK
+    if(lv <= 4) return 2000;
+    if(lv <= 6) return 1500;
+    if(lv <= 8) return 1000;
+    return 700;
+  };
+
+  const sampleGrid = (points, bounds, maxN) => {
+    if(points.length <= maxN) return points;
+
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const rows = 20, cols = 20;
+    const dLat = (ne.getLat() - sw.getLat()) / rows;
+    const dLng = (ne.getLng() - sw.getLng()) / cols;
+
+    const buckets = new Map();
+    for(const p of points){
+      const r = Math.min(rows-1, Math.max(0, Math.floor((p.lat - sw.getLat()) / (dLat || 1e-9))));
+      const c = Math.min(cols-1, Math.max(0, Math.floor((p.lng - sw.getLng()) / (dLng || 1e-9))));
+      const key = r + ':' + c;
+      if(!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(p);
+    }
+
+    // 라운드 로빈으로 각 셀에서 하나씩 뽑아 골고루 분포
+    const keys = Array.from(buckets.keys());
+    let idx = 0;
+    const out = [];
+    while(out.length < maxN && keys.length){
+      const k = keys[idx % keys.length];
+      const arr = buckets.get(k);
+      if(arr && arr.length){
+        out.push(arr.shift());
+      }else{
+        // 비어버린 셀 제거
+        buckets.delete(k);
+        keys.splice(idx % keys.length, 1);
+        if(!keys.length) break;
+        continue;
+      }
+      idx++;
+    }
+    return out;
+  };
+
+  const clearBannerLayerOnly = () => {
+    (targetMarkers.banner || []).forEach(m => m.setMap(null));
+    (targetOverlays.banner || []).forEach(o => o.setMap(null));
+    targetMarkers.banner = [];
+    targetOverlays.banner = [];
+    // searchedData에서 banner만 제거
+    searchedData = (searchedData || []).filter(x => x.type !== 'banner');
+  };
+
+  let __bannerIdleHandler = null;
+  let __bannerIdleAttached = false;
+  const startBannerAuto = () => {
+    if(__bannerIdleAttached || !window.map) return;
+    __bannerIdleHandler = () => {
+      if(!isBannerActive()) return;
+      // 너무 자주 그리면 버벅임 → 250ms 디바운스
+      clearTimeout(window.__bannerDebounceT);
+      window.__bannerDebounceT = setTimeout(() => {
+        drawBannerLayerForBounds(map.getBounds());
+      }, 250);
+    };
+    kakao.maps.event.addListener(map, 'idle', __bannerIdleHandler);
+    __bannerIdleAttached = true;
+  };
+  const stopBannerAuto = () => {
+    if(!__bannerIdleAttached) return;
+    try{ kakao.maps.event.removeListener(map, 'idle', __bannerIdleHandler); }catch(e){}
+    __bannerIdleHandler = null;
+    __bannerIdleAttached = false;
+  };
+
+  async function drawBannerLayerForBounds(bounds){
+    if(!bounds || !window.map) return;
+
+    const ptsAll = await loadBannerPoints();
+    if(!ptsAll || !ptsAll.length){
+      clearBannerLayerOnly();
+      toast('현수막 게시대 CSV를 불러오지 못했습니다.', 2500);
+      return;
+    }
+
+    const inBounds = ptsAll.filter(p => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)));
+
+    // 기존 배너 마커/라벨 제거
+    clearBannerLayerOnly();
+
+    const maxN = getBannerMax();
+    const picked = sampleGrid(inBounds, bounds, maxN);
+
+    // 표시 + searchedData 반영
+    for(const p of picked){
+      const pos = new kakao.maps.LatLng(p.lat, p.lng);
+
+      // 마커
+      const m = new kakao.maps.Marker({
+        position: pos,
+        map,
+        image: new kakao.maps.MarkerImage(
+          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34"><circle cx="17" cy="17" r="16" fill="#6f42c1"/><text x="17" y="22" text-anchor="middle" font-size="16" fill="#fff" font-family="Arial">B</text></svg>`),
+          new kakao.maps.Size(34,34),
+          { offset: new kakao.maps.Point(17,17) }
+        ),
+        title: p.title || '현수막 게시대',
+        zIndex: 30
+      });
+      targetMarkers.banner.push(m);
+
+      // 라벨(너무 빽빽하면 가독성 떨어져서, 레벨에 따라 숨김)
+      const lv = map.getLevel();
+      if(lv <= 7){
+        const label = document.createElement('div');
+        label.className = 'marker-label marker-label-banner';
+        label.textContent = p.title || '현수막';
+        const o = new kakao.maps.CustomOverlay({
+          position: pos,
+          content: label,
+          yAnchor: 1.8,
+          zIndex: 31,
+          map
+        });
+        targetOverlays.banner.push(o);
+      }
+
+      searchedData.push({
+        type: 'banner',
+        name: p.title || '현수막 게시대',
+        address: p.addr || '',
+        lat: p.lat,
+        lng: p.lng
+      });
+    }
+
+    // 디버그
+    window.__bannerShown = picked;
+    // 사용자 체감: 얼마나 걸러졌는지 알 수 있게
+    console.log('[BANNER] total:', ptsAll.length, 'inBounds:', inBounds.length, 'shown:', picked.length, 'level:', map.getLevel());
+  }
+
+  // 버튼 클릭 로직: banner는 레이어처럼 자동 갱신
+  searchBtns.forEach(btn => btn.onclick = async function(){
+    this.classList.toggle('active');
+
+    const target = this.getAttribute('data-target');
+
+    if(target === 'banner'){
+      if(isBannerActive()){
+        // 켜지면 바로 표시 + 자동 갱신 시작
+        await drawBannerLayerForBounds(map.getBounds());
+        startBannerAuto();
+      }else{
+        // 꺼지면 제거 + 자동 갱신 해제
+        stopBannerAuto();
+        clearBannerLayerOnly();
+      }
+    }
+  });
 
 async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   return new Promise((resolve)=>{
@@ -1677,17 +1876,8 @@ await __waitMapIdle();
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
     // banner는 CSV 데이터 로드로 처리
     if(t === 'banner'){
-      try{
-        const pts = await loadBannerPoints();
-        const inBounds = pts.filter(p => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)));
-        inBounds.forEach((p) => {
-          const latlng = new kakao.maps.LatLng(p.lat, p.lng);
-          const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 200000 });
-          const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.name}</div>`, map: map, zIndex: 200001 });
-          targetMarkers[t].push(marker); targetOverlays[t].push(label);
-          searchedData.push({ name: p.name, addr: p.addr||'', phone: '', type: t, lat: p.lat, lng: p.lng, latlng: latlng, id: `banner_${p.lat}_${p.lng}` });
-        });
-      }catch(e){ console.error(e); }
+      await drawBannerLayerForBounds(bounds);
+      startBannerAuto();
       continue;
     }
 
