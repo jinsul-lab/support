@@ -1548,8 +1548,8 @@ async function loadBannerPoints(){
   const lines = txt.split(/\r?\n/).filter(Boolean);
   if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
 
-  // parse first up to 200 lines
-  const parsed = lines.slice(0, 200).map(parseCsvLineLoose);
+  // parse full file (few thousand rows) so banners show in any region
+  const parsed = lines.map(parseCsvLineLoose);
   // drop header if it looks like header (contains non-numeric lat/lng)
   let latCol = -1, lngCol = -1;
   // header-based detection first
