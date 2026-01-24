@@ -1533,7 +1533,18 @@ async function loadBannerPoints(){
   if(!url){ bannerPointsCache = []; return bannerPointsCache; }
   const res = await fetch(url, {cache:'no-store'});
   if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
-  const txt = await res.text();
+  // CSV 인코딩(공공데이터 CP949/EUC-KR) 대응: ArrayBuffer로 받아서 디코딩
+  const buf = await res.arrayBuffer();
+  let txt = '';
+  try{
+    // Chrome은 'euc-kr' 지원 (CP949 대부분 커버)
+    txt = new TextDecoder('euc-kr').decode(buf);
+    // 디코딩 실패(  다수)면 utf-8로 fallback
+    const bad = (txt.match(/\uFFFD/g)||[]).length;
+    if(bad > 10) throw new Error('bad decode');
+  }catch(e){
+    txt = new TextDecoder('utf-8').decode(buf);
+  }
   const lines = txt.split(/\r?\n/).filter(Boolean);
   if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
 
@@ -1546,11 +1557,11 @@ async function loadBannerPoints(){
   const headerLower = headerRow.map(v => String(v||'').toLowerCase());
   for(let i=0;i<headerLower.length;i++){
     const h = headerLower[i];
-    if(latCol<0 && /(위도|latitude|lat)/.test(h)) latCol = i;
-    if(lngCol<0 && /(경도|longitude|lng|lon|long)/.test(h)) lngCol = i;
+    if(latCol<0 && /(위도|latitude|lat)/.test(h)) latCol = i;
+    if(lngCol<0 && /(경도|longitude|lng|lon|long)/.test(h)) lngCol = i;
     // Some Korean public datasets label X/Y: X=경도, Y=위도 (WGS84)
-    if(latCol<0 && /y/.test(h) && /(좌표|위치|point|wgs)/.test(h)) latCol = i;
-    if(lngCol<0 && /x/.test(h) && /(좌표|위치|point|wgs)/.test(h)) lngCol = i;
+    if(latCol<0 && /y/.test(h) && /(좌표|위치|point|wgs)/.test(h)) latCol = i;
+    if(lngCol<0 && /x/.test(h) && /(좌표|위치|point|wgs)/.test(h)) lngCol = i;
   }
   if(!(latCol>=0 && lngCol>=0)){
     const det = detectLatLngColumns(parsed.slice(1));
