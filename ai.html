@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>JINSUL MAP v3.1.1</title>
+  <title>JINSUL MAP v3.1.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer&autoload=false"></script>
@@ -768,6 +768,7 @@
       <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
         <input id="aiGeminiKey" class="miniInput" type="password" placeholder="Gemini API Key (AIza...)" />
         <input id="aiOpenAIKey" class="miniInput" type="password" placeholder="OpenAI API Key (sk-...)" />
+        <input id="aiOpenAIProxy" class="miniInput" placeholder="OpenAI 프록시 URL (권장: CORS 해결용)" />
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn outline" id="btnSaveAIKeys" style="flex:1;">키 저장</button>
@@ -1398,7 +1399,7 @@ function initKakao(){
     roadview = new kakao.maps.Roadview($('roadviewContainer'));
     roadviewClient = new kakao.maps.RoadviewClient();
     setupMapListeners(); setupToolbar(); 
-    toast("시스템 준비 완료 (v3.1.1)");
+    toast("시스템 준비 완료 (v3.1.2)");
   });
 }
 initKakao();
@@ -1532,7 +1533,9 @@ function setupToolbar(){
     window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); }); window.__areaPolys = [];
     distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); }); distMeasurements = [];
     try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 
     promoPoints.forEach(p => p.setMap(null)); promoPoints = [];
@@ -1982,7 +1985,9 @@ function pickSeniorRepresentative(list){
 
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active'); if(!actives.length) return toast("대상 선택");
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
  searchedData = []; try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
   // (중요) pan/zoom 직후엔 bounds가 이전 값일 수 있어 'idle' 한번 대기
@@ -2042,7 +2047,9 @@ if(t === 'senior') {
   $('searchStatus').innerText = "완료"; toast("스캔 완료");
 };
 
-$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
  try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
 
@@ -3855,6 +3862,7 @@ window.switchTab = (id) => {
 /* ===========================   [AI 전략 컨설턴트: Gemini ↔ GPT(OpenAI)]   =========================== */
 const DEFAULT_GEMINI_KEY = "AIzaSyBpZoSm50VllraydEtSH1hYPd_h0qux2A4";
 const DEFAULT_OPENAI_KEY = "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";
+const DEFAULT_OPENAI_PROXY = "";
 
 const AI_STORE_KEY = "jinsul_ai_settings_v1";
 let __aiLastText = "";
@@ -3872,16 +3880,17 @@ const AI_PRESETS = {
 function aiLoadSettings(){
   try {
     const raw = localStorage.getItem(AI_STORE_KEY);
-    if(!raw) return { provider:"gemini", model:"gemini-1.5-flash", geminiKey: DEFAULT_GEMINI_KEY || "", openaiKey: DEFAULT_OPENAI_KEY || "" };
+    if(!raw) return { provider:"gemini", model:"gemini-1.5-flash", geminiKey: DEFAULT_GEMINI_KEY || "", openaiKey: DEFAULT_OPENAI_KEY || "", openaiProxy: DEFAULT_OPENAI_PROXY || "" };
     const v = JSON.parse(raw);
     return {
       provider: v.provider || "gemini",
       model: v.model || (v.provider==="openai" ? "gpt-4o-mini" : "gemini-1.5-flash"),
       geminiKey: v.geminiKey || "",
-      openaiKey: v.openaiKey || ""
+      openaiKey: v.openaiKey || "",
+      openaiProxy: v.openaiProxy || (DEFAULT_OPENAI_PROXY || "")
     };
   } catch {
-    return { provider:"gemini", model:"gemini-1.5-flash", geminiKey: DEFAULT_GEMINI_KEY || "", openaiKey: DEFAULT_OPENAI_KEY || "" };
+    return { provider:"gemini", model:"gemini-1.5-flash", geminiKey: DEFAULT_GEMINI_KEY || "", openaiKey: DEFAULT_OPENAI_KEY || "", openaiProxy: DEFAULT_OPENAI_PROXY || "" };
   }
 }
 function aiSaveSettings(s){
@@ -4043,7 +4052,7 @@ async function callGeminiText(model, systemPrompt, userPrompt, apiKey){
     systemInstruction: { parts: [{ text: systemPrompt }] }
   };
   const res = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if(!res.ok){ const t = await res.text(); throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,220)}`); }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "결과 없음";
 }
@@ -4062,27 +4071,54 @@ function extractOpenAIText(resp){
   }
 }
 
-async function callOpenAIText(model, systemPrompt, userPrompt, apiKey){
-  const url = "https://api.openai.com/v1/responses";
+async function callOpenAIText(model, systemPrompt, userPrompt, apiKey, proxyUrl){
   const body = {
     model,
     instructions: systemPrompt,
     input: userPrompt
   };
-  const res = await fetch(url, {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
-  if(!res.ok){
-    const t = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,180)}`);
+
+  // 브라우저(정적 페이지)에서는 OpenAI 직접 호출이 CORS로 차단되는 경우가 대부분입니다.
+  // 그래서 프록시 URL을 넣으면 그쪽으로 우회 호출합니다.
+  if(proxyUrl && /^https?:\/\//i.test(proxyUrl)){
+    const res = await fetch(proxyUrl, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        provider: "openai",
+        apiKey: apiKey || "", // 프록시가 키를 서버에 보관하면 무시 가능
+        body
+      })
+    });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,220)}`);
+    }
+    const data = await res.json();
+    return extractOpenAIText(data) || "결과 없음";
   }
-  const data = await res.json();
-  return extractOpenAIText(data) || "결과 없음";
+
+  // 프록시가 없으면 직접 호출을 시도하되, 실패하면 CORS 안내를 보여줍니다.
+  const url = "https://api.openai.com/v1/responses";
+  try{
+    const res = await fetch(url, {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,220)}`);
+    }
+    const data = await res.json();
+    return extractOpenAIText(data) || "결과 없음";
+  } catch(e){
+    // CORS/네트워크 차단일 가능성이 큼
+    throw new Error("OpenAI는 브라우저에서 직접 호출 시 CORS로 막힐 수 있습니다. 'OpenAI 프록시 URL'을 입력(또는 서버 프록시 사용)해 주세요.");
+  }
 }
 
 /* ---- UI wiring ---- */
@@ -4120,6 +4156,7 @@ function syncAISettingsToUI(s){
   $('aiModel').value = s.model || (s.provider==="openai" ? "gpt-4o-mini" : "gemini-1.5-flash");
   $('aiGeminiKey').value = s.geminiKey || "";
   $('aiOpenAIKey').value = s.openaiKey || "";
+  $('aiOpenAIProxy').value = s.openaiProxy || (DEFAULT_OPENAI_PROXY || "");
   // 간단히: 두 키 입력은 둘 다 보이되, 미사용 키도 저장 가능
 }
 
@@ -4127,8 +4164,8 @@ async function runAI(){
   const s = aiLoadSettings();
   const provider = $('aiProvider')?.value || s.provider || "gemini";
   const model = ($('aiModel')?.value || s.model || "").trim() || (provider==="openai" ? "gpt-4o-mini" : "gemini-1.5-flash");
-  const geminiKey = ($('aiGeminiKey')?.value || s.geminiKey || "").trim();
-  const openaiKey = ($('aiOpenAIKey')?.value || s.openaiKey || "").trim();
+  const geminiKey = ($('aiGeminiKey')?.value || s.geminiKey || "").trim().replace(/\s+/g,"");
+  const openaiKey = ($('aiOpenAIKey')?.value || s.openaiKey || "").trim().replace(/\s+/g,"");
 
   const systemPrompt = buildSystemPrompt();
   const userText = $('aiPrompt2') ? $('aiPrompt2').value : "";
@@ -4139,7 +4176,7 @@ async function runAI(){
     let out = "";
     if(provider === "openai"){
       if(!openaiKey) throw new Error("OpenAI API Key가 비어있습니다.");
-      out = await callOpenAIText(model, systemPrompt, userPrompt, openaiKey);
+      out = await callOpenAIText(model, systemPrompt, userPrompt, openaiKey, openaiProxy);
     } else {
       if(!geminiKey) throw new Error("Gemini API Key가 비어있습니다.");
       out = await callGeminiText(model, systemPrompt, userPrompt, geminiKey);
@@ -4183,18 +4220,40 @@ function initAIPanel(){
   const s = aiLoadSettings();
   syncAISettingsToUI(s);
 
+  // provider 변경 시 기본 모델 자동 전환 (모델이 Gemini인데 GPT 선택/반대일 때)
+  if($('aiProvider')){
+    $('aiProvider').onchange = ()=>{
+      const pv = $('aiProvider').value || "gemini";
+      const modelEl = $('aiModel');
+      if(modelEl){
+        const cur = (modelEl.value||"").trim();
+        const looksGem = /^gemini/i.test(cur);
+        const looksOpen = /^(gpt|o\d|chatgpt|text-)/i.test(cur);
+        if(pv==="openai" && (!cur || looksGem)) modelEl.value = "gpt-4o-mini";
+        if(pv==="gemini" && (!cur || looksOpen)) modelEl.value = "gemini-1.5-flash";
+      }
+      // 사용 키 입력 가이드(시각적)
+      if($('aiGeminiKey')) $('aiGeminiKey').style.opacity = (pv==="gemini") ? "1" : "0.35";
+      if($('aiOpenAIKey')) $('aiOpenAIKey').style.opacity = (pv==="openai") ? "1" : "0.35";
+      if($('aiOpenAIProxy')) $('aiOpenAIProxy').style.opacity = (pv==="openai") ? "1" : "0.35";
+    };
+    // 초기 상태에도 적용
+    $('aiProvider').onchange();
+  }
+
   if($('btnSaveAIKeys')) $('btnSaveAIKeys').onclick = ()=>{
     const next = {
       provider: $('aiProvider')?.value || s.provider || "gemini",
       model: ($('aiModel')?.value || "").trim() || (($('aiProvider')?.value==="openai") ? "gpt-4o-mini" : "gemini-1.5-flash"),
       geminiKey: ($('aiGeminiKey')?.value || "").trim(),
-      openaiKey: ($('aiOpenAIKey')?.value || "").trim()
+      openaiKey: ($('aiOpenAIKey')?.value || "").trim(),
+      openaiProxy: ($('aiOpenAIProxy')?.value || "").trim()
     };
     aiSaveSettings(next);
     toast("키 저장 완료");
   };
   if($('btnClearAIKeys')) $('btnClearAIKeys').onclick = ()=>{
-    aiSaveSettings({ provider:"gemini", model:"gemini-1.5-flash", geminiKey:"", openaiKey:"" });
+    aiSaveSettings({ provider:"gemini", model:"gemini-1.5-flash", geminiKey:"", openaiKey:"", openaiProxy:"" });
     syncAISettingsToUI(aiLoadSettings());
     toast("키 삭제 완료");
   };
