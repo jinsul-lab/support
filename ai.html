@@ -724,7 +724,8 @@
 </div>
 </div>
 </div>
-<div +="" <!--="[AI" drawer="" i="" modal]="--" report="">
+<!-- [AI drawer / report modal] -->
+<div>
 <div class="fabAI">
 <button class="btn purple" id="btnFabAI" title="AI 패널 열기">✨ AI</button>
 </div>
@@ -3150,10 +3151,11 @@ function renderValueCharts(dongRows){
     )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
   }
 
+  let sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
   const vipWrap = document.getElementById('vipAvgSection');
   const vipTbl = document.getElementById('tblVipAvg');
   if(vipWrap && vipTbl){
-    const sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+    sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
     vipWrap.style.display = sortedVip.length ? 'block' : 'none';
     vipTbl.innerHTML = sortedVip.map(r => (
       `<tr style="opacity:0.75;">
@@ -3791,8 +3793,8 @@ window.switchTab = (id) => {
 
 
 /* ===========================   [AI 전략 컨설턴트: Gemini ↔ GPT(OpenAI)]   =========================== */
-const DEFAULT_GEMINI_KEY = "AIzaSyBpZoSm50VllraydEtSH1hYPd_h0qux2A4";
-const DEFAULT_OPENAI_KEY = "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";
+const DEFAULT_GEMINI_KEY = "";
+const DEFAULT_OPENAI_KEY = "";
 const DEFAULT_OPENAI_PROXY = "";
 
 
