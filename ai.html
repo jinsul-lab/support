@@ -3036,187 +3036,35 @@ function renderValueScatter(dongRows){
 }
 
 function renderValueCharts(dongRows){
-  bindValueControlsOnce();
+  // value charts: VIP table + scatter
+  try{
+    const vipRows = Array.isArray(dongRows) ? dongRows.filter(r=>r && r._total!==undefined) : [];
+    const sortedVip = vipRows.slice().sort((a,b)=> (b._total||0)-(a._total||0)).slice(0,15);
 
-  const minSampleOn = getMinSampleToggle();
-  const excludeUnknown = getExcludeUnknownValue();
-  const baseRows = (excludeUnknown ? dongRows.filter(r => r.dong !== '미상') : dongRows);
-
-  // --- (3) 전환률 랭킹 ---
-  const convRows = baseRows
-    .map(r => {
-      const denom = (safeNum(r.n) + safeNum(r.conv));
-      const rate = denom ? (safeNum(r.conv) / denom) : 0;
-      return { ...r, denom, rate };
-    })
-    .filter(r => !minSampleOn || r.denom >= 5)
-    .sort((a,b)=> b.rate - a.rate);
-
-  const top = convRows.slice(0, 15);
-  const labels = top.map(r=>r.dong);
-  const ratePct = top.map(r=> +(r.rate*100).toFixed(2));
-
-  if(chartObjConvRank) chartObjConvRank.destroy();
-  chartObjConvRank = new Chart(document.getElementById('chartConvRank'), {
-    type:'bar',
-    data:{ labels, datasets:[{ label:'전환률(%)', data: ratePct, backgroundColor:'#51cf66' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = top[ctx.dataIndex];
-        return `신환 ${r.n} / 전환 ${r.conv} (합계 ${r.denom})`;
-      }}}},
-      scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } } }
+    // VIP table
+    const vipWrap = document.getElementById("valueVipWrap");
+    const vipTbl  = document.getElementById("valueVipTbl");
+    if(vipWrap && vipTbl){
+      vipWrap.style.display = sortedVip.length ? "block" : "none";
+      vipTbl.innerHTML = sortedVip.map(r=>{
+        const name = escapeHtml(r._name || "");
+        const total = Number(r._total||0).toLocaleString();
+        const avg = (Number(r._avg||0)).toFixed(1);
+        return `<tr><td>${name}</td><td style="text-align:right;">${total}</td><td style="text-align:right;">${avg}</td></tr>`;
+      }).join("") || "";
     }
-  });
 
-  const tbl = document.getElementById('tblConvRank');
-  if(tbl){
-    tbl.innerHTML = top.map(r => (
-      `<tr><td>${r.dong}</td><td><b>${(r.rate*100).toFixed(1)}%</b></td><td>${r.n}</td><td>${r.conv}</td><td>${r.denom}</td></tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
+    // mini stats
+    const vipCntEl = document.getElementById("valueVipCnt");
+    if(vipCntEl) vipCntEl.textContent = String(sortedVip.length);
+
+    // scatter
+    renderValueScatter(dongRows);
+  }catch(e){
+    console.warn("renderValueCharts error", e);
   }
-
-  // --- (4) 평균 방문수 랭킹 (표본 필터 + VIP 후보 분리) ---
-  const sortBy = (document.getElementById('selAvgSortBy')?.value) || 'avg';
-
-  const K = 10; // 내부 완화 강도(고정, UI 미노출)
-  const totalP = baseRows.reduce((a,r)=>a+safeNum(r.total),0);
-  const totalV = baseRows.reduce((a,r)=>a+safeNum(r.sumVisits),0);
-  const overallAvg = totalP ? (totalV/totalP) : 0;
-
-  const enriched = baseRows
-    .filter(r => safeNum(r.total) > 0)
-    .map(r => {
-      const total = safeNum(r.total);
-      const sumVisits = safeNum(r.sumVisits);
-      const avg = sumVisits / total;
-      const avgAdj = (sumVisits + K*overallAvg) / (total + K); // 표시용 평균(노이즈 완화)
-      const denom = safeNum(r.n) + safeNum(r.conv);
-      const convRate = denom ? (safeNum(r.conv)/denom) : 0;
-      return { ...r, total, sumVisits, avg, avgAdj, denom, convRate };
-    });
-
-  const vipRows = enriched.filter(r => r.total < 5);
-  const mainRows = minSampleOn ? enriched.filter(r => r.total >= 5) : enriched;
-
-  const keyFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return r.convRate;
-    return r.avgAdj;
-  };
-
-  const metricLabel = (sortBy === 'sum') ? '총 방문수' : (sortBy === 'conv' ? '전환률(%)' : '평균 방문수');
-  const valueFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return +(r.convRate*100).toFixed(2);
-    return +r.avgAdj.toFixed(2);
-  };
-
-  const sortedMain = mainRows.slice().sort((a,b)=> keyFn(b) - keyFn(a));
-  const topAvg = sortedMain.slice(0, 15);
-  const labelsAvg = topAvg.map(r=>r.dong);
-  const dataAvg = topAvg.map(r=> valueFn(r));
-
-  if(chartObjAvgVisits) chartObjAvgVisits.destroy();
-  chartObjAvgVisits = new Chart(document.getElementById('chartAvgVisits'), {
-    type:'bar',
-    data:{ labels: labelsAvg, datasets:[{ label: metricLabel, data: dataAvg, backgroundColor:'#339af0' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = topAvg[ctx.dataIndex];
-        const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-        return `인원 ${r.total}명 / 총 방문수 ${r.sumVisits}회 / 전환률 ${convTxt}`;
-      }}}},
-      scales:{ 
-        x:{ beginAtZero:true, ticks:{ callback:(v)=> (sortBy==='conv' ? (v+'%') : v) } }
-      }
-    }
-  });
-
-  const fmtPct = (v)=> `${(v*100).toFixed(1)}%`;
-  const tbl2 = document.getElementById('tblAvgVisits');
-  if(tbl2){
-    tbl2.innerHTML = topAvg.map(r => (
-      `<tr>
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
-  }
-
-  ____sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
-    sortedVip = __sortedVip;
-  let sortedVip = __sortedVip;
-  const vipWrap = document.getElementById('vipAvgSection');
-  const vipTbl = document.getElementById('tblVipAvg');
-  if(vipWrap && vipTbl){
-    __sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
-    sortedVip = __sortedVip;
-    vipWrap.style.display = sortedVip.length ? 'block' : 'none';
-    vipTbl.innerHTML = sortedVip.map(r => (
-      `<tr style="opacity:0.75;">
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || '';
-  }
-
-  const expl = document.getElementById('valueExplain');
-  if(expl){
-    const unkTxt = excludeUnknown ? ' (미상 제외)' : '';
-    const filterTxt = minSampleOn ? ' (표본 5명 미만은 아래 VIP 후보로 분리)' : ' (표본 필터 OFF: 모든 동 포함)';
-    const show = topAvg.slice(0,5).map((r,i)=>{
-      const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-      return `${i+1}) <b>${r.dong}</b> · ${metricLabel} <b>${valueFn(r)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
-    }).join('<br>');
-
-    // --- 추천(액션) ---
-    const rec = [];
-    if(sortBy === 'avg'){
-      rec.push(`• <b>평균 방문수 상위</b>는 ‘단골화/리콜’ 후보입니다 → 재예약/정기검진 메시지를 우선 적용해보세요`);
-    } else if(sortBy === 'sum'){
-      rec.push(`• <b>총 방문수 상위</b>는 ‘업무량/기여’가 큰 지역입니다 → 운영/스케줄/CRM 우선순위를 높게 두는 게 유리합니다`);
-    } else if(sortBy === 'conv'){
-      rec.push(`• <b>전환률 상위</b>는 ‘효율’이 좋은 지역입니다 → 신환 유입 캠페인/안내를 집중해보세요`);
-    }
-    rec.push(`• 정렬 기준을 바꾸면 관점이 달라집니다 (평균 방문수=단골화, 총 방문수=기여, 전환률=효율)`);
-
-    if(!excludeUnknown && baseRows.some(r=>r.dong==='미상')){
-      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 지역 비교가 더 명확해집니다`);
-    }
-    if(minSampleOn){
-      const vipCnt = sortedVip.length || 0;
-      if(vipCnt){
-        const topVip = sortedVip.slice(0,3).map(r=>`${r.dong}(${r.total}명)`).join(', ');
-        rec.push(`• <b>VIP 후보</b>(표본<5): ${vipCnt}개 동 · 상위 후보: ${topVip}`);
-      } else {
-        rec.push(`• 현재 조건에서 VIP 후보(표본<5)가 없습니다`);
-      }
-    } else {
-      rec.push(`• 표본 필터 OFF 상태에서는 표본이 작은 동의 값이 튈 수 있으니 해석에 주의하세요`);
-    }
-
-    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
-
-    expl.innerHTML =
-      `현재 정렬: <b>${metricLabel}</b>${unkTxt}${filterTxt}<br>` +
-      show + recHtml;
-  }
-// --- Scatter (선택) ---
-  renderValueScatter(dongRows);
 }
+
 
 
 
@@ -3853,32 +3701,53 @@ function getProxyCandidates(proxyBase){
 }
 
 async function proxyCallJSON(proxyBase, payload){
-  const candidates = getProxyCandidates(proxyBase);
-  let lastErr = null;
+  const b = String(proxyBase||"").trim().replace(/\/+$/,"");
+  // We only call the base URL; if you want "/ai" you can put it in the proxy URL field.
+  const bases = [b].filter(Boolean);
 
-  for(const url of candidates){
+  let lastErr = null;
+  for(const base of bases){
     try{
-      const res = await fetch(url, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
+      const res = await fetch(base, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
       });
-      const txt = await res.text();
+
+      const raw = await res.text();
       let data = null;
-      try{ data = txt ? JSON.parse(txt) : null; } catch(e){ data = { raw: txt }; }
+      try{ data = raw ? JSON.parse(raw) : null; }catch(_){ data = null; }
+
       if(!res.ok){
-        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `${res.status} ${res.statusText}`;
-        lastErr = new Error(`${msg} (URL: ${url})`);
-        continue;
+        // Normalize error message
+        let msg = "";
+        if(data){
+          const err = data.error;
+          if(typeof err === "string") msg = err;
+          else if(err && typeof err === "object" && err.message) msg = String(err.message);
+          else if(data.message) msg = String(data.message);
+          else msg = JSON.stringify(data);
+        }else{
+          msg = raw || res.statusText || "Unknown error";
+        }
+
+        // Friendly hints for common cases
+        if(res.status === 403 && /forbidden origin/i.test(msg)){
+          msg = "403: 현재 열어둔 페이지의 주소(Origin)가 Worker에서 허용되지 않았습니다. GitHub Pages(https://jinsul-lab.github.io) 또는 로컬 서버(http://localhost:8000)로 열어주세요. (파일을 더블클릭해서 file:// 로 열면 차단됩니다.)";
+        }
+
+        throw new Error(`${res.status}: ${msg}`);
       }
-      return data;
-    } catch(e){
-      lastErr = e;
+
+      return data || {};
+    }catch(err){
+      lastErr = err;
       continue;
     }
   }
-  throw lastErr || new Error("프록시 호출 실패");
+  throw lastErr || new Error("AI proxy request failed");
 }
+
 
 function extractGeminiText(data){
   try{
@@ -4040,8 +3909,8 @@ async function callOpenAIText(model, systemPrompt, userPrompt, proxyBase){
   const body = {
     model: model,
     input: [
-      { role:"system", content: systemPrompt },
-      { role:"user", content: userPrompt }
+      { role:"system", content: [{ type:"input_text", text: systemPrompt || "" }] },
+      { role:"user",   content: [{ type:"input_text", text: userPrompt   || "" }] },
     ],
     temperature: 0.4
   };
@@ -4050,6 +3919,7 @@ async function callOpenAIText(model, systemPrompt, userPrompt, proxyBase){
   if(!text) throw new Error("GPT(OpenAI) 응답 파싱 실패");
   return text;
 }
+
 
 /* ---- UI ---- */
 function setPreset(presetKey){
