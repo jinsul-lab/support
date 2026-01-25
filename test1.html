@@ -1,17 +1,16 @@
 <!DOCTYPE html>
+
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <title>JINSUL MAP v3.0.0</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&libraries=services,drawing,clusterer"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-
-  <style>
+<meta charset="utf-8"/>
+<title>JINSUL MAP v3.1.2</title>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=587d3b22c3896f92f134d03253e685bd&amp;libraries=services,drawing,clusterer&amp;autoload=false"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
     :root { 
       --blue:#228be6; --blue-light:#e7f5ff;
       --red:#fa5252; --red-light:#fff5f5;
@@ -529,622 +528,739 @@
 
 
 
-  </style>
+  
+    /* ===========================   [AI Drawer (Gemini/GPT)]   =========================== */
+    .ai-section { background: linear-gradient(135deg, rgba(240,249,255,0.9) 0%, rgba(255,255,255,0.85) 100%); border: 1px solid rgba(219,234,254,0.9); }
+    .chipRow{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(0,0,0,0.10);background:rgba(255,255,255,0.75);cursor:pointer;font-size:11px;font-weight:800;color:#334155;transition:0.2s;}
+    .chip:hover{transform:translateY(-1px);}
+    .chip.active{background:#e7f5ff;border-color:#228be6;color:#228be6;}
+        .rightDrawer{
+      position:fixed;top:0;right:-420px;
+      width:420px;max-width:92vw;height:100%;
+      background:
+        radial-gradient(900px 500px at -200px -200px, rgba(59,130,246,0.18), transparent 45%),
+        radial-gradient(700px 400px at 120% 10%, rgba(168,85,247,0.18), transparent 45%),
+        #f6f8fc;
+      border-left:1px solid rgba(0,0,0,0.04);
+      box-shadow:-16px 0 32px rgba(0,0,0,0.10);
+      z-index:3000;
+      display:flex;
+      flex-direction:column;
+      transition:right .35s cubic-bezier(.4,0,.2,1);
+    }
+    .rightDrawer.open{right:0;}
+    .drawerHeader{
+      padding:14px 14px 10px;
+      border-bottom:1px solid rgba(0,0,0,0.06);
+      background:rgba(255,255,255,0.65);
+      backdrop-filter: blur(10px);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+    }
+    .drawerTitle{font-weight:900;font-size:14px;letter-spacing:-0.2px;background:linear-gradient(90deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .drawerBody{flex:1;overflow:auto;padding:14px;scrollbar-width:thin;scrollbar-color:#ced4da transparent;}
+    .drawerBody::-webkit-scrollbar{width:6px;}
+    .drawerBody::-webkit-scrollbar-thumb{background:#ced4da;border-radius:6px;}
+    .drawerFooter{padding:12px 14px;border-top:1px solid rgba(0,0,0,0.06);background:rgba(255,255,255,0.55);backdrop-filter: blur(10px);display:flex;gap:8px;}
+    .miniInput{
+      width:100%;
+      padding:9px 11px;
+      border:1px solid rgba(0,0,0,0.10);
+      border-radius:12px;
+      font-size:12px;
+      background:rgba(255,255,255,0.88);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .muted{font-size:11px;color:#64748b;line-height:1.4;}
+    .chipBtn{
+      border:1px solid rgba(0,0,0,0.10);
+      background:rgba(255,255,255,0.88);
+      border-radius:12px;
+      padding:7px 10px;
+      font-size:11px;
+      font-weight:800;
+      color:#334155;
+      cursor:pointer;
+      transition:0.2s;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+    .chipBtn:hover{transform:translateY(-1px);}
+    .chipBtn.active{
+      background:rgba(59,130,246,0.16);
+      border-color:rgba(59,130,246,0.45);
+      color:#2563eb;
+    }
+    .aiTextarea{
+      width:100%;
+      min-height:110px;
+      resize:vertical;
+      border:1px solid rgba(0,0,0,0.10);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:12px;
+      line-height:1.5;
+      background:rgba(255,255,255,0.88);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .aiOutput{white-space:pre-wrap; background:rgba(248,250,252,0.9); border:1px solid rgba(0,0,0,0.08); border-radius:14px; padding:12px; font-size:12px; color:#0f172a; max-height:340px; overflow:auto; }
+    .fabAI{position:fixed;right:14px;bottom:14px;z-index:2500;}
+    @media (max-width: 820px){ .rightDrawer{width:92vw;} }
+
+</style>
 </head>
 <body>
-
 <div class="app">
-  <div class="sidebar">
-    <div class="sidebarHeader">
-      <div class="brand">JINSUL MAP v3.0.0</div>
-      <div style="font-size:11px;color:#868e96;">v3.0.0</div>
-    </div>
-    
-    <div class="sidebarBody">
-      <div class="section">
-        <div class="sectionTitle">환자 데이터 업로드 <span class="pill">Excel</span></div>
-        <div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
-          📂 환자 엑셀 업로드<br>
-          <span style="font-size:11px;color:#868e96;">클릭 또는 파일 드래그</span>
-          <input type="file" id="fileInput" hidden accept=".xlsx, .xls, .csv">
+<div class="sidebar">
+<div class="sidebarHeader">
+<div class="brand">JINSUL MAP v3.0.0</div>
+<div style="font-size:11px;color:#868e96;">v3.0.0</div>
+</div>
+<div class="sidebarBody">
+<div class="section">
+<div class="sectionTitle">환자 데이터 업로드 <span class="pill">Excel</span></div>
+<div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
+          📂 환자 엑셀 업로드<br/>
+<span style="font-size:11px;color:#868e96;">클릭 또는 파일 드래그</span>
+<input accept=".xlsx, .xls, .csv" hidden="" id="fileInput" type="file"/>
+</div>
+<div class="statGrid">
+<div class="statItem">
+<div class="statLabel">총 인원</div>
+<div class="statValue" id="statTotalUsers">0</div>
+</div>
+<div class="statItem">
+<div class="statLabel">총 방문</div>
+<div class="statValue" id="statTotalVisits">0</div>
+</div>
+</div>
+<div class="btnRow">
+<button class="btn primary" id="btnStats">📊 통계 상세 분석</button>
+<button class="btn outline" id="btnClear">초기화</button>
+</div>
+</div>
+<div class="section">
+<div class="sectionTitle">환자 필터 <span class="pill">ON/OFF</span></div>
+<div class="row">
+<span>전체 보기</span>
+<div class="toggle on" data-toggle="all"></div>
+</div>
+<div class="row">
+<span style="color:var(--c-new)">● 신환 (1회만)</span>
+<div class="toggle on" data-toggle="new_only"></div>
+</div>
+<div class="row">
+<span style="color:var(--c-conv)">● 신환 ▶ 재진 전환</span>
+<div class="toggle on" data-toggle="new_conv"></div>
+</div>
+<div class="row">
+<span style="color:var(--c-90)">● 90일초</span>
+<div class="toggle on" data-toggle="bit_90"></div>
+</div>
+<div class="row">
+<span style="color:var(--c-ret)">● 재진</span>
+<div class="toggle on" data-toggle="old"></div>
+</div>
+<button class="btn outline" id="btnFit" style="width:100%;margin-top:10px;">지도 범위 최적화</button>
+</div>
+<div class="section">
+<div class="sectionTitle">우리 병원 및 시설 검색</div>
+<div class="input-group">
+<input class="input-box" id="myHospitalInput" placeholder="우리 병원명/주소 입력" type="text"/>
+<button class="btn primary" id="btnSetHospital" style="width:50px;">설정</button>
+</div>
+<button class="btn outline" id="btnClearHospital" style="width:100%;margin-bottom:10px;font-size:11px;padding:5px;">설정 해제</button>
+<div class="search-grid">
+<div class="search-btn" data-target="senior">
+<span>🏠</span>
+<span>경로당</span>
+</div>
+<div class="search-btn" data-target="welfare">
+<span>💜</span>
+<span>복지관</span>
+</div>
+<div class="search-btn" data-target="ortho">
+<span>🏥</span>
+<span>경쟁병원</span>
+</div>
+<div class="search-btn" data-target="banner">
+<span>📌</span>
+<span>현수막게시대</span>
+</div>
+</div>
+<div id="searchStatus" style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;">대기</div>
+<div class="btnRow">
+<button class="btn primary" id="btnSearch">시설 스캔</button>
+<button class="btn outline" id="btnResetSearch">초기화</button>
+</div>
+<button class="btn outline" id="btnExportExcel" style="width:100%;margin-top:8px;">📥 시설목록 엑셀 저장</button>
+</div>
+<div class="section ai-section" id="aiQuickSection">
+<div class="sectionTitle">✨ AI 전략 컨설턴트 <span class="pill" style="background:#3b82f6">Gemini/GPT</span></div>
+<div style="font-size:11px;color:#64748b;line-height:1.5;">
+          지도는 그대로 두고, 우측 패널에서 전략/리포트를 확인합니다. (딸깍 실행)
         </div>
-        <div class="statGrid">
-          <div class="statItem">
-            <div class="statLabel">총 인원</div>
-            <div class="statValue" id="statTotalUsers">0</div>
-          </div>
-          <div class="statItem">
-            <div class="statLabel">총 방문</div>
-            <div class="statValue" id="statTotalVisits">0</div>
-          </div>
-        </div>
-        <div class="btnRow">
-          <button class="btn primary" id="btnStats">📊 통계 상세 분석</button>
-          <button class="btn outline" id="btnClear">초기화</button>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="sectionTitle">환자 필터 <span class="pill">ON/OFF</span></div>
-        <div class="row">
-          <span>전체 보기</span>
-          <div class="toggle on" data-toggle="all"></div>
-        </div>
-        <div class="row">
-          <span style="color:var(--c-new)">● 신환 (1회만)</span>
-          <div class="toggle on" data-toggle="new_only"></div>
-        </div>
-        <div class="row">
-          <span style="color:var(--c-conv)">● 신환 ▶ 재진 전환</span>
-          <div class="toggle on" data-toggle="new_conv"></div>
-        </div>
-        <div class="row">
-          <span style="color:var(--c-90)">● 90일초</span>
-          <div class="toggle on" data-toggle="bit_90"></div>
-        </div>
-        <div class="row">
-          <span style="color:var(--c-ret)">● 재진</span>
-          <div class="toggle on" data-toggle="old"></div>
-        </div>
-        <button class="btn outline" id="btnFit" style="width:100%;margin-top:10px;">지도 범위 최적화</button>
-      </div>
-
-      <div class="section">
-        <div class="sectionTitle">우리 병원 및 시설 검색</div>
-        <div class="input-group">
-          <input type="text" class="input-box" id="myHospitalInput" placeholder="우리 병원명/주소 입력">
-          <button class="btn primary" id="btnSetHospital" style="width:50px;">설정</button>
-        </div>
-        <button class="btn outline" id="btnClearHospital" style="width:100%;margin-bottom:10px;font-size:11px;padding:5px;">설정 해제</button>
-
-        <div class="search-grid">
-          <div class="search-btn" data-target="senior">
-            <span>🏠</span>
-            <span>경로당</span>
-          </div>
-          <div class="search-btn" data-target="welfare">
-            <span>💜</span>
-            <span>복지관</span>
-          </div>
-          <div class="search-btn" data-target="ortho">
-            <span>🏥</span>
-            <span>경쟁병원</span>
-          </div>
-          <div class="search-btn" data-target="banner">
-            <span>📌</span>
-            <span>현수막게시대</span>
-          </div>
-        </div>
-        <div style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;" id="searchStatus">대기</div>
-        <div class="btnRow">
-          <button class="btn primary" id="btnSearch">시설 스캔</button>
-          <button class="btn outline" id="btnResetSearch">초기화</button>
-        </div>
-        <button class="btn outline" id="btnExportExcel" style="width:100%;margin-top:8px;">📥 시설목록 엑셀 저장</button>
-      </div>
-
-      <div class="section">
-        <div class="sectionTitle">홍보 방문 루트</div>
-        <div style="font-size:11px;color:#666;margin-bottom:8px;">우리 병원 → 검색된 시설 최단 거리</div>
-        
-        <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;">
-          <div style="font-size:11px;color:#555;min-width:54px;">일일 방문</div>
-          <select id="routeMaxPerDay" class="input-box" style="height:34px;padding:6px 10px;">
-            <option value="10">10곳</option>
-            <option value="20" selected>20곳</option>
-            <option value="30">30곳</option>
-            <option value="40">40곳</option>
-            <option value="50">50곳</option>
-          </select>
-        </div>
+<div class="btnRow" style="margin-top:10px;">
+<button class="btn primary" id="btnOpenAIDrawer">🧠 AI 패널 열기</button>
+<button class="btn outline" id="btnOpenAIReport">📄 리포트</button>
+</div>
+<div style="margin-top:10px;">
+<div class="chipRow" id="aiPresetRow">
+<div class="chip active" data-preset="season">계절/월간</div>
+<div class="chip" data-preset="new">신규 유치</div>
+<div class="chip" data-preset="new_drop">신규 하락</div>
+<div class="chip" data-preset="ret">재진 유도</div>
+<div class="chip" data-preset="ret_drop">재진 하락</div>
+<div class="chip" data-preset="mou">MOU/제휴</div>
+</div>
+</div>
+</div>
+<div class="section">
+<div class="sectionTitle">홍보 방문 루트</div>
+<div style="font-size:11px;color:#666;margin-bottom:8px;">우리 병원 → 검색된 시설 최단 거리</div>
+<div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;">
+<div style="font-size:11px;color:#555;min-width:54px;">일일 방문</div>
+<select class="input-box" id="routeMaxPerDay" style="height:34px;padding:6px 10px;">
+<option value="10">10곳</option>
+<option selected="" value="20">20곳</option>
+<option value="30">30곳</option>
+<option value="40">40곳</option>
+<option value="50">50곳</option>
+</select>
+</div>
 <button class="btn purple" id="btnRouteOpt">🚀 최적 방문 경로 생성</button>
-      </div>
-    </div>
-    
-    <div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
-      JINSUL MAP v3.0.0<br>All Rights Reserved.
-    </div>
-  </div>
-
-  <div class="mapArea">
-    <div id="map"></div>
-    
-    <div id="mapLegend">
-      <div class="legend-item"><div class="dot" style="background:#ff0000"></div>신환(1회)</div>
-      <div class="legend-item"><div class="dot" style="background:#00c853"></div>재진전환</div>
-      <div class="legend-item"><div class="dot" style="background:#ffd400"></div>90일초</div>
-      <div class="legend-item"><div class="dot" style="background:#228be6"></div>재진</div>
-    </div>
-
-    <div class="map-controls-container">
-      <div class="map-type-group">
-        <button class="map-type-btn active" id="btnMapRoad">지도</button>
-        <button class="map-type-btn" id="btnMapSky">스카이</button>
-        <button class="map-type-btn" id="btnMapTopo">지형도</button>
-      </div>
-
-      <div class="vertical-toolbar">
-        <button class="v-tool-btn" id="btnCadastral" title="지적편집도">
-          <span>🗺️</span><span class="lbl">지적</span>
-        </button>
-        <button class="v-tool-btn" id="btnTraffic" title="교통정보">
-          <span>🚦</span><span class="lbl">교통</span>
-        </button>
-        <button class="v-tool-btn" id="btnBike" title="자전거도로">
-          <span>🚲</span><span class="lbl">자전거</span>
-        </button>
-        <div class="v-divider"></div>
-        <button class="v-tool-btn" id="btnRoadview" title="로드뷰">
-          <span>📷</span><span class="lbl">로드뷰</span>
-        </button>
-        <div class="v-divider"></div>
-        <button class="v-tool-btn" id="btnRadius" title="반경 그리기">
-          <span>⭕</span><span class="lbl">반경</span>
-        </button>
-        <button class="v-tool-btn" id="btnDist" title="거리 재기">
-          <span>📏</span><span class="lbl">거리</span>
-        </button>
-        <button class="v-tool-btn" id="btnArea" title="면적 재기">
-          <span>📐</span><span class="lbl">면적</span>
-        </button>
-        <div class="v-divider"></div>
-        <button class="v-tool-btn" id="btnPoint" title="포인트 지정">
-          <span>🚩</span><span class="lbl">포인트</span>
-        </button>
-        <button class="v-tool-btn danger" id="btnClearTools" title="모두 지우기">
-          <span>🗑️</span><span class="lbl">삭제</span>
-        </button>
-      </div>
-    </div>
-  </div>
 </div>
-
+</div>
+<div style="padding:10px;text-align:center;font-size:10px;color:#adb5bd;border-top:1px solid #eee;">
+      JINSUL MAP v3.0.0<br/>All Rights Reserved.
+    </div>
+</div>
+<div class="mapArea">
+<div id="map"></div>
+<div id="mapLegend">
+<div class="legend-item"><div class="dot" style="background:#ff0000"></div>신환(1회)</div>
+<div class="legend-item"><div class="dot" style="background:#00c853"></div>재진전환</div>
+<div class="legend-item"><div class="dot" style="background:#ffd400"></div>90일초</div>
+<div class="legend-item"><div class="dot" style="background:#228be6"></div>재진</div>
+</div>
+<div class="map-controls-container">
+<div class="map-type-group">
+<button class="map-type-btn active" id="btnMapRoad">지도</button>
+<button class="map-type-btn" id="btnMapSky">스카이</button>
+<button class="map-type-btn" id="btnMapTopo">지형도</button>
+</div>
+<div class="vertical-toolbar">
+<button class="v-tool-btn" id="btnCadastral" title="지적편집도">
+<span>🗺️</span><span class="lbl">지적</span>
+</button>
+<button class="v-tool-btn" id="btnTraffic" title="교통정보">
+<span>🚦</span><span class="lbl">교통</span>
+</button>
+<button class="v-tool-btn" id="btnBike" title="자전거도로">
+<span>🚲</span><span class="lbl">자전거</span>
+</button>
+<div class="v-divider"></div>
+<button class="v-tool-btn" id="btnRoadview" title="로드뷰">
+<span>📷</span><span class="lbl">로드뷰</span>
+</button>
+<div class="v-divider"></div>
+<button class="v-tool-btn" id="btnRadius" title="반경 그리기">
+<span>⭕</span><span class="lbl">반경</span>
+</button>
+<button class="v-tool-btn" id="btnDist" title="거리 재기">
+<span>📏</span><span class="lbl">거리</span>
+</button>
+<button class="v-tool-btn" id="btnArea" title="면적 재기">
+<span>📐</span><span class="lbl">면적</span>
+</button>
+<div class="v-divider"></div>
+<button class="v-tool-btn" id="btnPoint" title="포인트 지정">
+<span>🚩</span><span class="lbl">포인트</span>
+</button>
+<button class="v-tool-btn danger" id="btnClearTools" title="모두 지우기">
+<span>🗑️</span><span class="lbl">삭제</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- [AI drawer / report modal] -->
+<div>
+<div class="fabAI">
+<button class="btn purple" id="btnFabAI" title="AI 패널 열기">✨ AI</button>
+</div>
+<div class="rightDrawer" id="aiDrawer">
+<div class="drawerHeader">
+<div class="drawerTitle">AI 전략 컨설턴트</div>
+<div style="display:flex;gap:6px;align-items:center;">
+<button class="btn outline" id="btnAIDrawerReport" style="padding:8px 10px;">리포트</button>
+<button class="btn outline" id="btnCloseAIDrawer" style="padding:8px 10px;">닫기</button>
+</div>
+</div>
+<div class="drawerBody">
+<div class="section" style="padding:12px;border-radius:14px;margin-bottom:10px;">
+<div style="font-weight:900;margin-bottom:8px;">1) AI 모드 (딸깍)</div>
+<div style="display:grid;grid-template-columns:1fr;gap:8px;">
+<select class="miniInput" id="aiProvider">
+<option value="openai">GPT (기본)</option>
+<option value="gemini">Gemini (단독)</option>
+</select>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+<div style="font-weight:700;">GPT 결과에 Gemini 보조 의견 추가</div>
+<div class="toggle on" id="aiGeminiAssistToggle" title="ON이면 GPT 결과 아래 Gemini 보완 의견을 추가합니다."></div>
+</div>
+<details style="margin-top:6px;">
+<summary style="cursor:pointer;color:#667085;font-size:11px;">고급(모델/프록시 확인)</summary>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+<input class="miniInput" id="aiOpenAIModel" placeholder="OpenAI 모델">
+<input class="miniInput" id="aiGeminiModel" placeholder="Gemini 모델">
+</input></input></div>
+<input class="miniInput" id="aiProxyBase" placeholder="Worker 프록시 URL" style="margin-top:8px;"/>
+<div style="font-size:11px;color:#667085;margin-top:6px;line-height:1.4;">
+            ※ API Key는 이 파일에 저장하지 않습니다. Cloudflare Worker Secret(서버)에서 처리됩니다.
+          </div>
+</details>
+</div>
+</div>
+<div class="section" style="padding:12px;border-radius:14px;margin-bottom:10px;">
+<div style="font-weight:900;margin-bottom:8px;">2) 질문 프리셋</div>
+<div id="aiPresetRow2" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+<button class="chipBtn active" data-preset="season">월간</button>
+<button class="chipBtn" data-preset="new">신규</button>
+<button class="chipBtn" data-preset="new_drop">신규↓</button>
+<button class="chipBtn" data-preset="ret">재진</button>
+<button class="chipBtn" data-preset="ret_drop">재진↓</button>
+<button class="chipBtn" data-preset="mou">MOU</button>
+</div>
+<textarea class="aiTextarea" id="aiPrompt2" placeholder="예) 민락동 60대 재진이 떨어졌는데 원인 가설과 4주 회복 플랜을 짜줘."></textarea>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+<button class="btn primary" id="btnRunAI">🚀 AI 전략 생성</button>
+<button class="btn outline" id="btnCopyAI">📋 복사</button>
+</div>
+</div>
+<div class="section" style="padding:12px;border-radius:14px;">
+<div style="font-weight:900;margin-bottom:8px;">3) 결과</div>
+<div class="aiOutput" id="aiOutput">(여기에 결과가 표시됩니다)</div>
+<div id="aiAssistWrap" style="display:none;margin-top:10px;">
+<div style="font-weight:900;margin-bottom:6px;color:#5f3dc4;">Gemini 보조 의견</div>
+<div class="aiOutput" id="aiOutputAssist"></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+<button class="btn outline" id="btnAIDrawerClear">🧹 지우기</button>
+<button class="btn outline" id="btnAIDrawerOpenReport">📄 상세 리포트</button>
+</div>
+</div>
+</div>
+<div class="drawerFooter">
+<div style="font-size:11px;color:#667085;line-height:1.4;">
+      Tip: 지도에서 반경/필터를 적용한 상태 + 시설 스캔 결과가 있으면, AI가 더 정확한 제안을 합니다.
+    </div>
+</div>
+</div>
+<div class="modalBack" id="aiReportModal">
+<div class="modalPanel" style="max-width:900px;">
+<div class="modalHeader">AI 상세 리포트 <span id="btnCloseAIReport" style="cursor:pointer;">✕</span></div>
+<div class="modalBody">
+<div id="aiReportContent" style="white-space:pre-wrap;font-size:13px;line-height:1.6;"></div>
+</div>
+</div>
+</div>
 <div id="toast">알림</div>
-
-<div id="hospitalListModal" class="modalBack">
-  <div class="modalPanel" style="height:500px;max-width:400px;">
-    <div class="modalHeader">
+<div class="modalBack" id="hospitalListModal">
+<div class="modalPanel" style="height:500px;max-width:400px;">
+<div class="modalHeader">
       병원 검색 결과
-      <span style="cursor:pointer;" onclick="$('hospitalListModal').style.display='none'">✕</span>
-    </div>
-    <div class="modalBody">
-      <ul id="hospitalResults" class="result-list"></ul>
-    </div>
-  </div>
+      <span onclick="$('hospitalListModal').style.display='none'" style="cursor:pointer;">✕</span>
 </div>
-
-<div id="routeModal" class="modalBack">
-  <div class="modalPanel">
-    <div class="modalHeader">
+<div class="modalBody">
+<ul class="result-list" id="hospitalResults"></ul>
+</div>
+</div>
+</div>
+<div class="modalBack" id="routeModal">
+<div class="modalPanel">
+<div class="modalHeader">
       최적 방문 경로
-      <span style="cursor:pointer;" onclick="$('routeModal').style.display='none'">✕</span>
-    </div>
-    <div class="modalBody">
-      <table class="miniTable">
-        <thead>
-          <tr><th>순서</th><th>시설명</th><th>주소</th><th>이동거리</th></tr>
-        </thead>
-        <tbody id="tblRoute"></tbody>
-      </table>
-    </div>
-    <div style="padding:15px;border-top:1px solid #eee;">
-      <button class="btn purple" id="btnExportRoute">📥 경로 엑셀 다운로드</button>
-    </div>
-  </div>
+      <span onclick="$('routeModal').style.display='none'" style="cursor:pointer;">✕</span>
 </div>
-
-<div id="statsModal" class="modalBack">
-  <div class="modalPanel">
-    <div class="modalHeader">
+<div class="modalBody">
+<table class="miniTable">
+<thead>
+<tr><th>순서</th><th>시설명</th><th>주소</th><th>이동거리</th></tr>
+</thead>
+<tbody id="tblRoute"></tbody>
+</table>
+</div>
+<div style="padding:15px;border-top:1px solid #eee;">
+<button class="btn purple" id="btnExportRoute">📥 경로 엑셀 다운로드</button>
+</div>
+</div>
+</div>
+<div class="modalBack" id="statsModal">
+<div class="modalPanel">
+<div class="modalHeader">
       상세 통계 분석
-      <span style="cursor:pointer;" onclick="$('statsModal').style.display='none'">✕</span>
-    </div>
-    <div class="modalBody">
-      <div class="tabBar">
-        <button class="tabBtn active" onclick="switchTab('tabType')">유형별</button>
-        <button class="tabBtn" onclick="switchTab('tabDong')">동별 분포</button>
-        <button class="tabBtn" onclick="switchTab('tabAge')">연령별</button>
-        <button class="tabBtn" onclick="switchTab('tabVisit')">방문수</button>
-        <button class="tabBtn" onclick="switchTab('tabRegion')">지역 분석</button>
-        <button class="tabBtn" onclick="switchTab('tabValue')">전환/가치</button>
-        <button class="tabBtn" onclick="switchTab('tabRadius')">거리/반경</button>
-      </div>
-
-      <div id="tabType" class="tabPane" style="display:block;">
-        <div style="display:flex;gap:20px;align-items:flex-start;">
-          <div style="flex:1;">
-             <table class="miniTable">
-               <thead><tr><th>구분</th><th>인원</th><th>비율</th></tr></thead>
-               <tbody id="tblSummary"></tbody>
-             </table>
-          </div>
-          <div style="width:300px;height:300px;">
-            <canvas id="chartType"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div id="tabDong" class="tabPane">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-          <div style="font-weight:bold;color:#495057;">동별 분포 옵션</div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+      <span onclick="$('statsModal').style.display='none'" style="cursor:pointer;">✕</span>
+</div>
+<div class="modalBody">
+<div class="tabBar">
+<button class="tabBtn active" onclick="switchTab('tabType')">유형별</button>
+<button class="tabBtn" onclick="switchTab('tabDong')">동별 분포</button>
+<button class="tabBtn" onclick="switchTab('tabAge')">연령별</button>
+<button class="tabBtn" onclick="switchTab('tabVisit')">방문수</button>
+<button class="tabBtn" onclick="switchTab('tabRegion')">지역 분석</button>
+<button class="tabBtn" onclick="switchTab('tabValue')">전환/가치</button>
+<button class="tabBtn" onclick="switchTab('tabRadius')">거리/반경</button>
+</div>
+<div class="tabPane" id="tabType" style="display:block;">
+<div style="display:flex;gap:20px;align-items:flex-start;">
+<div style="flex:1;">
+<table class="miniTable">
+<thead><tr><th>구분</th><th>인원</th><th>비율</th></tr></thead>
+<tbody id="tblSummary"></tbody>
+</table>
+</div>
+<div style="width:300px;height:300px;">
+<canvas id="chartType"></canvas>
+</div>
+</div>
+</div>
+<div class="tabPane" id="tabDong">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+<div style="font-weight:bold;color:#495057;">동별 분포 옵션</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
               TopN
               <select id="selDongTopN" style="padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:11px;background:#fff;">
-                <option value="5" selected>5</option>
-                <option value="10">10</option>
-                <option value="all">전체</option>
-              </select>
-            </label>
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<option selected="" value="5">5</option>
+<option value="10">10</option>
+<option value="all">전체</option>
+</select>
+</label>
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
               기준
               <select id="selDongTopBy" style="padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:11px;background:#fff;">
-                <option value="patients" selected>환자수(신환+전환)</option>
-                <option value="visits">총 내원수</option>
-              </select>
-            </label>
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
-              <input type="checkbox" id="chkExcludeUnknownDong">
+<option selected="" value="patients">환자수(신환+전환)</option>
+<option value="visits">총 내원수</option>
+</select>
+</label>
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<input id="chkExcludeUnknownDong" type="checkbox"/>
               미상 제외
             </label>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <table class="miniTable">
-              <thead><tr><th>행정동</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th><th>합계</th><th>총 내원수</th></tr></thead>
-              <tbody id="tblDong"></tbody>
-            </table>
-          </div>
-          <div style="width:360px;height:360px;max-width:100%;">
-            <canvas id="chartDong"></canvas>
-          </div>
-        </div>
-
-        <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
-          <div id="dongExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
-        </details>
-      </div>
-
-
-      <div id="tabAge" class="tabPane">
-        <div style="height:200px;margin-bottom:20px;">
-          <canvas id="chartAge"></canvas>
-        </div>
-        <table class="miniTable">
-          <thead><tr><th>연령대</th><th>인원</th><th>비율</th></tr></thead>
-          <tbody id="tblAge"></tbody>
-        </table>
-      
-
-      
-        <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-          <div style="font-weight:700;color:#495057;">연령대별 리텐션 구조</div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <label style="font-size:12px;color:#495057;">표본 기준(n)</label>
-            <select id="ageMinN" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:10px;font-size:12px;">
-              <option value="1">전체</option>
-              <option value="10">n ≥ 10</option>
-              <option value="30" selected>n ≥ 30</option>
-              <option value="50">n ≥ 50</option>
-            </select>
-            <span style="font-size:11px;color:#868e96;">표본이 작은 연령대는 흐리게 표시됩니다.</span>
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 상태 구성 (100% 스택)</div>
-            <div style="height:240px;">
-              <canvas id="chartAgeRetentionStack"></canvas>
-            </div>
-          </div>
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 전환/재진 지표</div>
-            <div style="height:240px;">
-              <canvas id="chartAgeRetentionRates"></canvas>
-            </div>
-            <div id="ageRetentionSummary" style="margin-top:8px;font-size:12px;color:#495057;"></div>
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div style="overflow-x:auto;">
-          <table class="miniTable" style="min-width:860px;">
-            <thead>
-              <tr>
-                <th>연령대</th><th>합계</th><th>1회만</th><th>전환</th><th>90일</th><th>재진</th>
-                <th>전환률</th><th>재진 비중</th><th>Lift(전환)</th><th>Lift(재진)</th>
-              </tr>
-            </thead>
-            <tbody id="tblAgeRetention"></tbody>
-          </table>
-        </div>
-
-      
-
-      </div>
-
-      <div id="tabVisit" class="tabPane">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-          <div style="font-weight:bold;color:#495057;">방문수 분석 옵션</div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+</div>
+</div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<table class="miniTable">
+<thead><tr><th>행정동</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th><th>합계</th><th>총 내원수</th></tr></thead>
+<tbody id="tblDong"></tbody>
+</table>
+</div>
+<div style="width:360px;height:360px;max-width:100%;">
+<canvas id="chartDong"></canvas>
+</div>
+</div>
+<details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
+<summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
+<div id="dongExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
+</details>
+</div>
+<div class="tabPane" id="tabAge">
+<div style="height:200px;margin-bottom:20px;">
+<canvas id="chartAge"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>연령대</th><th>인원</th><th>비율</th></tr></thead>
+<tbody id="tblAge"></tbody>
+</table>
+<div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+<div style="font-weight:700;color:#495057;">연령대별 리텐션 구조</div>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+<label style="font-size:12px;color:#495057;">표본 기준(n)</label>
+<select id="ageMinN" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:10px;font-size:12px;">
+<option value="1">전체</option>
+<option value="10">n ≥ 10</option>
+<option selected="" value="30">n ≥ 30</option>
+<option value="50">n ≥ 50</option>
+</select>
+<span style="font-size:11px;color:#868e96;">표본이 작은 연령대는 흐리게 표시됩니다.</span>
+</div>
+</div>
+<div class="hr"></div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 상태 구성 (100% 스택)</div>
+<div style="height:240px;">
+<canvas id="chartAgeRetentionStack"></canvas>
+</div>
+</div>
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:600;color:#343a40;margin:6px 0 10px 0;">연령대별 전환/재진 지표</div>
+<div style="height:240px;">
+<canvas id="chartAgeRetentionRates"></canvas>
+</div>
+<div id="ageRetentionSummary" style="margin-top:8px;font-size:12px;color:#495057;"></div>
+</div>
+</div>
+<div class="hr"></div>
+<div style="overflow-x:auto;">
+<table class="miniTable" style="min-width:860px;">
+<thead>
+<tr>
+<th>연령대</th><th>합계</th><th>1회만</th><th>전환</th><th>90일</th><th>재진</th>
+<th>전환률</th><th>재진 비중</th><th>Lift(전환)</th><th>Lift(재진)</th>
+</tr>
+</thead>
+<tbody id="tblAgeRetention"></tbody>
+</table>
+</div>
+</div>
+<div class="tabPane" id="tabVisit">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+<div style="font-weight:bold;color:#495057;">방문수 분석 옵션</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
               연령 필터
               <select id="selVisitAge" style="padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:11px;background:#fff;">
-                <option value="all" selected>전체</option>
-                <option value="0~19">0~19</option>
-                <option value="20~29">20~29</option>
-                <option value="30~39">30~39</option>
-                <option value="40~49">40~49</option>
-                <option value="50~59">50~59</option>
-                <option value="60~69">60~69</option>
-                <option value="70+">70+</option>
-                <option value="미상">미상</option>
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
-          <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
-            <div style="font-size:11px;color:#868e96;font-weight:700;">표본(명)</div>
-            <div id="visitKpiPatients" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
-          </div>
-          <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
-            <div style="font-size:11px;color:#868e96;font-weight:700;">총 내원수(회)</div>
-            <div id="visitKpiVisits" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
-          </div>
-          <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
-            <div style="font-size:11px;color:#868e96;font-weight:700;">3회+ 비중</div>
-            <div id="visitKpi3p" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
-          </div>
-          <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
-            <div style="font-size:11px;color:#868e96;font-weight:700;">5회+ 비중</div>
-            <div id="visitKpi5p" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="height:240px;margin-bottom:12px;">
-              <canvas id="chartVisit"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>방문수</th><th>인원(명)</th><th>비율</th><th>내원수</th></tr></thead>
-              <tbody id="tblVisit"></tbody>
-            </table>
-          </div>
-
-          <div style="width:460px;max-width:100%;flex:0 0 460px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">누적 커버리지 (방문수 ≤ X)</div>
-            <div style="height:240px;margin-bottom:12px;">
-              <canvas id="chartVisitPareto" width="460" height="240"></canvas>
-            </div>
-            <div id="txtVisitParetoSummary" style="font-size:11px;color:#666;line-height:1.5;"></div>
-          </div>
-        </div>
-
-        <div style="margin-top:16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">내원 기여도 & Lift</div>
-            <div style="height:280px;margin-bottom:12px;">
-              <canvas id="chartVisitImpact" width="900" height="280"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>방문수</th><th>인원(명)</th><th>내원수</th><th>인원 비중</th><th>내원 비중</th><th>Lift</th></tr></thead>
-              <tbody id="tblVisitImpact"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
-          <div id="visitExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
-        </details>
-      </div>
-
-
-      <div id="tabRegion" class="tabPane">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-          <div style="font-weight:bold;color:#495057;">지역 분석 옵션</div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<option selected="" value="all">전체</option>
+<option value="0~19">0~19</option>
+<option value="20~29">20~29</option>
+<option value="30~39">30~39</option>
+<option value="40~49">40~49</option>
+<option value="50~59">50~59</option>
+<option value="60~69">60~69</option>
+<option value="70+">70+</option>
+<option value="미상">미상</option>
+</select>
+</label>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+<div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
+<div style="font-size:11px;color:#868e96;font-weight:700;">표본(명)</div>
+<div id="visitKpiPatients" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
+</div>
+<div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
+<div style="font-size:11px;color:#868e96;font-weight:700;">총 내원수(회)</div>
+<div id="visitKpiVisits" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
+</div>
+<div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
+<div style="font-size:11px;color:#868e96;font-weight:700;">3회+ 비중</div>
+<div id="visitKpi3p" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
+</div>
+<div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 12px;">
+<div style="font-size:11px;color:#868e96;font-weight:700;">5회+ 비중</div>
+<div id="visitKpi5p" style="font-size:18px;font-weight:900;color:#212529;margin-top:2px;">-</div>
+</div>
+</div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="height:240px;margin-bottom:12px;">
+<canvas id="chartVisit"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>방문수</th><th>인원(명)</th><th>비율</th><th>내원수</th></tr></thead>
+<tbody id="tblVisit"></tbody>
+</table>
+</div>
+<div style="width:460px;max-width:100%;flex:0 0 460px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">누적 커버리지 (방문수 ≤ X)</div>
+<div style="height:240px;margin-bottom:12px;">
+<canvas height="240" id="chartVisitPareto" width="460"></canvas>
+</div>
+<div id="txtVisitParetoSummary" style="font-size:11px;color:#666;line-height:1.5;"></div>
+</div>
+</div>
+<div style="margin-top:16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">내원 기여도 &amp; Lift</div>
+<div style="height:280px;margin-bottom:12px;">
+<canvas height="280" id="chartVisitImpact" width="900"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>방문수</th><th>인원(명)</th><th>내원수</th><th>인원 비중</th><th>내원 비중</th><th>Lift</th></tr></thead>
+<tbody id="tblVisitImpact"></tbody>
+</table>
+</div>
+</div>
+<details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
+<summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
+<div id="visitExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
+</details>
+</div>
+<div class="tabPane" id="tabRegion">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+<div style="font-weight:bold;color:#495057;">지역 분석 옵션</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
               TopN
               <select id="selRegionTopN" style="padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:11px;background:#fff;">
-                <option value="5" selected>5</option>
-                <option value="10">10</option>
-                <option value="all">전체</option>
-              </select>
-            </label>
-            <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
-              <input type="checkbox" id="chkExcludeUnknownRegion">
+<option selected="" value="5">5</option>
+<option value="10">10</option>
+<option value="all">전체</option>
+</select>
+</label>
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<input id="chkExcludeUnknownRegion" type="checkbox"/>
               미상 제외
             </label>
-          </div>
-        </div>
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="height:320px;margin-bottom:18px;">
-              <canvas id="chartRegionStack" width="900" height="320"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>행정동</th><th>합계</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th></tr></thead>
-              <tbody id="tblRegionTop"></tbody>
-            </table>
-          </div>
-          <div style="width:460px;max-width:100%;flex:0 0 460px;">
-            <div style="height:320px;margin-bottom:12px;">
-              <canvas id="chartRegionPareto" width="460" height="320"></canvas>
-            </div>
-            <div id="txtParetoSummary" style="font-size:11px;color:#666;line-height:1.5;"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="tabValue" class="tabPane">
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <div style="font-weight:bold;color:#495057;">전환률 랭킹</div>
-              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
-                <input type="checkbox" id="chkMinSample" checked>
+</div>
+</div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="height:320px;margin-bottom:18px;">
+<canvas height="320" id="chartRegionStack" width="900"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>행정동</th><th>합계</th><th>신환</th><th>전환</th><th>90일</th><th>재진</th></tr></thead>
+<tbody id="tblRegionTop"></tbody>
+</table>
+</div>
+<div style="width:460px;max-width:100%;flex:0 0 460px;">
+<div style="height:320px;margin-bottom:12px;">
+<canvas height="320" id="chartRegionPareto" width="460"></canvas>
+</div>
+<div id="txtParetoSummary" style="font-size:11px;color:#666;line-height:1.5;"></div>
+</div>
+</div>
+</div>
+<div class="tabPane" id="tabValue">
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+<div style="font-weight:bold;color:#495057;">전환률 랭킹</div>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<input checked="" id="chkMinSample" type="checkbox"/>
                 표본(신환+전환) 5명 미만 제외
               </label>
-              <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
-                <input type="checkbox" id="chkExcludeUnknownValue">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<input id="chkExcludeUnknownValue" type="checkbox"/>
                 미상 제외
               </label>
-            </div>
-            </div>
-            <div style="height:320px;margin-bottom:18px;">
-              <canvas id="chartConvRank" width="900" height="320"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>행정동</th><th>전환률</th><th>신환</th><th>전환</th><th>합계</th></tr></thead>
-              <tbody id="tblConvRank"></tbody>
-            </table>
-          </div>
-
-          
-          <div style="flex:1;min-width:320px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
-              <div style="font-weight:bold;color:#495057;">평균 방문수 랭킹 (행정동별)</div>
-              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+</div>
+</div>
+<div style="height:320px;margin-bottom:18px;">
+<canvas height="320" id="chartConvRank" width="900"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>행정동</th><th>전환률</th><th>신환</th><th>전환</th><th>합계</th></tr></thead>
+<tbody id="tblConvRank"></tbody>
+</table>
+</div>
+<div style="flex:1;min-width:320px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
+<div style="font-weight:bold;color:#495057;">평균 방문수 랭킹 (행정동별)</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
                   정렬
                   <select id="selAvgSortBy" style="padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:11px;background:#fff;">
-                    <option value="avg" selected>평균 방문수</option>
-                    <option value="sum">총 방문수</option>
-                    <option value="conv">전환률</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div style="height:320px;margin-bottom:18px;">
-              <canvas id="chartAvgVisits" width="900" height="320"></canvas>
-            </div>
-
-            <table class="miniTable">
-              <thead><tr><th>행정동</th><th>평균 방문수</th><th>총 방문수</th><th>전환률</th><th>인원</th></tr></thead>
-              <tbody id="tblAvgVisits"></tbody>
-            </table>
-
-            <div id="vipAvgSection" style="margin-top:12px;">
-              <div style="font-weight:800;color:#495057;margin:6px 0 8px 0;">VIP 후보 (표본 &lt; 5)</div>
-              <table class="miniTable">
-                <thead><tr><th>행정동</th><th>평균 방문수</th><th>총 방문수</th><th>전환률</th><th>인원</th></tr></thead>
-                <tbody id="tblVipAvg"></tbody>
-              </table>
-            </div>
-
-            <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-              <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
-              <div id="valueExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
-            </details>
-          </div>
+<option selected="" value="avg">평균 방문수</option>
+<option value="sum">총 방문수</option>
+<option value="conv">전환률</option>
+</select>
+</label>
+</div>
+</div>
+<div style="height:320px;margin-bottom:18px;">
+<canvas height="320" id="chartAvgVisits" width="900"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>행정동</th><th>평균 방문수</th><th>총 방문수</th><th>전환률</th><th>인원</th></tr></thead>
+<tbody id="tblAvgVisits"></tbody>
+</table>
+<div id="vipAvgSection" style="margin-top:12px;">
+<div style="font-weight:800;color:#495057;margin:6px 0 8px 0;">VIP 후보 (표본 &lt; 5)</div>
+<table class="miniTable">
+<thead><tr><th>행정동</th><th>평균 방문수</th><th>총 방문수</th><th>전환률</th><th>인원</th></tr></thead>
+<tbody id="tblVipAvg"></tbody>
+</table>
+</div>
+<details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
+<summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
+<div id="valueExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
+</details>
+</div>
 <div style="flex-basis:100%;min-width:320px;margin-top:6px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
-              <div style="font-weight:bold;color:#495057;">전환 × 방문수 스캐터</div>
-              <label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
-                <input type="checkbox" id="chkShowScatter" checked>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
+<div style="font-weight:bold;color:#495057;">전환 × 방문수 스캐터</div>
+<label style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px;user-select:none;">
+<input checked="" id="chkShowScatter" type="checkbox"/>
                 스캐터 보기
               </label>
-            </div>
-            <div id="scatterWrap" style="height:360px;margin-bottom:10px;">
-              <canvas id="chartValueScatter"></canvas>
-            </div>
-            <div style="font-size:11px;color:#666;line-height:1.4;">
+</div>
+<div id="scatterWrap" style="height:360px;margin-bottom:10px;">
+<canvas id="chartValueScatter"></canvas>
+</div>
+<div style="font-size:11px;color:#666;line-height:1.4;">
               x축: 전환률(%) · y축: 평균 방문수 · 점 크기: 인원(표본) · (표본/미상 제외 옵션과 연동)
             </div>
-          </div>
-
-        </div>
-      </div>
-
-      <div id="tabRadius" class="tabPane">
-        <div id="radiusNeedHospital" style="display:none;padding:10px;background:#fff3bf;border:1px solid #ffe066;border-radius:8px;margin-bottom:12px;font-size:12px;color:#856404;">
+</div>
+</div>
+</div>
+<div class="tabPane" id="tabRadius">
+<div id="radiusNeedHospital" style="display:none;padding:10px;background:#fff3bf;border:1px solid #ffe066;border-radius:8px;margin-bottom:12px;font-size:12px;color:#856404;">
           병원 설정이 필요합니다. 왼쪽 패널에서 <b>우리 병원</b>을 먼저 설정해주세요.
         </div>
-
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;">
-          <div style="font-size:12px;color:#495057;font-weight:700;">전환률 최소 표본 n</div>
-          <select id="distMinN" style="padding:6px 10px;border:1px solid #ced4da;border-radius:8px;font-size:12px;background:#fff;">
-            <option value="1">1</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
-            <option value="10">10</option>
-            <option value="30" selected>30</option>
-            <option value="50">50</option>
-          </select>
-          <div style="font-size:11px;color:#868e96;">n 미만 구간은 전환률 그래프에서 점선/회색으로 표시합니다.</div>
-        </div>
-
-        <div id="distSummary" style="display:none;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;margin:0 0 12px 0;font-size:12px;color:#495057;"></div>
-
-
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 분포 (병원 기준)</div>
-            <div style="height:320px;margin-bottom:18px;">
-              <canvas id="chartDistHist" width="900" height="320"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>거리</th><th>인원</th><th>비율</th></tr></thead>
-              <tbody id="tblDist"></tbody>
-            </table>
-          </div>
-
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 버킷별 전환률</div>
-            <div style="height:320px;margin-bottom:18px;">
-              <canvas id="chartDistConv" width="900" height="320"></canvas>
-            </div>
-            <table class="miniTable">
-              <thead><tr><th>거리</th><th>전환률</th><th>Lift</th><th>신환</th><th>전환</th><th>합계</th></tr></thead>
-              <tbody id="tblDistConv"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-top:16px;">
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">누적 커버리지 (거리 ≤ X)</div>
-            <div style="height:280px;margin-bottom:18px;">
-              <canvas id="chartDistCoverage" width="900" height="280"></canvas>
-            </div>
-          </div>
-
-          <div style="flex:1;min-width:320px;">
-            <div style="font-weight:bold;color:#495057;margin-bottom:8px;">전환 기여도 & Lift</div>
-            <div style="height:280px;margin-bottom:18px;">
-              <canvas id="chartDistImpact" width="900" height="280"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;">
+<div style="font-size:12px;color:#495057;font-weight:700;">전환률 최소 표본 n</div>
+<select id="distMinN" style="padding:6px 10px;border:1px solid #ced4da;border-radius:8px;font-size:12px;background:#fff;">
+<option value="1">1</option>
+<option value="3">3</option>
+<option value="5">5</option>
+<option value="10">10</option>
+<option selected="" value="30">30</option>
+<option value="50">50</option>
+</select>
+<div style="font-size:11px;color:#868e96;">n 미만 구간은 전환률 그래프에서 점선/회색으로 표시합니다.</div>
 </div>
-
+<div id="distSummary" style="display:none;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;margin:0 0 12px 0;font-size:12px;color:#495057;"></div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 분포 (병원 기준)</div>
+<div style="height:320px;margin-bottom:18px;">
+<canvas height="320" id="chartDistHist" width="900"></canvas>
 </div>
-
-    </div>
-  </div>
+<table class="miniTable">
+<thead><tr><th>거리</th><th>인원</th><th>비율</th></tr></thead>
+<tbody id="tblDist"></tbody>
+</table>
+</div>
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">거리 버킷별 전환률</div>
+<div style="height:320px;margin-bottom:18px;">
+<canvas height="320" id="chartDistConv" width="900"></canvas>
+</div>
+<table class="miniTable">
+<thead><tr><th>거리</th><th>전환률</th><th>Lift</th><th>신환</th><th>전환</th><th>합계</th></tr></thead>
+<tbody id="tblDistConv"></tbody>
+</table>
+</div>
+</div>
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-top:16px;">
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">누적 커버리지 (거리 ≤ X)</div>
+<div style="height:280px;margin-bottom:18px;">
+<canvas height="280" id="chartDistCoverage" width="900"></canvas>
+</div>
+</div>
+<div style="flex:1;min-width:320px;">
+<div style="font-weight:bold;color:#495057;margin-bottom:8px;">전환 기여도 &amp; Lift</div>
+<div style="height:280px;margin-bottom:18px;">
+<canvas height="280" id="chartDistImpact" width="900"></canvas>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 </div>
 
 <div id="roadviewModal">
-  <div id="roadviewContainer"></div>
-  <button class="rv-close" id="btnCloseRoadview">닫기</button>
+<div id="roadviewContainer"></div>
+<button class="rv-close" id="btnCloseRoadview">닫기</button>
 </div>
-
 <script>
 const WALK_SPEED = 67;
 const BIKE_SPEED = 227;
@@ -1158,7 +1274,11 @@ const SVG_MARKERS = {
 };
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
+let __sortedVip = [];
+
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+let targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+
 let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjVisitPareto = null, chartObjVisitImpact = null, chartObjAgeRetentionStack = null, chartObjAgeRetentionRates = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjValueScatter = null, chartObjDistHist = null, chartObjDistConv = null, chartObjDistCoverage = null, chartObjDistImpact = null;
 let searchedData = [], myHospitalMarker = null, routeLines = [], routeMarkers = [], lastRoute = [];
 let pointMode = false, promoPoints = [];
@@ -1171,7 +1291,18 @@ var distDrawing = false; var distLine = null; var distOverlay = null; var distMe
 var areaDrawing = false; var areaPath = []; var areaPoly = null; var areaOverlay = null; window.__areaPolys = [];
 
 const $ = (id) => document.getElementById(id);
-const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
+const toast = (msg) => {
+  let t = $('toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.innerText = '';
+    document.body.appendChild(t);
+  }
+  t.innerText = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+};
 
 
 function calcAgeFromRow(ageVal, rrnVal){
@@ -1261,7 +1392,7 @@ function initKakao(){
     roadview = new kakao.maps.Roadview($('roadviewContainer'));
     roadviewClient = new kakao.maps.RoadviewClient();
     setupMapListeners(); setupToolbar(); 
-    toast("시스템 준비 완료 (v3.0.0)");
+    toast("시스템 준비 완료 (v3.1.2)");
   });
 }
 initKakao();
@@ -1318,7 +1449,7 @@ if (me && me.domEvent && me.domEvent.detail >= 2 && !drawingFlag) {
 
     if (pointMode) {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><polygon points="20,2 25,15 38,20 25,25 20,38 15,25 2,20 15,15" fill="#ff0000" stroke="white" stroke-width="2"/></svg>`;
-      const marker = new kakao.maps.Marker({ position: me.latLng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(40,40)), zIndex: 50 });
+      const marker = new kakao.maps.Marker({ position: me.latLng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(40,40)), zIndex: 2000000 });
       marker.setMap(map); promoPoints.push(marker);
       return;
     }
@@ -1395,7 +1526,11 @@ function setupToolbar(){
     window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); }); window.__areaPolys = [];
     distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); }); distMeasurements = [];
     try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+
     promoPoints.forEach(p => p.setMap(null)); promoPoints = [];
     map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
     toast("도구 및 포인트 초기화");
@@ -1447,8 +1582,19 @@ async function resolveLatestBannerCsvUrl(){
           if(j && j.default_branch) branch = j.default_branch;
         }
       }catch(e){}
-      const apiUrl = `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents/${ctx.dir ? ctx.dir : ''}?ref=${branch}`;
-      const res = await fetch(apiUrl, {cache:'no-store'});
+      const contentsPath = (ctx.dir && ctx.dir.length) ? ctx.dir : '';
+      const apiUrl = contentsPath
+        ? `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents/${contentsPath}?ref=${branch}`
+        : `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents?ref=${branch}`;
+      let res = await fetch(apiUrl, {cache:'no-store'});
+      // fallback: some repos still use 'master'
+      if(!res.ok && branch === 'main'){
+        const altApiUrl = contentsPath
+          ? `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents/${contentsPath}?ref=master`
+          : `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents?ref=master`;
+        const alt = await fetch(altApiUrl, {cache:'no-store'});
+        if(alt.ok){ res = alt; branch = 'master'; }
+      }
       if(res.ok){
         const items = await res.json();
         const csvs = (items||[]).filter(it => it && it.type==='file' && /^banner_\d{4}-\d{2}-\d{2}\.csv$/i.test(it.name));
@@ -1517,48 +1663,275 @@ function detectLatLngColumns(rows){
 }
 
 async function loadBannerPoints(){
-  if(bannerPointsCache) return bannerPointsCache;
-  const url = await resolveLatestBannerCsvUrl();
-  if(!url){ bannerPointsCache = []; return bannerPointsCache; }
-  const res = await fetch(url, {cache:'no-store'});
-  if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
-  const txt = await res.text();
-  const lines = txt.split(/\r?\n/).filter(Boolean);
-  if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
+  // 캐시가 있으면 즉시 반환
+  if (bannerPointsCache) return bannerPointsCache;
 
-  // parse first up to 200 lines
-  const parsed = lines.slice(0, 200).map(parseCsvLineLoose);
-  // drop header if it looks like header (contains non-numeric lat/lng)
-  const det = detectLatLngColumns(parsed.slice(1));
-  const latCol = det.lat; const lngCol = det.lng;
-  if(latCol<0 || lngCol<0){ bannerPointsCache = []; return bannerPointsCache; }
+  try{
+    const url = await resolveLatestBannerCsvUrl();
+    if(!url){ bannerPointsCache = []; return bannerPointsCache; }
 
-  const pts = [];
-  for(const row of parsed.slice(1)){
-    const lat = parseFloat((row[latCol]||'').replace(/[^0-9\.-]/g,''));
-    const lng = parseFloat((row[lngCol]||'').replace(/[^0-9\.-]/g,''));
-    if(!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    // name / addr heuristics: pick a stringy column that contains '게시대' or an address-like pattern
-    let name = '';
-    for(const v of row){
-      if(!v) continue;
-      if(/게시대/.test(v)){ name = v; break; }
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // ⚠️ CSV 인코딩(UTF-8/CP949/EUC-KR) 섞일 수 있어 arrayBuffer로 받아서 TextDecoder로 해석
+    const buf = await res.arrayBuffer();
+    let textUtf8 = new TextDecoder('utf-8').decode(buf);
+    // UTF-8로 읽었을 때 '위도/경도' 같은 헤더가 없거나,  (U+FFFD)가 많이 보이면 CP949(EUC-KR)로 재시도
+    const hasKoreanHeader = (textUtf8.includes('위도') && textUtf8.includes('경도')) || (textUtf8.toLowerCase().includes('latitude') && textUtf8.toLowerCase().includes('longitude'));
+    const repCnt = (textUtf8.match(/\uFFFD/g)||[]).length;
+    let csvText = (hasKoreanHeader && repCnt < 50) ? textUtf8 : new TextDecoder('euc-kr').decode(buf);
+
+    // BOM 제거
+    csvText = csvText.replace(/^\uFEFF/, '');
+
+    // 줄 분리
+    const lines = csvText.split(/\r?\n/).filter(Boolean);
+    if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // CSV 한 줄 파서(따옴표 안의 쉼표 처리)
+    const splitCSV = (line)=>{
+      const out=[]; let cur=''; let inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='\"'){
+          if(inQ && line[i+1]==='\"'){ cur+='\"'; i++; }
+          else inQ=!inQ;
+        }else if(ch===',' && !inQ){
+          out.push(cur); cur='';
+        }else{
+          cur+=ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+
+    const header = splitCSV(lines[0]).map(h=>String(h||'').trim());
+    const findIdx = (keys)=> header.findIndex(h=>{
+      const hh = String(h||'').trim().toLowerCase();
+      return keys.some(k=>hh.includes(k));
+    });
+
+    const latIdx = findIdx(['위도','lat','latitude']);
+    const lngIdx = findIdx(['경도','lng','lon','longitude']);
+    const nameIdx = findIdx(['게시대명','게시대위치명','명칭','name','title']);
+    const addrIdx = findIdx(['소재지도로명주소','소재지지번주소','주소','addr','address']);
+
+    if(latIdx<0 || lngIdx<0){
+      console.warn('[BANNER] 위도/경도 컬럼을 찾지 못했습니다. header=', header);
+      bannerPointsCache = [];
+      return bannerPointsCache;
     }
-    if(!name){
-      // fallback to first non-empty string
-      name = row.find(v => v && v.length>=2) || '현수막 게시대';
+
+    const pts = [];
+    let dropped = 0;
+
+    for(let i=1;i<lines.length;i++){
+      const cols = splitCSV(lines[i]);
+      const lat = parseFloat(String(cols[latIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      const lng = parseFloat(String(cols[lngIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)){ dropped++; continue; }
+
+      const title = String(cols[nameIdx] ?? '현수막 게시대').trim() || '현수막 게시대';
+      const addr = String(cols[addrIdx] ?? '').trim();
+
+      pts.push({
+        type: 'banner',
+        lat, lng,
+        title,
+        addr,
+        raw: cols
+      });
     }
-    let addr = '';
-    const addrLike = row.find(v => v && (/(로|길|동|읍|면|리)/.test(v)) && v.length>=6);
-    if(addrLike) addr = addrLike;
-    pts.push({ name, addr, lat, lng });
+
+    if(dropped){
+      console.log('[BANNER] dropped rows (no valid lat/lng):', dropped);
+    }
+
+    bannerPointsCache = pts;
+    // 디버그용(콘솔 점검)
+    window.__bannerAllRows = pts;
+    return bannerPointsCache;
+  }catch(e){
+    console.error('[BANNER] loadBannerPoints failed:', e);
+    bannerPointsCache = [];
+    return bannerPointsCache;
   }
-  bannerPointsCache = pts;
-  return bannerPointsCache;
 }
 // ===== /현수막 게시대 =====
 
-searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
+  // ===== 현수막 게시대: "레이어"처럼 동작 (버튼 ON 상태면 지도 이동/줌에 맞춰 자동 갱신) =====
+  const bannerBtn = document.querySelector('.search-btn[data-target="banner"]');
+  const isBannerActive = () => !!(bannerBtn && bannerBtn.classList.contains('active'));
+
+  // 너무 많은 게시대가 한 번에 뜨면 브라우저가 버벅일 수 있어, 줌 레벨에 따라 상한을 둠
+  const getBannerMax = () => {
+    const lv = (window.map && map.getLevel) ? map.getLevel() : 7;
+    // 레벨이 작을수록(확대) 더 많이 보여도 OK
+    if(lv <= 4) return 2000;
+    if(lv <= 6) return 1500;
+    if(lv <= 8) return 1000;
+    return 700;
+  };
+
+  const sampleGrid = (points, bounds, maxN) => {
+    if(points.length <= maxN) return points;
+
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const rows = 20, cols = 20;
+    const dLat = (ne.getLat() - sw.getLat()) / rows;
+    const dLng = (ne.getLng() - sw.getLng()) / cols;
+
+    const buckets = new Map();
+    for(const p of points){
+      const r = Math.min(rows-1, Math.max(0, Math.floor((p.lat - sw.getLat()) / (dLat || 1e-9))));
+      const c = Math.min(cols-1, Math.max(0, Math.floor((p.lng - sw.getLng()) / (dLng || 1e-9))));
+      const key = r + ':' + c;
+      if(!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(p);
+    }
+
+    // 라운드 로빈으로 각 셀에서 하나씩 뽑아 골고루 분포
+    const keys = Array.from(buckets.keys());
+    let idx = 0;
+    const out = [];
+    while(out.length < maxN && keys.length){
+      const k = keys[idx % keys.length];
+      const arr = buckets.get(k);
+      if(arr && arr.length){
+        out.push(arr.shift());
+      }else{
+        // 비어버린 셀 제거
+        buckets.delete(k);
+        keys.splice(idx % keys.length, 1);
+        if(!keys.length) break;
+        continue;
+      }
+      idx++;
+    }
+    return out;
+  };
+
+  const clearBannerLayerOnly = () => {
+    (targetMarkers.banner || []).forEach(m => m.setMap(null));
+    (targetOverlays.banner || []).forEach(o => o.setMap(null));
+    targetMarkers.banner = [];
+    targetOverlays.banner = [];
+    // searchedData에서 banner만 제거
+    searchedData = (searchedData || []).filter(x => x.type !== 'banner');
+  };
+
+  let __bannerIdleHandler = null;
+  let __bannerIdleAttached = false;
+  const startBannerAuto = () => {
+    if(__bannerIdleAttached || !window.map) return;
+    __bannerIdleHandler = () => {
+      if(!isBannerActive()) return;
+      // 너무 자주 그리면 버벅임 → 250ms 디바운스
+      clearTimeout(window.__bannerDebounceT);
+      window.__bannerDebounceT = setTimeout(() => {
+        drawBannerLayerForBounds(map.getBounds());
+      }, 250);
+    };
+    kakao.maps.event.addListener(map, 'idle', __bannerIdleHandler);
+    __bannerIdleAttached = true;
+  };
+  const stopBannerAuto = () => {
+    if(!__bannerIdleAttached) return;
+    try{ kakao.maps.event.removeListener(map, 'idle', __bannerIdleHandler); }catch(e){}
+    __bannerIdleHandler = null;
+    __bannerIdleAttached = false;
+  };
+
+  async function drawBannerLayerForBounds(bounds){
+    if(!bounds || !window.map) return;
+
+    const ptsAll = await loadBannerPoints();
+    if(!ptsAll || !ptsAll.length){
+      clearBannerLayerOnly();
+      toast('현수막 게시대 CSV를 불러오지 못했습니다.', 2500);
+      return;
+    }
+
+    const inBounds = ptsAll.filter(p => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)));
+
+    // 기존 배너 마커/라벨 제거
+    clearBannerLayerOnly();
+
+    const maxN = getBannerMax();
+    const picked = sampleGrid(inBounds, bounds, maxN);
+
+    // 표시 + searchedData 반영
+    for(const p of picked){
+      const pos = new kakao.maps.LatLng(p.lat, p.lng);
+
+      // 마커
+      const m = new kakao.maps.Marker({
+        position: pos,
+        map,
+        image: new kakao.maps.MarkerImage(
+          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34"><circle cx="17" cy="17" r="16" fill="#6f42c1"/><text x="17" y="22" text-anchor="middle" font-size="16" fill="#fff" font-family="Arial">B</text></svg>`),
+          new kakao.maps.Size(34,34),
+          { offset: new kakao.maps.Point(17,17) }
+        ),
+        title: p.title || '현수막 게시대',
+        zIndex: 30
+      });
+      targetMarkers.banner.push(m);
+
+      // 라벨(너무 빽빽하면 가독성 떨어져서, 레벨에 따라 숨김)
+      const lv = map.getLevel();
+      if(lv <= 7){
+        const label = document.createElement('div');
+        label.className = 'marker-label marker-label-banner';
+        label.textContent = p.title || '현수막';
+        const o = new kakao.maps.CustomOverlay({
+          position: pos,
+          content: label,
+          yAnchor: 1.8,
+          zIndex: 31,
+          map
+        });
+        targetOverlays.banner.push(o);
+      }
+
+      searchedData.push({
+        type: 'banner',
+        name: p.title || '현수막 게시대',
+        addr: p.addr || '',
+        phone: '',
+        lat: p.lat,
+        lng: p.lng,
+        latlng: pos,
+        id: p.id || `banner_${p.lat}_${p.lng}`
+      });;
+    }
+
+    // 디버그
+    window.__bannerShown = picked;
+    // 사용자 체감: 얼마나 걸러졌는지 알 수 있게
+    console.log('[BANNER] total:', ptsAll.length, 'inBounds:', inBounds.length, 'shown:', picked.length, 'level:', map.getLevel());
+  }
+
+  // 버튼 클릭 로직: banner는 레이어처럼 자동 갱신
+  searchBtns.forEach(btn => btn.onclick = async function(){
+    this.classList.toggle('active');
+
+    const target = this.getAttribute('data-target');
+
+    if(target === 'banner'){
+      if(isBannerActive()){
+        // 켜지면 바로 표시 + 자동 갱신 시작
+        await drawBannerLayerForBounds(map.getBounds());
+        startBannerAuto();
+      }else{
+        // 꺼지면 제거 + 자동 갱신 해제
+        stopBannerAuto();
+        clearBannerLayerOnly();
+      }
+    }
+  });
 
 async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   return new Promise((resolve)=>{
@@ -1605,7 +1978,29 @@ function pickSeniorRepresentative(list){
 
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active'); if(!actives.length) return toast("대상 선택");
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] }; searchedData = []; try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+ searchedData = []; try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+  // (중요) pan/zoom 직후엔 bounds가 이전 값일 수 있어 'idle' 한번 대기
+const __waitMapIdle = (timeout=700) => new Promise((resolve) => {
+  let done = false;
+  const handler = () => {
+    if (done) return;
+    done = true;
+    kakao.maps.event.removeListener(map, 'idle', handler);
+    resolve();
+  };
+  kakao.maps.event.addListener(map, 'idle', handler);
+  setTimeout(() => {
+    if (done) return;
+    done = true;
+    kakao.maps.event.removeListener(map, 'idle', handler);
+    resolve();
+  }, timeout);
+});
+await __waitMapIdle();
   const bounds = map.getBounds(); $('searchStatus').innerText = "스캔 중..."; 
   for(const btn of actives){
     const t = btn.dataset.target;
@@ -1617,17 +2012,8 @@ $('btnSearch').onclick = async () => {
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
     // banner는 CSV 데이터 로드로 처리
     if(t === 'banner'){
-      try{
-        const pts = await loadBannerPoints();
-        const inBounds = pts.filter(p => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)));
-        inBounds.forEach((p) => {
-          const latlng = new kakao.maps.LatLng(p.lat, p.lng);
-          const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 });
-          const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.name}</div>`, map: map, zIndex: 6 });
-          targetMarkers[t].push(marker); targetMarkers[t].push(label);
-          searchedData.push({ name: p.name, addr: p.addr||'', phone: '', type: t, lat: p.lat, lng: p.lng, latlng: latlng, id: `banner_${p.lat}_${p.lng}` });
-        });
-      }catch(e){ console.error(e); }
+      await drawBannerLayerForBounds(bounds);
+      startBannerAuto();
       continue;
     }
 
@@ -1648,13 +2034,17 @@ if(t === 'senior') {
 
 
     unique.forEach(p => {
-       const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 }); targetMarkers[t].push(marker); targetMarkers[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
+       const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 200000 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 200001 }); targetMarkers[t].push(marker); targetOverlays[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
     });
   }
   $('searchStatus').innerText = "완료"; toast("스캔 완료");
 };
 
-$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] }; try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
+$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null)));
+  try{ Object.values(targetOverlays).forEach(a=>a.forEach(o=>o && o.setMap && o.setMap(null))); }catch(e){}
+  targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+ try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
 
 $('btnRouteOpt').onclick = () => {
   if(!myHospitalMarker) return toast("병원 설정 필요");
@@ -1938,7 +2328,7 @@ function applyFilter(){
 }
 
 $('btnFit').onclick = () => { if(patients.length) { const b = new kakao.maps.LatLngBounds(); patients.forEach(p=>p.marker&&b.extend(p.marker.getPosition())); map.setBounds(b); } };
-document.querySelectorAll('.toggle').forEach(t => { t.onclick = function() { const k = this.dataset.toggle; const isOn = !this.classList.contains('on'); if(isOn) this.classList.add('on'); else this.classList.remove('on'); if(k === 'all') { ['new_only', 'new_conv', 'bit_90', 'old'].forEach(subK => { toggleState[subK] = isOn; const sub = document.querySelector(`.toggle[data-toggle="${subK}"]`); if(isOn) sub.classList.add('on'); else sub.classList.remove('on'); }); } else { toggleState[k] = isOn; } applyFilter(); }; });
+document.querySelectorAll('.toggle').forEach(t => { t.onclick = function() { const k = this.dataset.toggle; if(!k) return; const isOn = !this.classList.contains('on'); if(isOn) this.classList.add('on'); else this.classList.remove('on'); if(k === 'all') { ['new_only', 'new_conv', 'bit_90', 'old'].forEach(subK => { toggleState[subK] = isOn; const sub = document.querySelector(`.toggle[data-toggle="${subK}"]`); if(isOn) sub.classList.add('on'); else sub.classList.remove('on'); }); } else { toggleState[k] = isOn; } applyFilter(); }; });
 function countInCircle(circle) { if(!circle) return 0; const center = circle.getPosition(); const radius = circle.getRadius(); const line = new kakao.maps.Polyline(); let count = 0; patients.forEach(p => { if(p.marker && p.marker.getMap()) { line.setPath([center, p.latlng]); if(line.getLength() <= radius) count++; } }); return count; }
 
 
@@ -2705,183 +3095,35 @@ function renderValueScatter(dongRows){
 }
 
 function renderValueCharts(dongRows){
-  bindValueControlsOnce();
+  // value charts: VIP table + scatter
+  try{
+    const vipRows = Array.isArray(dongRows) ? dongRows.filter(r=>r && r._total!==undefined) : [];
+    const sortedVip = vipRows.slice().sort((a,b)=> (b._total||0)-(a._total||0)).slice(0,15);
 
-  const minSampleOn = getMinSampleToggle();
-  const excludeUnknown = getExcludeUnknownValue();
-  const baseRows = (excludeUnknown ? dongRows.filter(r => r.dong !== '미상') : dongRows);
-
-  // --- (3) 전환률 랭킹 ---
-  const convRows = baseRows
-    .map(r => {
-      const denom = (safeNum(r.n) + safeNum(r.conv));
-      const rate = denom ? (safeNum(r.conv) / denom) : 0;
-      return { ...r, denom, rate };
-    })
-    .filter(r => !minSampleOn || r.denom >= 5)
-    .sort((a,b)=> b.rate - a.rate);
-
-  const top = convRows.slice(0, 15);
-  const labels = top.map(r=>r.dong);
-  const ratePct = top.map(r=> +(r.rate*100).toFixed(2));
-
-  if(chartObjConvRank) chartObjConvRank.destroy();
-  chartObjConvRank = new Chart(document.getElementById('chartConvRank'), {
-    type:'bar',
-    data:{ labels, datasets:[{ label:'전환률(%)', data: ratePct, backgroundColor:'#51cf66' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = top[ctx.dataIndex];
-        return `신환 ${r.n} / 전환 ${r.conv} (합계 ${r.denom})`;
-      }}}},
-      scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } } }
+    // VIP table
+    const vipWrap = document.getElementById("valueVipWrap");
+    const vipTbl  = document.getElementById("valueVipTbl");
+    if(vipWrap && vipTbl){
+      vipWrap.style.display = sortedVip.length ? "block" : "none";
+      vipTbl.innerHTML = sortedVip.map(r=>{
+        const name = escapeHtml(r._name || "");
+        const total = Number(r._total||0).toLocaleString();
+        const avg = (Number(r._avg||0)).toFixed(1);
+        return `<tr><td>${name}</td><td style="text-align:right;">${total}</td><td style="text-align:right;">${avg}</td></tr>`;
+      }).join("") || "";
     }
-  });
 
-  const tbl = document.getElementById('tblConvRank');
-  if(tbl){
-    tbl.innerHTML = top.map(r => (
-      `<tr><td>${r.dong}</td><td><b>${(r.rate*100).toFixed(1)}%</b></td><td>${r.n}</td><td>${r.conv}</td><td>${r.denom}</td></tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
+    // mini stats
+    const vipCntEl = document.getElementById("valueVipCnt");
+    if(vipCntEl) vipCntEl.textContent = String(sortedVip.length);
+
+    // scatter
+    renderValueScatter(dongRows);
+  }catch(e){
+    console.warn("renderValueCharts error", e);
   }
-
-  // --- (4) 평균 방문수 랭킹 (표본 필터 + VIP 후보 분리) ---
-  const sortBy = (document.getElementById('selAvgSortBy')?.value) || 'avg';
-
-  const K = 10; // 내부 완화 강도(고정, UI 미노출)
-  const totalP = baseRows.reduce((a,r)=>a+safeNum(r.total),0);
-  const totalV = baseRows.reduce((a,r)=>a+safeNum(r.sumVisits),0);
-  const overallAvg = totalP ? (totalV/totalP) : 0;
-
-  const enriched = baseRows
-    .filter(r => safeNum(r.total) > 0)
-    .map(r => {
-      const total = safeNum(r.total);
-      const sumVisits = safeNum(r.sumVisits);
-      const avg = sumVisits / total;
-      const avgAdj = (sumVisits + K*overallAvg) / (total + K); // 표시용 평균(노이즈 완화)
-      const denom = safeNum(r.n) + safeNum(r.conv);
-      const convRate = denom ? (safeNum(r.conv)/denom) : 0;
-      return { ...r, total, sumVisits, avg, avgAdj, denom, convRate };
-    });
-
-  const vipRows = enriched.filter(r => r.total < 5);
-  const mainRows = minSampleOn ? enriched.filter(r => r.total >= 5) : enriched;
-
-  const keyFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return r.convRate;
-    return r.avgAdj;
-  };
-
-  const metricLabel = (sortBy === 'sum') ? '총 방문수' : (sortBy === 'conv' ? '전환률(%)' : '평균 방문수');
-  const valueFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return +(r.convRate*100).toFixed(2);
-    return +r.avgAdj.toFixed(2);
-  };
-
-  const sortedMain = mainRows.slice().sort((a,b)=> keyFn(b) - keyFn(a));
-  const topAvg = sortedMain.slice(0, 15);
-  const labelsAvg = topAvg.map(r=>r.dong);
-  const dataAvg = topAvg.map(r=> valueFn(r));
-
-  if(chartObjAvgVisits) chartObjAvgVisits.destroy();
-  chartObjAvgVisits = new Chart(document.getElementById('chartAvgVisits'), {
-    type:'bar',
-    data:{ labels: labelsAvg, datasets:[{ label: metricLabel, data: dataAvg, backgroundColor:'#339af0' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = topAvg[ctx.dataIndex];
-        const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-        return `인원 ${r.total}명 / 총 방문수 ${r.sumVisits}회 / 전환률 ${convTxt}`;
-      }}}},
-      scales:{ 
-        x:{ beginAtZero:true, ticks:{ callback:(v)=> (sortBy==='conv' ? (v+'%') : v) } }
-      }
-    }
-  });
-
-  const fmtPct = (v)=> `${(v*100).toFixed(1)}%`;
-  const tbl2 = document.getElementById('tblAvgVisits');
-  if(tbl2){
-    tbl2.innerHTML = topAvg.map(r => (
-      `<tr>
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
-  }
-
-  const vipWrap = document.getElementById('vipAvgSection');
-  const vipTbl = document.getElementById('tblVipAvg');
-  if(vipWrap && vipTbl){
-    const sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
-    vipWrap.style.display = sortedVip.length ? 'block' : 'none';
-    vipTbl.innerHTML = sortedVip.map(r => (
-      `<tr style="opacity:0.75;">
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || '';
-  }
-
-  const expl = document.getElementById('valueExplain');
-  if(expl){
-    const unkTxt = excludeUnknown ? ' (미상 제외)' : '';
-    const filterTxt = minSampleOn ? ' (표본 5명 미만은 아래 VIP 후보로 분리)' : ' (표본 필터 OFF: 모든 동 포함)';
-    const show = topAvg.slice(0,5).map((r,i)=>{
-      const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-      return `${i+1}) <b>${r.dong}</b> · ${metricLabel} <b>${valueFn(r)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
-    }).join('<br>');
-
-    // --- 추천(액션) ---
-    const rec = [];
-    if(sortBy === 'avg'){
-      rec.push(`• <b>평균 방문수 상위</b>는 ‘단골화/리콜’ 후보입니다 → 재예약/정기검진 메시지를 우선 적용해보세요`);
-    } else if(sortBy === 'sum'){
-      rec.push(`• <b>총 방문수 상위</b>는 ‘업무량/기여’가 큰 지역입니다 → 운영/스케줄/CRM 우선순위를 높게 두는 게 유리합니다`);
-    } else if(sortBy === 'conv'){
-      rec.push(`• <b>전환률 상위</b>는 ‘효율’이 좋은 지역입니다 → 신환 유입 캠페인/안내를 집중해보세요`);
-    }
-    rec.push(`• 정렬 기준을 바꾸면 관점이 달라집니다 (평균 방문수=단골화, 총 방문수=기여, 전환률=효율)`);
-
-    if(!excludeUnknown && baseRows.some(r=>r.dong==='미상')){
-      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 지역 비교가 더 명확해집니다`);
-    }
-    if(minSampleOn){
-      const vipCnt = sortedVip.length || 0;
-      if(vipCnt){
-        const topVip = sortedVip.slice(0,3).map(r=>`${r.dong}(${r.total}명)`).join(', ');
-        rec.push(`• <b>VIP 후보</b>(표본<5): ${vipCnt}개 동 · 상위 후보: ${topVip}`);
-      } else {
-        rec.push(`• 현재 조건에서 VIP 후보(표본<5)가 없습니다`);
-      }
-    } else {
-      rec.push(`• 표본 필터 OFF 상태에서는 표본이 작은 동의 값이 튈 수 있으니 해석에 주의하세요`);
-    }
-
-    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
-
-    expl.innerHTML =
-      `현재 정렬: <b>${metricLabel}</b>${unkTxt}${filterTxt}<br>` +
-      show + recHtml;
-  }
-// --- Scatter (선택) ---
-  renderValueScatter(dongRows);
 }
+
 
 
 
@@ -3460,6 +3702,509 @@ window.switchTab = (id) => {
   try { maybeRenderExtraStats(id); } catch(e){ console.error(e); }
   setTimeout(() => resizeAllStatCharts(), 80);
 };
+
+
+/* ===========================   [AI 전략 컨설턴트: Gemini ↔ GPT(OpenAI)]   =========================== */
+const DEFAULT_GEMINI_KEY = "";
+const DEFAULT_OPENAI_KEY = "";
+const DEFAULT_OPENAI_PROXY = "";
+
+
+/* ===========================   [AI PANEL v3.1.6: GPT 기본 + Gemini 보조, Worker Proxy 고정]   =========================== */
+
+const AI_STORE_KEY = "jinsul_ai_settings_v2";
+const AI_PROXY_BASE_DEFAULT = "https://jinsul-lab.yms0127.workers.dev"; // Cloudflare Worker (Secrets에 키 저장)
+const OPENAI_MODEL_DEFAULT = "gpt-4o-mini";
+const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
+
+let __aiLastPrimary = "";
+let __aiLastAssist  = "";
+
+const AI_PRESETS = {
+  season: "이번 달(계절/월) 기준으로 신규 유치 + 재진 유지 + 제휴(MOU) 아이디어를 4주 플랜으로 만들어줘.",
+  new: "신규 환자 유치를 늘리기 위한 실행 아이디어를 4주 플랜으로 제시해줘.",
+  new_drop: "최근 신규 환자가 하락했다고 가정하고, 원인 가설(데이터 기반)과 회복 전략을 4주 플랜으로 제시해줘.",
+  ret: "재진(주사 3일/7일, 물리 1일 1회 권장) 유지력을 높이는 운영·커뮤니케이션 전략을 4주 플랜으로 제시해줘.",
+  ret_drop: "최근 재진 환자가 하락했다고 가정하고, 원인 가설(운영/경험/동선/리콜)과 회복 전략을 4주 플랜으로 제시해줘.",
+  mou: "지도 시설(경로당/복지관/중소기업/은행 등)을 활용해 지역 제휴(MOU) TOP10을 제안하고, 접근 스크립트/혜택/측정 KPI를 제시해줘."
+};
+
+function aiLoadSettings(){
+  try{
+    const raw = localStorage.getItem(AI_STORE_KEY);
+    const s = raw ? JSON.parse(raw) : {};
+    return {
+      provider: s.provider || "openai",
+      geminiAssist: (s.geminiAssist !== undefined) ? !!s.geminiAssist : true,
+      openaiModel: s.openaiModel || OPENAI_MODEL_DEFAULT,
+      geminiModel: s.geminiModel || GEMINI_MODEL_DEFAULT,
+      proxyBase: s.proxyBase || AI_PROXY_BASE_DEFAULT
+    };
+  } catch(e){
+    return { provider:"openai", geminiAssist:true, openaiModel:OPENAI_MODEL_DEFAULT, geminiModel:GEMINI_MODEL_DEFAULT, proxyBase:AI_PROXY_BASE_DEFAULT };
+  }
+}
+
+function aiSaveSettings(patch){
+  const cur = aiLoadSettings();
+  const next = { ...cur, ...(patch||{}) };
+  try{ localStorage.setItem(AI_STORE_KEY, JSON.stringify(next)); } catch(e){}
+  return next;
+}
+
+function getProxyCandidates(proxyBase){
+  const b = (proxyBase || "").trim().replace(/\/+$/,"");
+  if(!b) return [];
+  // Worker 라우팅이 "/" 또는 "/ai" 둘 다인 경우가 있어 자동 우회
+  return [b, b + "/ai"];
+}
+
+async function proxyCallJSON(proxyBase, payload){
+  const b = String(proxyBase||"").trim().replace(/\/+$/,"");
+  // We only call the base URL; if you want "/ai" you can put it in the proxy URL field.
+  const bases = [b].filter(Boolean);
+
+  let lastErr = null;
+  for(const base of bases){
+    try{
+      const res = await fetch(base, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const raw = await res.text();
+      let data = null;
+      try{ data = raw ? JSON.parse(raw) : null; }catch(_){ data = null; }
+
+      if(!res.ok){
+        // Normalize error message
+        let msg = "";
+        if(data){
+          const err = data.error;
+          if(typeof err === "string") msg = err;
+          else if(err && typeof err === "object" && err.message) msg = String(err.message);
+          else if(data.message) msg = String(data.message);
+          else msg = JSON.stringify(data);
+        }else{
+          msg = raw || res.statusText || "Unknown error";
+        }
+
+        // Friendly hints for common cases
+        if(res.status === 403 && /forbidden origin/i.test(msg)){
+          msg = "403: 현재 열어둔 페이지의 주소(Origin)가 Worker에서 허용되지 않았습니다. GitHub Pages(https://jinsul-lab.github.io) 또는 로컬 서버(http://localhost:8000)로 열어주세요. (파일을 더블클릭해서 file:// 로 열면 차단됩니다.)";
+        }
+
+        throw new Error(`${res.status}: ${msg}`);
+      }
+
+      return data || {};
+    }catch(err){
+      lastErr = err;
+      continue;
+    }
+  }
+  throw lastErr || new Error("AI proxy request failed");
+}
+
+
+function extractGeminiText(data){
+  try{
+    const t = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("\n") || "";
+    return t.trim();
+  } catch(e){ return ""; }
+}
+
+function extractOpenAIText(data){
+  try{
+    if(typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
+    // Responses API
+    if(Array.isArray(data?.output)){
+      const out = [];
+      for(const item of data.output){
+        const c = item?.content;
+        if(Array.isArray(c)){
+          for(const part of c){
+            if(typeof part?.text === "string" && part.text.trim()) out.push(part.text.trim());
+            if(typeof part?.output_text === "string" && part.output_text.trim()) out.push(part.output_text.trim());
+          }
+        }
+      }
+      if(out.length) return out.join("\n\n").trim();
+    }
+    // Chat Completions fallback
+    if(data?.choices?.[0]?.message?.content) return String(data.choices[0].message.content).trim();
+    return "";
+  } catch(e){ return ""; }
+}
+
+function getKRMonth(){
+  try{
+    const d = new Date();
+    return (d.getMonth()+1);
+  }catch(e){ return null; }
+}
+
+function summarizeVisibleStats(){
+  const visible = (typeof buildVisiblePatients === "function") ? buildVisiblePatients() : (patients||[]);
+  const total = visible.length;
+
+  const byType = { "신환 (1회만)":0, "신환 ▶ 재진 전환":0, "90일초":0, "재진":0 };
+  const byDong = {};
+  const byAge = { '0~19':0,'20~29':0,'30~39':0,'40~49':0,'50~59':0,'60~69':0,'70+':0,'미상':0 };
+  const byVisit = { '1회':0,'2회':0,'3회':0,'4회':0,'5회+':0 };
+  let totalVisits = 0;
+
+  const bucketAge = (age)=>{
+    if(age === null || age === undefined || !Number.isFinite(Number(age))) return "미상";
+    const a = Number(age);
+    if(a <= 19) return "0~19";
+    if(a <= 29) return "20~29";
+    if(a <= 39) return "30~39";
+    if(a <= 49) return "40~49";
+    if(a <= 59) return "50~59";
+    if(a <= 69) return "60~69";
+    return "70+";
+  };
+
+  visible.forEach(p=>{
+    if(byType[p.type] !== undefined) byType[p.type]++;
+
+    const d = p.dong || "미상";
+    byDong[d] = (byDong[d]||0)+1;
+
+    byAge[bucketAge(p.age)] = (byAge[bucketAge(p.age)]||0)+1;
+
+    const v = Number(p.total||0);
+    totalVisits += v;
+    if(v <= 1) byVisit["1회"]++;
+    else if(v === 2) byVisit["2회"]++;
+    else if(v === 3) byVisit["3회"]++;
+    else if(v === 4) byVisit["4회"]++;
+    else byVisit["5회+"]++;
+  });
+
+  const dongTop = Object.entries(byDong).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>`${k} ${v}명`).join(", ");
+
+  const ageKnownTotal = ["0~19","20~29","30~39","40~49","50~59","60~69","70+"].reduce((s,k)=>s+byAge[k],0);
+  const ageTop = Object.entries(byAge).filter(([k])=>k!=="미상").sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>{
+    const pct = ageKnownTotal ? ((v/ageKnownTotal)*100).toFixed(1) : "0.0";
+    return `${k} ${v}명(${pct}%)`;
+  }).join(", ");
+
+  const vTop = Object.entries(byVisit).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(", ");
+
+  return [
+    `[현재 화면 기준 요약]`,
+    `- 환자수: ${total}명 / 총 방문수: ${totalVisits}회`,
+    `- 유형: 신환1회 ${byType["신환 (1회만)"]}, 전환 ${byType["신환 ▶ 재진 전환"]}, 90일초 ${byType["90일초"]}, 재진 ${byType["재진"]}`,
+    `- 동 TOP: ${dongTop || "없음"}`,
+    `- 연령 TOP: ${ageTop || "미상"}`,
+    `- 방문수 분포: ${vTop}`
+  ].join("\n");
+}
+
+function summarizeFacilityScan(){
+  if(!Array.isArray(searchedData) || searchedData.length === 0) return "[시설 스캔] 없음";
+  const cnt = { senior:0, welfare:0, ortho:0 };
+  searchedData.forEach(s=>{ if(cnt[s.type] !== undefined) cnt[s.type]++; });
+  const top = searchedData.slice(0,8).map(s=>`- (${s.type}) ${s.name} / ${s.addr||""}`).join("\n");
+  return [
+    `[시설 스캔 결과]`,
+    `- 경로당/회관: ${cnt.senior} / 복지(노인복지·주간보호): ${cnt.welfare} / 경쟁병원: ${cnt.ortho}`,
+    top ? `- 예시(상위 8개)\n${top}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+function buildSystemPrompt(){
+  return [
+    "너는 지역 기반 정형외과·통증의학과 1차 의원의 마케팅 컨설턴트다.",
+    "대형병원이 아닌 '동네 병원' 관점에서 답변한다.",
+    "어르신과 보호자가 읽어도 부담 없는 문장만 사용한다.",
+    "공포 조장(예: '지금 안 하면 위험') 표현은 금지한다.",
+    "전단지 문구는 길게 쓰지 말고, 실행 아이디어/운영 설계/제휴/현장 팁 중심으로 제시한다.",
+    "우리는 주사치료는 3일 간격(못 오면 7일), 물리치료는 1일 1회 권장이라는 운영 원칙이 있다.",
+    "리콜(미내원자 추적)과 문자/전화 흐름 점검도 포함한다.",
+    "90일초는 '다시 찾아준 충성고객'으로 보고, 과도 집착보다 환영/재정착 전략 중심으로 다룬다.",
+    "연령 특성: 10대는 학교 일정, 20대는 1~2회로 종료 가능성이 있다(억지 재방문 유도 금지).",
+    "출력 형식:",
+    "1) 핵심 인사이트 5개",
+    "2) 이번 달 실행 전략(목표/실행/비용·리스크/측정 KPI)",
+    "3) 4주 실행 플랜(주차별)",
+    "4) MOU·제휴 제안 TOP3 (대기업 제외, 지역 거점 우선)",
+    "5) 재진 유지/리콜 운영 체크리스트",
+    "6) 마지막에 '이번 주 바로 할 것 3개'만 뽑아라"
+  ].join("\n");
+}
+
+function buildUserPrompt(userQuestion){
+  const month = getKRMonth();
+  const header = [
+    `오늘 날짜: ${new Date().toISOString().slice(0,10)}`,
+    month ? `현재 월: ${month}월 (한국 기준)` : "",
+    summarizeVisibleStats(),
+    summarizeFacilityScan(),
+    "",
+    "[질문]",
+    userQuestion || "현재 데이터 기준으로 실무적인 마케팅 전략을 만들어줘."
+  ].filter(Boolean).join("\n");
+
+  return header;
+}
+
+/* ---- Provider Calls (via Worker proxy) ---- */
+async function callGeminiText(model, systemPrompt, userPrompt, proxyBase){
+  const payload = {
+    contents: [{ parts: [{ text: userPrompt }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] }
+  };
+  const data = await proxyCallJSON(proxyBase, { provider:"gemini", model: model, payload });
+  const text = extractGeminiText(data);
+  if(!text) throw new Error("Gemini 응답 파싱 실패");
+  return text;
+}
+
+async function callOpenAIText(model, systemPrompt, userPrompt, proxyBase){
+  const body = {
+    model: model,
+    input: [
+      { role:"system", content: [{ type:"input_text", text: systemPrompt || "" }] },
+      { role:"user",   content: [{ type:"input_text", text: userPrompt   || "" }] },
+    ],
+    temperature: 0.4
+  };
+  const data = await proxyCallJSON(proxyBase, { provider:"openai", body });
+  const text = extractOpenAIText(data);
+  if(!text) throw new Error("GPT(OpenAI) 응답 파싱 실패");
+  return text;
+}
+
+
+/* ---- UI ---- */
+function setPreset(presetKey){
+  const row = document.getElementById("aiPresetRow2");
+  const ta = document.getElementById("aiPrompt2");
+  if(!row || !ta) return;
+  row.querySelectorAll(".chipBtn").forEach(b=>b.classList.remove("active"));
+  const btn = row.querySelector(`.chipBtn[data-preset="${presetKey}"]`);
+  if(btn) btn.classList.add("active");
+  const presetText = AI_PRESETS[presetKey] || "";
+  if(ta.value.trim().length === 0 || Object.values(AI_PRESETS).includes(ta.value.trim())) ta.value = presetText;
+  aiSaveSettings({ lastPreset: presetKey });
+}
+
+function openAIDrawer(){
+  const d = document.getElementById("aiDrawer");
+  if(d) d.classList.add("open");
+}
+function closeAIDrawer(){
+  const d = document.getElementById("aiDrawer");
+  if(d) d.classList.remove("open");
+}
+
+function setToggle(el, on){
+  if(!el) return;
+  if(on) el.classList.add("on"); else el.classList.remove("on");
+}
+function getToggle(el){
+  return !!(el && el.classList.contains("on"));
+}
+
+function syncSettingsToUI(s){
+  const provider = document.getElementById("aiProvider");
+  const tAssist = document.getElementById("aiGeminiAssistToggle");
+  const openaiModel = document.getElementById("aiOpenAIModel");
+  const geminiModel = document.getElementById("aiGeminiModel");
+  const proxyBase = document.getElementById("aiProxyBase");
+
+  if(provider) provider.value = s.provider || "openai";
+  if(openaiModel) openaiModel.value = s.openaiModel || OPENAI_MODEL_DEFAULT;
+  if(geminiModel) geminiModel.value = s.geminiModel || GEMINI_MODEL_DEFAULT;
+  if(proxyBase) proxyBase.value = s.proxyBase || AI_PROXY_BASE_DEFAULT;
+
+  // Gemini 보조 토글은 GPT 모드에서만 의미가 큼(그래도 사용 가능)
+  setToggle(tAssist, !!s.geminiAssist);
+
+  // Gemini 단독 모드면 보조 영역 숨김
+  const wrap = document.getElementById("aiAssistWrap");
+  if(wrap) wrap.style.display = "none";
+}
+
+function showPrimary(text){
+  const out = document.getElementById("aiOutput");
+  if(out) out.textContent = text;
+}
+function showAssist(text){
+  const wrap = document.getElementById("aiAssistWrap");
+  const out = document.getElementById("aiOutputAssist");
+  if(wrap) wrap.style.display = "block";
+  if(out) out.textContent = text;
+}
+
+async function runAI(){
+  const settings = aiLoadSettings();
+
+  const providerEl = document.getElementById("aiProvider");
+  const assistEl = document.getElementById("aiGeminiAssistToggle");
+  const openaiModelEl = document.getElementById("aiOpenAIModel");
+  const geminiModelEl = document.getElementById("aiGeminiModel");
+  const proxyBaseEl = document.getElementById("aiProxyBase");
+  const ta = document.getElementById("aiPrompt2");
+
+  const provider = providerEl ? providerEl.value : settings.provider;
+  const openaiModel = (openaiModelEl?.value || settings.openaiModel || OPENAI_MODEL_DEFAULT).trim();
+  const geminiModel = (geminiModelEl?.value || settings.geminiModel || GEMINI_MODEL_DEFAULT).trim();
+  const proxyBase = (proxyBaseEl?.value || settings.proxyBase || AI_PROXY_BASE_DEFAULT).trim();
+  const geminiAssist = getToggle(assistEl);
+
+  aiSaveSettings({ provider, openaiModel, geminiModel, proxyBase, geminiAssist });
+
+  const question = (ta?.value || "").trim() || AI_PRESETS["season"];
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(question);
+
+  __aiLastPrimary = "";
+  __aiLastAssist = "";
+  showPrimary("AI 분석 중...");
+  const assistWrap = document.getElementById("aiAssistWrap");
+  if(assistWrap) assistWrap.style.display = "none";
+
+  try{
+    if(provider === "gemini"){
+      const text = await callGeminiText(geminiModel, systemPrompt, userPrompt, proxyBase);
+      __aiLastPrimary = text;
+      showPrimary(text);
+      return;
+    }
+
+    // GPT 기본
+    const gptText = await callOpenAIText(openaiModel, systemPrompt, userPrompt, proxyBase);
+    __aiLastPrimary = gptText;
+    showPrimary(gptText);
+
+    if(geminiAssist){
+      const assistUserPrompt = [
+        "아래는 GPT가 만든 병원 마케팅 전략이다.",
+        "1) 빠진 리스크/운영 포인트를 5개 보완해줘.",
+        "2) 계절/월(현재 시점) 아이디어를 5개 추가해줘(예: 여름 폭염 대비, 겨울 핫팩 등).",
+        "3) 지역 제휴(MOU) 아이디어를 3개 더 추가해줘(대기업 제외).",
+        "",
+        "[GPT 결과]",
+        gptText
+      ].join("\n");
+      try{
+        const assistText = await callGeminiText(geminiModel, systemPrompt, assistUserPrompt, proxyBase);
+        __aiLastAssist = assistText;
+        showAssist(assistText);
+      }catch(e2){
+        // 보조만 실패해도 기본 답변은 유지
+        showAssist("Gemini 보조 호출 실패: " + (e2?.message || e2));
+      }
+    }
+  } catch(e){
+    showPrimary("오류: " + (e?.message || e));
+  }
+}
+
+function openAIReport(){
+  const modal = document.getElementById("aiReportModal");
+  const content = document.getElementById("aiReportContent");
+  if(!modal || !content) return;
+  const txt = [
+    "[GPT/Gemini 결과]",
+    __aiLastPrimary || "(없음)",
+    (__aiLastAssist ? "\n\n[Gemini 보조 의견]\n"+__aiLastAssist : "")
+  ].join("\n");
+  content.textContent = txt;
+  modal.style.display = "flex";
+}
+
+function initAIPanel(){
+  const settings = aiLoadSettings();
+  syncSettingsToUI(settings);
+
+  const btnFab = document.getElementById("btnFabAI");
+  const btnClose = document.getElementById("btnCloseAIDrawer");
+  const btnReportTop = document.getElementById("btnAIDrawerReport");
+  const btnReport = document.getElementById("btnAIDrawerOpenReport");
+  const btnCloseReport = document.getElementById("btnCloseAIReport");
+  const btnRun = document.getElementById("btnRunAI");
+  const btnCopy = document.getElementById("btnCopyAI");
+  const btnClear = document.getElementById("btnAIDrawerClear");
+
+  const providerEl = document.getElementById("aiProvider");
+  const assistEl = document.getElementById("aiGeminiAssistToggle");
+  const openaiModelEl = document.getElementById("aiOpenAIModel");
+  const geminiModelEl = document.getElementById("aiGeminiModel");
+  const proxyBaseEl = document.getElementById("aiProxyBase");
+
+  // drawer open/close
+  if(btnFab) btnFab.onclick = openAIDrawer;
+  if(btnClose) btnClose.onclick = closeAIDrawer;
+
+  // sidebar buttons (left panel)
+  const btnSideOpen = document.getElementById("btnOpenAIDrawer");
+  const btnSideReport = document.getElementById("btnOpenAIReport");
+  if(btnSideOpen) btnSideOpen.onclick = openAIDrawer;
+  if(btnSideReport) btnSideReport.onclick = openAIReport;
+
+  // report
+  if(btnReportTop) btnReportTop.onclick = openAIReport;
+  if(btnReport) btnReport.onclick = openAIReport;
+  if(btnCloseReport) btnCloseReport.onclick = ()=>{ const m=document.getElementById("aiReportModal"); if(m) m.style.display="none"; };
+
+  // presets
+  const row = document.getElementById("aiPresetRow2");
+  if(row){
+    row.querySelectorAll(".chipBtn").forEach(b=>{
+      b.onclick = ()=> setPreset(b.dataset.preset);
+    });
+    // default preset
+    setPreset("season");
+  }
+
+  // provider/model/proxy saving
+  if(providerEl) providerEl.onchange = ()=> aiSaveSettings({ provider: providerEl.value });
+  if(openaiModelEl) openaiModelEl.onchange = ()=> aiSaveSettings({ openaiModel: openaiModelEl.value.trim() });
+  if(geminiModelEl) geminiModelEl.onchange = ()=> aiSaveSettings({ geminiModel: geminiModelEl.value.trim() });
+  if(proxyBaseEl) proxyBaseEl.onchange = ()=> aiSaveSettings({ proxyBase: proxyBaseEl.value.trim() });
+
+  // assist toggle
+  if(assistEl){
+    assistEl.onclick = ()=> {
+      const on = !assistEl.classList.contains("on");
+      setToggle(assistEl, on);
+      aiSaveSettings({ geminiAssist: on });
+    };
+  }
+
+  // run
+  if(btnRun) btnRun.onclick = runAI;
+
+  // copy
+  if(btnCopy) btnCopy.onclick = async ()=>{
+    const txt = [
+      __aiLastPrimary || (document.getElementById("aiOutput")?.textContent || ""),
+      (__aiLastAssist ? "\n\n[Gemini 보조 의견]\n"+__aiLastAssist : "")
+    ].join("\n").trim();
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast("AI 결과 복사 완료");
+    }catch(e){
+      toast("복사 실패");
+    }
+  };
+
+  // clear
+  if(btnClear) btnClear.onclick = ()=>{
+    __aiLastPrimary = "";
+    __aiLastAssist = "";
+    const out = document.getElementById("aiOutput"); if(out) out.textContent="(여기에 결과가 표시됩니다)";
+    const wrap = document.getElementById("aiAssistWrap"); if(wrap) wrap.style.display="none";
+  };
+}
+
+setTimeout(initAIPanel, 0);
 </script>
 </body>
 </html>
