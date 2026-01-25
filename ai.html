@@ -4045,13 +4045,34 @@ function buildUserPrompt(preset, userText){
 }
 
 /* ---- Providers ---- */
-async function callGeminiText(model, systemPrompt, userPrompt, apiKey){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+async function callGeminiText(model, systemPrompt, userPrompt, apiKey, proxyUrl){
   const payload = {
     contents: [{ parts: [{ text: userPrompt }] }],
     systemInstruction: { parts: [{ text: systemPrompt }] }
   };
-  const res = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+
+  // 프록시가 있으면 (권장) 브라우저에 키를 두지 않고 서버(Worker)에서 호출합니다.
+  if(proxyUrl && /^https?:\/\//i.test(proxyUrl)){
+    const res = await fetch(proxyUrl, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ provider:"gemini", model, payload })
+    });
+    if(!res.ok){ const t = await res.text(); throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,220)}`); }
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "결과 없음";
+  }
+
+  // 직접 호출(비권장: 키 노출). Gemini는 x-goog-api-key 헤더로 인증합니다.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-goog-api-key": (apiKey||"").trim()
+    },
+    body: JSON.stringify(payload)
+  });
   if(!res.ok){ const t = await res.text(); throw new Error(`${res.status} ${res.statusText}: ${t.slice(0,220)}`); }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "결과 없음";
@@ -4166,6 +4187,7 @@ async function runAI(){
   const model = ($('aiModel')?.value || s.model || "").trim() || (provider==="openai" ? "gpt-4o-mini" : "gemini-1.5-flash");
   const geminiKey = ($('aiGeminiKey')?.value || s.geminiKey || "").trim().replace(/\s+/g,"");
   const openaiKey = ($('aiOpenAIKey')?.value || s.openaiKey || "").trim().replace(/\s+/g,"");
+  const openaiProxy = ($('aiOpenAIProxy')?.value || s.openaiProxy || "").trim();
 
   const systemPrompt = buildSystemPrompt();
   const userText = $('aiPrompt2') ? $('aiPrompt2').value : "";
@@ -4175,11 +4197,11 @@ async function runAI(){
   try{
     let out = "";
     if(provider === "openai"){
-      if(!openaiKey) throw new Error("OpenAI API Key가 비어있습니다.");
+      if(!openaiKey && !openaiProxy) throw new Error("OpenAI API Key가 비어있습니다. (또는 AI 프록시 URL을 입력하세요)");
       out = await callOpenAIText(model, systemPrompt, userPrompt, openaiKey, openaiProxy);
     } else {
-      if(!geminiKey) throw new Error("Gemini API Key가 비어있습니다.");
-      out = await callGeminiText(model, systemPrompt, userPrompt, geminiKey);
+      if(!geminiKey && !openaiProxy) throw new Error("Gemini API Key가 비어있습니다. (또는 AI 프록시 URL을 입력하세요)");
+      out = await callGeminiText(model, systemPrompt, userPrompt, geminiKey, openaiProxy);
     }
     __aiLastText = out;
     $('aiOutput').innerText = out;
@@ -4235,7 +4257,7 @@ function initAIPanel(){
       // 사용 키 입력 가이드(시각적)
       if($('aiGeminiKey')) $('aiGeminiKey').style.opacity = (pv==="gemini") ? "1" : "0.35";
       if($('aiOpenAIKey')) $('aiOpenAIKey').style.opacity = (pv==="openai") ? "1" : "0.35";
-      if($('aiOpenAIProxy')) $('aiOpenAIProxy').style.opacity = (pv==="openai") ? "1" : "0.35";
+      if($('aiOpenAIProxy')) $('aiOpenAIProxy').style.opacity = "1"; // 프록시는 OpenAI/Gemini 공용
     };
     // 초기 상태에도 적용
     $('aiProvider').onchange();
