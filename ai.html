@@ -1215,6 +1215,8 @@ const SVG_MARKERS = {
 };
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
+let __sortedVip = [];
+
 let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 let targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
 
@@ -3151,11 +3153,14 @@ function renderValueCharts(dongRows){
     )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
   }
 
-  let sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+  ____sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+    sortedVip = __sortedVip;
+  let sortedVip = __sortedVip;
   const vipWrap = document.getElementById('vipAvgSection');
   const vipTbl = document.getElementById('tblVipAvg');
   if(vipWrap && vipTbl){
-    sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+    __sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
+    sortedVip = __sortedVip;
     vipWrap.style.display = sortedVip.length ? 'block' : 'none';
     vipTbl.innerHTML = sortedVip.map(r => (
       `<tr style="opacity:0.75;">
@@ -4207,6 +4212,12 @@ function initAIPanel(){
   // drawer open/close
   if(btnFab) btnFab.onclick = openAIDrawer;
   if(btnClose) btnClose.onclick = closeAIDrawer;
+
+  // sidebar buttons (left panel)
+  const btnSideOpen = document.getElementById("btnOpenAIDrawer");
+  const btnSideReport = document.getElementById("btnOpenAIReport");
+  if(btnSideOpen) btnSideOpen.onclick = openAIDrawer;
+  if(btnSideReport) btnSideReport.onclick = openAIReport;
 
   // report
   if(btnReportTop) btnReportTop.onclick = openAIReport;
