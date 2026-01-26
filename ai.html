@@ -621,7 +621,7 @@
 <div class="uploadBox" id="uploadBox" onclick="document.getElementById('fileInput').click()">
           📂 환자 엑셀 업로드<br/>
 <span style="font-size:11px;color:#868e96;">클릭 또는 파일 드래그</span>
-<input accept=".xlsx, .xls, .csv" hidden="" id="fileInput" type="file"/>
+<input accept=".xlsx, .xls, .csv" hidden="" id="fileInput" type="file" multiple>
 </div>
 <div class="statGrid">
 <div class="statItem">
@@ -1306,48 +1306,44 @@ const toast = (msg) => {
 
 
 function calcAgeFromRow(ageVal, rrnVal){
-  // ageVal: 숫자/문자 혼합 나이(예: "69세6개월", "만 54세", "54") 또는 빈값
+  // ageVal: 숫자 나이(문자 포함 가능) 또는 빈값
   // rrnVal: 주민번호(YYMMDD-XXXXXXX) 형태일 수 있음
-  const pickYears = (v) => {
+  // BIT 등에서 '69세6개월' 형태가 올 수 있으므로 '세' 앞 숫자를 우선 사용
+  try{
+    const m = String(ageVal ?? '').match(/(\d{1,3})\s*세/);
+    if(m){
+      const a2 = Number(m[1]);
+      if(Number.isFinite(a2) && a2 >= 0 && a2 <= 120) return a2;
+    }
+  }catch(e){}
+  const cleanNum = (v) => {
     if(v === null || v === undefined) return null;
-    const s = String(v).trim();
+    const s = String(v).replace(/[^0-9]/g, "");
     if(!s) return null;
-
-    // 1) "69세6개월", "69세", "만 54세" 같은 케이스: '세' 앞 숫자만 사용
-    const mSe = s.match(/(\d{1,3})\s*세/);
-    if(mSe) return Number(mSe[1]);
-
-    // 2) 숫자만 있는 케이스
-    const mNum = s.match(/\d{1,3}/);
-    if(mNum) return Number(mNum[0]);
-
-    return null;
+    const num = Number(s);
+    return Number.isFinite(num) ? num : null;
   };
-
-  const a = pickYears(ageVal);
+  const a = cleanNum(ageVal);
   if(a !== null && a >= 0 && a <= 120) return a;
 
-  // 주민번호로 추정(가능한 경우)
-  if(rrnVal){
-    const s = String(rrnVal).replace(/\s/g,'');
-    const m = s.match(/(\d{2})(\d{2})(\d{2})[-]?(\d)/);
-    if(m){
-      const yy = Number(m[1]), mm = Number(m[2]), dd = Number(m[3]);
-      const g = Number(m[4]);
-      if(mm>=1 && mm<=12 && dd>=1 && dd<=31){
-        const now = new Date();
-        const curYY = now.getFullYear();
-        const century = (g===1||g===2||g===5||g===6) ? 1900 : (g===3||g===4||g===7||g===8) ? 2000 : 1900;
-        const by = century + yy;
-        let age = curYY - by;
-        // 생일 미도래 보정(대략)
-        const curMM = now.getMonth()+1, curDD = now.getDate();
-        if(curMM < mm || (curMM===mm && curDD < dd)) age -= 1;
-        if(age>=0 && age<=120) return age;
-      }
-    }
-  }
-  return null;
+  if(rrnVal === null || rrnVal === undefined) return null;
+  const s = String(rrnVal).replace(/\s/g, "");
+  const digits = s.replace(/[^0-9]/g, "");
+  if(digits.length < 7) return null;
+
+  const yy = Number(digits.slice(0,2));
+  const gender = digits.slice(6,7); // 7번째
+  if(!Number.isFinite(yy)) return null;
+
+  // 세기 추정: 1/2=1900, 3/4=2000, 5/6=1900(외국인), 7/8=2000(외국인)
+  let century = 1900;
+  if(gender === '3' || gender === '4' || gender === '7' || gender === '8') century = 2000;
+
+  const birthYear = century + yy;
+  const nowYear = new Date().getFullYear();
+  const age = nowYear - birthYear; // 만 나이 근사(월/일 미사용)
+  if(age < 0 || age > 120) return null;
+  return age;
 }
 
 // ENTER on hospital input = search
@@ -2020,7 +2016,7 @@ await __waitMapIdle();
     if(t === 'banner') { imageSrc = SVG_MARKERS.banner; }
     else if(t === 'senior') { k = ['경로당','마을회관','무더위쉼터','관리사무소','관리실','경비실']; imageSrc = SVG_MARKERS.senior; }
     else if (t === 'welfare') { k = ['노인복지','주간보호']; imageSrc = SVG_MARKERS.welfare; }
-    else if (t === 'ortho') { k = ['정형외과','통증의학과','재활의학과','신경외과']; imageSrc = SVG_MARKERS.ortho; }
+    else if (t === 'ortho') { k = ['정형외과','통증의학과']; imageSrc = SVG_MARKERS.ortho; }
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
     // banner는 CSV 데이터 로드로 처리
     if(t === 'banner'){
@@ -2231,102 +2227,239 @@ $('btnExportRoute').onclick = () => {
 const uploadBox = $('uploadBox');
 ['dragenter', 'dragover'].forEach(e => { uploadBox.addEventListener(e, (ev) => { ev.preventDefault(); uploadBox.classList.add('dragover'); }, false); });
 ['dragleave', 'drop'].forEach(e => { uploadBox.addEventListener(e, (ev) => { ev.preventDefault(); uploadBox.classList.remove('dragover'); }, false); });
-uploadBox.addEventListener('drop', (ev) => { const files = ev.dataTransfer.files; if(files.length) processFile(files[0]); }, false);
-$('fileInput').addEventListener('change', e => { if(e.target.files.length) processFile(e.target.files[0]); e.target.value = ""; });
+uploadBox.addEventListener('drop', (ev) => { const files = ev.dataTransfer.files; if(files && files.length) processFiles(Array.from(files)); }, false);
+$('fileInput').addEventListener('change', e => { if(e.target.files && e.target.files.length) processFiles(Array.from(e.target.files)); e.target.value = ""; });
 
-async function processFile(file){
-  toast("데이터 분석 중..."); const fr = new FileReader();
-  fr.onload = (e) => {
-    const data = new Uint8Array(e.target.result); let workbook; try { workbook = XLSX.read(data, {type:'array'}); } catch { const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"}); workbook = XLSX.read(Encoding.codeToString(u), {type:'string'}); }
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1}); parsePatients(rows);
-  };
-  fr.readAsArrayBuffer(file);
+// 여러 파일 업로드(월 태그 자동 인식) 지원
+let __patientMap = new Map();
+let __totalVisitRows = 0;
+let __uploadedMonths = new Set();
+let __uploadedFiles = [];
+
+function inferMonthTagFromFilename(name){
+  const s = String(name||"");
+  // 2025-11, 2025.11, 2025_11 등
+  let m = s.match(/(20\d{2})\s*[._-]?\s*(0?[1-9]|1[0-2])\s*월?/);
+  if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}`;
+  // 11월, 1월
+  m = s.match(/\b(0?[1-9]|1[0-2])\s*월\b/);
+  if(m) return `M${String(m[1]).padStart(2,'0')}`;
+  return "";
 }
 
-function parsePatients(rows){
-  let headIdx = -1; for(let i=0; i<Math.min(rows.length, 20); i++){ if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; } }
-  if(headIdx < 0) return toast("환자 데이터 형식이 아닙니다");
-  const h = rows[headIdx].map(x => String(x||""));
-  const idx = { id: h.findIndex(s => /차트|번호|ID/.test(s)), addr: h.findIndex(s => /주소/.test(s)), name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)), new: h.findIndex(s => /신규|신환/.test(s)), type: h.findIndex(s => /구분|분류/.test(s)), age: h.findIndex(s => /나이|연령/.test(s)), rrn: h.findIndex(s => /주민|주민번호/.test(s)) };
-  const mapData = new Map(); let totalV = 0; let newIds = [];
-  for(let i=headIdx+1; i<rows.length; i++){
-    const r = rows[i]; if(!r || !r[idx.id]) continue; const pid = String(r[idx.id]); totalV++;
-    const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
-    if(!mapData.has(pid)) { mapData.set(pid, { id: pid, numId: numId, name: r[idx.name]||"미상", addr: r[idx.addr]||"", age: null, visits: [] }); }
-    const p = mapData.get(pid);
-    if(p.age === null){ p.age = calcAgeFromRow(idx.age >= 0 ? r[idx.age] : null, idx.rrn >= 0 ? r[idx.rrn] : null); }
-    let isNewVisit = false;
-    // [의사랑 규칙]
-// 보험구분/급여구분 값은 신환/재진 판정에 사용하지 않음
+function rememberUploadMeta(file){
+  const tag = inferMonthTagFromFilename(file?.name||"");
+  if(tag) __uploadedMonths.add(tag);
+  __uploadedFiles.push({ name:file?.name||"", month:tag||"" , size:file?.size||0 });
+}
 
-    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
-    else if(idx.type >= 0) { const t = String(r[idx.type]||""); if(!t.includes("90") && /신환|신규/.test(t)) isNewVisit = true; }
-    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
-    p.visits.push({ isNew: isNewVisit, bit: bit }); if(isNewVisit) newIds.push(numId);
+function readFileToRows(file){
+  return new Promise((resolve, reject)=>{
+    try{
+      const fr = new FileReader();
+      fr.onload = (e)=>{
+        try{
+          const data = new Uint8Array(e.target.result);
+          let workbook;
+          try{ workbook = XLSX.read(data, {type:'array'}); }
+          catch{
+            const u = Encoding.convert(data, {to:"UNICODE", from:"AUTO"});
+            workbook = XLSX.read(Encoding.codeToString(u), {type:'string'});
+          }
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header:1});
+          resolve(rows);
+        }catch(err){ reject(err); }
+      };
+      fr.onerror = (err)=>reject(err);
+      fr.readAsArrayBuffer(file);
+    }catch(err){ reject(err); }
+  });
+}
+
+async function processFiles(files){
+  if(!files || !files.length) return;
+  toast(`데이터 분석 중... (${files.length}개)`);
+  let ok = 0;
+  for(const f of files){
+    rememberUploadMeta(f);
+    try{
+      const rows = await readFileToRows(f);
+      ingestPatientsRows(rows, { fileName: f.name });
+      ok++;
+    }catch(e){
+      console.error(e);
+      toast(`파일 읽기 실패: ${f?.name||''}`);
+    }
   }
-  newIds.sort((a,b)=>a-b); let threshold = newIds.length > 5 ? newIds[Math.floor(newIds.length*0.2)] : 0;
-  patients = Array.from(mapData.values());
+  if(ok > 0){
+    renderPatientsToMap();
+  }
+}
 
-  // ===============================
-  // ❌ 엑셀 헤더 행 제거 (차트번호 / 수진자명)
-  // ===============================
-  patients = patients.filter(p =>
-    p.id !== "차트번호" && p.name !== "수진자명"
-  );
+// (호환) 단일 파일
+async function processFile(file){
+  return processFiles([file]);
+}
 
+// 파일 한 개의 rows를 전역 환자맵에 누적 반영
+function ingestPatientsRows(rows, opt){
+  let headIdx = -1;
+  for(let i=0; i<Math.min(rows.length, 30); i++){
+    if(JSON.stringify(rows[i]).includes("주소")) { headIdx = i; break; }
+  }
+  if(headIdx < 0){
+    toast(`환자 데이터 형식이 아닙니다 (${opt?.fileName||''})`);
+    return;
+  }
+
+  const h = rows[headIdx].map(x => String(x||""));
+  const idx = {
+    id:   h.findIndex(s => /차트|번호|ID/.test(s)),
+    addr: h.findIndex(s => /주소/.test(s)),
+    name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)),
+    new:  h.findIndex(s => /신규|신환/.test(s)),
+    type: h.findIndex(s => /구분|분류/.test(s)),
+    age:  h.findIndex(s => /나이|연령|세/.test(s)),
+    rrn:  h.findIndex(s => /주민|주민번호/.test(s))
+  };
+
+  let fileVisitRows = 0;
+  const fileName = opt?.fileName || "";
+  const mtag = inferMonthTagFromFilename(fileName);
+
+  for(let i=headIdx+1; i<rows.length; i++){
+    const r = rows[i];
+    if(!r || !r[idx.id]) continue;
+
+    const pid = String(r[idx.id]);
+    if(pid === "차트번호") continue;
+
+    fileVisitRows++;
+
+    const numId = parseInt(pid.replace(/[^0-9]/g, "")) || 0;
+
+    if(!__patientMap.has(pid)){
+      __patientMap.set(pid, {
+        id: pid,
+        numId: numId,
+        name: (idx.name >= 0 ? (r[idx.name]||"미상") : "미상"),
+        addr: (idx.addr >= 0 ? (r[idx.addr]||"") : ""),
+        age: null,
+        visits: [],
+        __months: new Set()
+      });
+    }
+
+    const p = __patientMap.get(pid);
+
+    // 빈값이면 보강
+    if((!p.name || p.name === "미상") && idx.name >= 0 && r[idx.name]) p.name = r[idx.name];
+    if((!p.addr) && idx.addr >= 0 && r[idx.addr]) p.addr = r[idx.addr];
+
+    if(mtag) p.__months.add(mtag);
+
+    if(p.age === null){
+      p.age = calcAgeFromRow(idx.age >= 0 ? r[idx.age] : null, idx.rrn >= 0 ? r[idx.rrn] : null);
+    }
+
+    let isNewVisit = false;
+
+    // [의사랑 규칙] 보험구분/급여구분 값은 신환/재진 판정에 사용하지 않음
+    if(idx.new >= 0 && r[idx.new]) isNewVisit = true;
+    else if(idx.type >= 0){
+      const t = String(r[idx.type]||"");
+      if(!t.includes("90") && /신환|신규/.test(t)) isNewVisit = true;
+    }
+
+    const bit = (idx.type >= 0) ? String(r[idx.type]||"") : "";
+    p.visits.push({ isNew: isNewVisit, bit: bit });
+  }
+
+  __totalVisitRows += fileVisitRows;
+}
+
+// 전역 환자맵 → patients 배열 구성 & 지도/통계 렌더
+function renderPatientsToMap(){
+  patients = Array.from(__patientMap.values()).filter(p => p && p.id && p.id !== "차트번호" && p.name !== "수진자명");
+
+  // 유형 분류
   patients.forEach(p => {
-    const visits = p.visits;
+    const visits = p.visits || [];
     const totalVisits = visits.length;
 
     let hasNew = false;
     let has90 = false;
 
     visits.forEach(v => {
-      // 의사랑은 bit이 아니라 isNew 기준
-      if(v.bit && v.bit.includes("90")) has90 = true;
+      if(v.bit && String(v.bit).includes("90")) has90 = true;
       else if(v.isNew === true) hasNew = true;
     });
 
-    
-
-
-if(has90){
+    if(has90){
       p.type = "90일초";
-    }
-    else if(hasNew){
-      p.type = (totalVisits === 1)
-        ? "신환 (1회만)"
-        : "신환 ▶ 재진 전환";
-    }
-    else{
+    } else if(hasNew){
+      p.type = (totalVisits === 1) ? "신환 (1회만)" : "신환 ▶ 재진 전환";
+    } else {
       p.type = "재진";
     }
 
     p.total = totalVisits;
   });
+
   $('statTotalUsers').innerText = patients.length.toLocaleString();
-  $('statTotalVisits').innerText = totalV.toLocaleString();
-  clusterer.clear();
+  $('statTotalVisits').innerText = (__totalVisitRows).toLocaleString();
+
+  // 기존 마커/클러스터 초기화
+  try{
+    if(Array.isArray(patients)){
+      patients.forEach(p => { if(p.marker) { try{ p.marker.setMap(null); }catch(e){} p.marker=null; } });
+    }
+  }catch(e){}
+  try{ clusterer && clusterer.clear(); }catch(e){}
+
+  if(!geocoder || !map){
+    toast("지도가 로딩 중입니다.");
+    return;
+  }
+
+  // 주소 지오코딩 & 마커 생성
   patients.forEach((p, i) => {
     setTimeout(() => {
       geocoder.addressSearch(p.addr, (res, status) => {
         if(status === kakao.maps.services.Status.OK){
-          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x); p.latlng = latlng;
+          const latlng = new kakao.maps.LatLng(res[0].y, res[0].x);
+          p.latlng = latlng;
           p.dong = res[0].address?.region_3depth_name || "미상";
-          const color = REP_COLOR[p.type];
+
+          const color = REP_COLOR[p.type] || "#228be6";
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="white" stroke-width="1"/></svg>`;
-          p.marker = new kakao.maps.Marker({ position: latlng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14)) });
-          const iw = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;"><b>${p.id} ${p.name}</b><br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`, removable: true });
+          p.marker = new kakao.maps.Marker({
+            position: latlng,
+            image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(14,14))
+          });
+
+          const iw = new kakao.maps.InfoWindow({
+            content: `<div style="padding:5px;font-size:12px;"><b>${p.id} ${p.name}</b><br><span style="color:${color}">● ${p.type}</span><br>총 ${p.total}회</div>`,
+            removable: true
+          });
           kakao.maps.event.addListener(p.marker, 'click', () => iw.open(map, p.marker));
-          if(toggleState[p.filterKey || "all"]) clusterer.addMarker(p.marker);
+
+          // 필터 반영
+          clusterer.addMarker(p.marker);
         }
-        if(i === patients.length - 1) { applyFilter(); $('btnFit').click(); toast("로딩 완료"); }
+
+        if(i === patients.length - 1){
+          applyFilter();
+          try{ $('btnFit').click(); }catch(e){}
+          toast("로딩 완료");
+        }
       });
-    }, i * 30);
+    }, i * 25);
   });
 }
 
 function applyFilter(){
+
   if(!patients.length) return; clusterer.clear();
   const data = drawingManager.getData(); const activeCircles = (data.circle || []).map(c => ({ center: new kakao.maps.LatLng(c.center.y, c.center.x), radius: c.radius }));
   const visibleMarkers = []; let uCount = 0; let vCount = 0;
@@ -3107,183 +3240,165 @@ function renderValueScatter(dongRows){
 }
 
 function renderValueCharts(dongRows){
-  bindValueControlsOnce();
-
-  const minSampleOn = getMinSampleToggle();
-  const excludeUnknown = getExcludeUnknownValue();
-  const baseRows = (excludeUnknown ? dongRows.filter(r => r.dong !== '미상') : dongRows);
-
-  // --- (3) 전환률 랭킹 ---
-  const convRows = baseRows
-    .map(r => {
-      const denom = (safeNum(r.n) + safeNum(r.conv));
-      const rate = denom ? (safeNum(r.conv) / denom) : 0;
-      return { ...r, denom, rate };
-    })
-    .filter(r => !minSampleOn || r.denom >= 5)
-    .sort((a,b)=> b.rate - a.rate);
-
-  const top = convRows.slice(0, 15);
-  const labels = top.map(r=>r.dong);
-  const ratePct = top.map(r=> +(r.rate*100).toFixed(2));
-
-  if(chartObjConvRank) chartObjConvRank.destroy();
-  chartObjConvRank = new Chart(document.getElementById('chartConvRank'), {
-    type:'bar',
-    data:{ labels, datasets:[{ label:'전환률(%)', data: ratePct, backgroundColor:'#51cf66' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = top[ctx.dataIndex];
-        return `신환 ${r.n} / 전환 ${r.conv} (합계 ${r.denom})`;
-      }}}},
-      scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>v+'%' } } }
-    }
-  });
-
-  const tbl = document.getElementById('tblConvRank');
-  if(tbl){
-    tbl.innerHTML = top.map(r => (
-      `<tr><td>${r.dong}</td><td><b>${(r.rate*100).toFixed(1)}%</b></td><td>${r.n}</td><td>${r.conv}</td><td>${r.denom}</td></tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
-  }
-
-  // --- (4) 평균 방문수 랭킹 (표본 필터 + VIP 후보 분리) ---
-  const sortBy = (document.getElementById('selAvgSortBy')?.value) || 'avg';
-
-  const K = 10; // 내부 완화 강도(고정, UI 미노출)
-  const totalP = baseRows.reduce((a,r)=>a+safeNum(r.total),0);
-  const totalV = baseRows.reduce((a,r)=>a+safeNum(r.sumVisits),0);
-  const overallAvg = totalP ? (totalV/totalP) : 0;
-
-  const enriched = baseRows
-    .filter(r => safeNum(r.total) > 0)
-    .map(r => {
+  try{
+    const rows = (dongRows || []).map(r=>{
       const total = safeNum(r.total);
       const sumVisits = safeNum(r.sumVisits);
-      const avg = sumVisits / total;
-      const avgAdj = (sumVisits + K*overallAvg) / (total + K); // 표시용 평균(노이즈 완화)
-      const denom = safeNum(r.n) + safeNum(r.conv);
-      const convRate = denom ? (safeNum(r.conv)/denom) : 0;
-      return { ...r, total, sumVisits, avg, avgAdj, denom, convRate };
+      const newTotal = safeNum(r.n) + safeNum(r.conv);
+      const convRate = newTotal ? (safeNum(r.conv) / newTotal) * 100 : 0;
+      const avgVisits = total ? (sumVisits / total) : 0;
+      return Object.assign({}, r, {
+        _total: total,
+        _sumVisits: sumVisits,
+        _newTotal: newTotal,
+        _convRate: convRate,
+        _avgVisits: avgVisits
+      });
     });
 
-  const vipRows = enriched.filter(r => r.total < 5);
-  const mainRows = minSampleOn ? enriched.filter(r => r.total >= 5) : enriched;
-
-  const keyFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return r.convRate;
-    return r.avgAdj;
-  };
-
-  const metricLabel = (sortBy === 'sum') ? '총 방문수' : (sortBy === 'conv' ? '전환률(%)' : '평균 방문수');
-  const valueFn = (r) => {
-    if(sortBy === 'sum') return r.sumVisits;
-    if(sortBy === 'conv') return +(r.convRate*100).toFixed(2);
-    return +r.avgAdj.toFixed(2);
-  };
-
-  const sortedMain = mainRows.slice().sort((a,b)=> keyFn(b) - keyFn(a));
-  const topAvg = sortedMain.slice(0, 15);
-  const labelsAvg = topAvg.map(r=>r.dong);
-  const dataAvg = topAvg.map(r=> valueFn(r));
-
-  if(chartObjAvgVisits) chartObjAvgVisits.destroy();
-  chartObjAvgVisits = new Chart(document.getElementById('chartAvgVisits'), {
-    type:'bar',
-    data:{ labels: labelsAvg, datasets:[{ label: metricLabel, data: dataAvg, backgroundColor:'#339af0' }] },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      indexAxis:'y',
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ afterLabel:(ctx)=>{
-        const r = topAvg[ctx.dataIndex];
-        const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-        return `인원 ${r.total}명 / 총 방문수 ${r.sumVisits}회 / 전환률 ${convTxt}`;
-      }}}},
-      scales:{ 
-        x:{ beginAtZero:true, ticks:{ callback:(v)=> (sortBy==='conv' ? (v+'%') : v) } }
-      }
+    const ex = document.getElementById("valueExplain");
+    if(ex){
+      ex.textContent =
+        "전환율 = (신환▶재진 전환) ÷ (신환 + 전환) 입니다. " +
+        "평균 방문수 = 총 방문 ÷ 인원 입니다. " +
+        "표본이 매우 작은 동(신규표본 5명 미만)은 참고용으로만 해석하세요.";
     }
-  });
 
-  const fmtPct = (v)=> `${(v*100).toFixed(1)}%`;
-  const tbl2 = document.getElementById('tblAvgVisits');
-  if(tbl2){
-    tbl2.innerHTML = topAvg.map(r => (
-      `<tr>
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || `<tr><td colspan="5" style="text-align:center;color:#868e96;">데이터 없음</td></tr>`;
+    const pct = (v,t)=> (t ? ((v/t)*100).toFixed(1) : "0.0");
+    const fmt = (n)=> Number(n||0).toLocaleString();
+
+    // 1) 전환율 랭킹
+    const convRows = rows
+      .filter(r=>r._newTotal > 0)
+      .sort((a,b)=> (b._convRate - a._convRate) || (b._newTotal - a._newTotal));
+
+    const topConv = convRows.slice(0, 12);
+    const tblConv = document.getElementById("tblConvRank");
+    if(tblConv){
+      tblConv.innerHTML = topConv.length
+        ? topConv.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${pct(r.conv, r._newTotal)}%</td>
+            <td>${fmt(r.conv)} / ${fmt(r._newTotal)}</td>
+            <td>${r._newTotal < 5 ? "<span style='color:#fa5252'>소표본</span>" : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5">데이터 없음</td></tr>`;
+    }
+
+    const cConv = document.getElementById("chartConvRank");
+    if(cConv){
+      if(chartObjConvRank) chartObjConvRank.destroy();
+      chartObjConvRank = new Chart(cConv, {
+        type: "bar",
+        data: {
+          labels: topConv.map(r=>r.dong || "미상"),
+          datasets: [{
+            label: "전환율(%)",
+            data: topConv.map(r=>Number(pct(r.conv, r._newTotal)))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { callback: v => v + "%" } } },
+          plugins: { datalabels: { anchor: "end", align: "end", formatter: v => v + "%" } }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // 2) 평균 방문수 / 총 방문수 랭킹
+    const sel = document.getElementById("selAvgSortBy");
+    const sortBy = sel ? sel.value : "avg"; // avg | total
+    const avgRows = rows.filter(r=>r._total > 0);
+    avgRows.sort((a,b)=>{
+      if(sortBy === "total") return (b._sumVisits - a._sumVisits) || (b._total - a._total);
+      return (b._avgVisits - a._avgVisits) || (b._total - a._total);
+    });
+
+    const topAvg = avgRows.slice(0, 12);
+    const tblAvg = document.getElementById("tblAvgVisits");
+    if(tblAvg){
+      tblAvg.innerHTML = topAvg.length
+        ? topAvg.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${r._avgVisits.toFixed(2)}</td>
+            <td>${fmt(r._sumVisits)} / ${fmt(r._total)}</td>
+            <td>${r._total < 5 ? "<span style='color:#fa5252'>소표본</span>" : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5">데이터 없음</td></tr>`;
+    }
+
+    const cAvg = document.getElementById("chartAvgVisits");
+    if(cAvg){
+      if(chartObjAvgVisits) chartObjAvgVisits.destroy();
+      chartObjAvgVisits = new Chart(cAvg, {
+        type: "bar",
+        data: {
+          labels: topAvg.map(r=>r.dong || "미상"),
+          datasets: [{
+            label: (sortBy === "total" ? "총 방문수" : "평균 방문수"),
+            data: topAvg.map(r=> sortBy === "total" ? r._sumVisits : Number(r._avgVisits.toFixed(2)))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks:{ precision: 0 } } },
+          plugins: { datalabels: { anchor: "end", align: "end", formatter: v => v } }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // 3) VIP 후보(소표본인데 평균 방문이 높은 동)
+    const vipSmall = rows
+      .filter(r=>r._total > 0 && r._total < 5)
+      .sort((a,b)=> (b._avgVisits - a._avgVisits) || (b._total - a._total))
+      .slice(0, 10);
+
+    const tblVip = document.getElementById("tblVipAvg");
+    if(tblVip){
+      tblVip.innerHTML = vipSmall.length
+        ? vipSmall.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${r._avgVisits.toFixed(2)}</td>
+            <td>${fmt(r._sumVisits)} / ${fmt(r._total)}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="4">해당 없음</td></tr>`;
+    }
+
+    // 4) 스캐터: 신규표본(x) vs 전환율(y)
+    const pts = convRows.slice(0, 120).map(r=>({ x: r._newTotal, y: Number(r._convRate.toFixed(1)), label: r.dong || "미상" }));
+    const cScatter = document.getElementById("chartValueScatter");
+    if(cScatter){
+      if(chartObjValueScatter) chartObjValueScatter.destroy();
+      chartObjValueScatter = new Chart(cScatter, {
+        type: "scatter",
+        data: { datasets: [{ label: "동별 전환율(%)", data: pts }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "신규표본(신환+전환)" }, beginAtZero: true, ticks:{ precision:0 } },
+            y: { title: { display: true, text: "전환율(%)" }, beginAtZero: true }
+          },
+          plugins: {
+            datalabels: { display: false },
+            tooltip: { callbacks: { label: (ctx)=> `${ctx.raw.label}: ${ctx.raw.y}% (표본 ${ctx.raw.x})` } }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+  }catch(e){
+    console.error("renderValueCharts error:", e);
   }
-
-  const vipWrap = document.getElementById('vipAvgSection');
-  const vipTbl = document.getElementById('tblVipAvg');
-  if(vipWrap && vipTbl){
-    const sortedVip = vipRows.slice().sort((a,b)=> keyFn(b) - keyFn(a)).slice(0, 15);
-    vipWrap.style.display = sortedVip.length ? 'block' : 'none';
-    vipTbl.innerHTML = sortedVip.map(r => (
-      `<tr style="opacity:0.75;">
-        <td>${r.dong}</td>
-        <td><b>${r.avgAdj.toFixed(2)}</b></td>
-        <td>${r.sumVisits}</td>
-        <td>${r.denom ? fmtPct(r.convRate) : '-'}</td>
-        <td>${r.total}</td>
-      </tr>`
-    )).join('') || '';
-  }
-
-  const expl = document.getElementById('valueExplain');
-  if(expl){
-    const unkTxt = excludeUnknown ? ' (미상 제외)' : '';
-    const filterTxt = minSampleOn ? ' (표본 5명 미만은 아래 VIP 후보로 분리)' : ' (표본 필터 OFF: 모든 동 포함)';
-    const show = topAvg.slice(0,5).map((r,i)=>{
-      const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-      return `${i+1}) <b>${r.dong}</b> · ${metricLabel} <b>${valueFn(r)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
-    }).join('<br>');
-
-    // --- 추천(액션) ---
-    const rec = [];
-    if(sortBy === 'avg'){
-      rec.push(`• <b>평균 방문수 상위</b>는 ‘단골화/리콜’ 후보입니다 → 재예약/정기검진 메시지를 우선 적용해보세요`);
-    } else if(sortBy === 'sum'){
-      rec.push(`• <b>총 방문수 상위</b>는 ‘업무량/기여’가 큰 지역입니다 → 운영/스케줄/CRM 우선순위를 높게 두는 게 유리합니다`);
-    } else if(sortBy === 'conv'){
-      rec.push(`• <b>전환률 상위</b>는 ‘효율’이 좋은 지역입니다 → 신환 유입 캠페인/안내를 집중해보세요`);
-    }
-    rec.push(`• 정렬 기준을 바꾸면 관점이 달라집니다 (평균 방문수=단골화, 총 방문수=기여, 전환률=효율)`);
-
-    if(!excludeUnknown && baseRows.some(r=>r.dong==='미상')){
-      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 지역 비교가 더 명확해집니다`);
-    }
-    if(minSampleOn){
-      const vipCnt = sortedVip.length || 0;
-      if(vipCnt){
-        const topVip = sortedVip.slice(0,3).map(r=>`${r.dong}(${r.total}명)`).join(', ');
-        rec.push(`• <b>VIP 후보</b>(표본<5): ${vipCnt}개 동 · 상위 후보: ${topVip}`);
-      } else {
-        rec.push(`• 현재 조건에서 VIP 후보(표본<5)가 없습니다`);
-      }
-    } else {
-      rec.push(`• 표본 필터 OFF 상태에서는 표본이 작은 동의 값이 튈 수 있으니 해석에 주의하세요`);
-    }
-
-    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
-
-    expl.innerHTML =
-      `현재 정렬: <b>${metricLabel}</b>${unkTxt}${filterTxt}<br>` +
-      show + recHtml;
-  }
-// --- Scatter (선택) ---
-  renderValueScatter(dongRows);
 }
+
 
 
 
@@ -3850,7 +3965,16 @@ document.addEventListener('click', (e) => {
 })();
 
 
-$('btnClear').onclick = () => { clusterer.clear(); patients=[]; $('statTotalUsers').innerText=0; $('statTotalVisits').innerText=0; toast("초기화"); };
+$('btnClear').onclick = () => {
+  try{ clusterer && clusterer.clear(); }catch(e){}
+  patients = [];
+  try{ __patientMap = new Map(); }catch(e){}
+  try{ __totalVisitRows = 0; }catch(e){}
+  try{ __uploadedMonths = new Set(); __uploadedFiles = []; }catch(e){}
+  $('statTotalUsers').innerText = 0;
+  $('statTotalVisits').innerText = 0;
+  toast("초기화");
+};
 window.switchTab = (id) => {
   document.querySelectorAll('.tabPane').forEach(e => e.style.display='none');
   const pane = document.getElementById(id);
@@ -4088,6 +4212,11 @@ function buildSystemPrompt(){
     "리콜(미내원자 추적)과 문자/전화 흐름 점검도 포함한다.",
     "90일초는 '다시 찾아준 충성고객'으로 보고, 과도 집착보다 환영/재정착 전략 중심으로 다룬다.",
     "연령 특성: 10대는 학교 일정, 20대는 1~2회로 종료 가능성이 있다(억지 재방문 유도 금지).",
+    "추가 규칙:",
+    "- 사용자 질문에 없으면 '현재 월과 다음 4주'를 벗어난 달/계절은 언급하지 않는다(필요 시 '다음 분기'로만 표현).",
+    "- 목표는 절대 숫자(예: '신규 50명')로 말하지 말고, 현재 수치 대비 증감률(%)·주차별 변화·재진 유지율처럼 상대지표로만 제시한다.",
+    "- 인사말/자기소개(예: '안녕하세요 원장님', '컨설턴트입니다')는 쓰지 말고 바로 본론부터 시작한다.",
+    "",
     "출력 형식:",
     "1) 핵심 인사이트 5개",
     "2) 이번 달 실행 전략(목표/실행/비용·리스크/측정 KPI)",
@@ -4103,6 +4232,7 @@ function buildUserPrompt(userQuestion){
   const header = [
     `오늘 날짜: ${new Date().toISOString().slice(0,10)}`,
     month ? `현재 월: ${month}월 (한국 기준)` : "",
+    (__uploadedMonths && __uploadedMonths.size) ? `업로드 월 태그: ${Array.from(__uploadedMonths).sort().join(', ')}` : "",
     summarizeVisibleStats(),
     summarizeFacilityScan(),
     "",
@@ -4191,15 +4321,28 @@ function syncSettingsToUI(s){
   if(wrap) wrap.style.display = "none";
 }
 
+
+function cleanAIText(raw){
+  if(!raw) return raw;
+  let t = String(raw).replace(/^\uFEFF/, '').trim();
+  // 흔한 인사/자기소개 제거
+  t = t.replace(/^(안녕하세요[^\n]*\n?)+/g, '');
+  t = t.replace(/^(안녕하십니까[^\n]*\n?)+/g, '');
+  t = t.replace(/^(원장님[^\n]*\n?)+/g, '');
+  t = t.replace(/^(동네 병원의[^\n]*\n?)+/g, '');
+  t = t.replace(/^(지역 기반[^\n]*\n?)+/g, '');
+  return t.trim();
+}
+
 function showPrimary(text){
   const out = document.getElementById("aiOutput");
-  if(out) out.textContent = text;
+  if(out) out.textContent = cleanAIText(text);
 }
 function showAssist(text){
   const wrap = document.getElementById("aiAssistWrap");
   const out = document.getElementById("aiOutputAssist");
   if(wrap) wrap.style.display = "block";
-  if(out) out.textContent = text;
+  if(out) out.textContent = cleanAIText(text);
 }
 
 async function runAI(){
@@ -4247,7 +4390,7 @@ async function runAI(){
       const assistUserPrompt = [
         "아래는 GPT가 만든 병원 마케팅 전략이다.",
         "1) 빠진 리스크/운영 포인트를 5개 보완해줘.",
-        "2) 계절/월(현재 시점) 아이디어를 5개 추가해줘(예: 여름 폭염 대비, 겨울 핫팩 등).",
+        "2) 오늘 날짜/현재 월(업로드 월 태그 포함)에 맞는 시즌 아이디어를 5개 추가해줘. 다른 달/계절 언급 금지.",
         "3) 지역 제휴(MOU) 아이디어를 3개 더 추가해줘(대기업 제외).",
         "",
         "[GPT 결과]",
