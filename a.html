@@ -2319,7 +2319,7 @@ function ingestPatientsRows(rows, opt){
     name: h.findIndex(s => /이름|성명|수진자|환자/.test(s)),
     new:  h.findIndex(s => /신규|신환/.test(s)),
     type: h.findIndex(s => /구분|분류/.test(s)),
-    age:  h.findIndex(s => /나이|연령/.test(s)),
+    age:  h.findIndex(s => /나이|연령|세/.test(s)),
     rrn:  h.findIndex(s => /주민|주민번호/.test(s))
   };
 
@@ -3240,34 +3240,165 @@ function renderValueScatter(dongRows){
 }
 
 function renderValueCharts(dongRows){
-  // value charts: VIP table + scatter
   try{
-    const vipRows = Array.isArray(dongRows) ? dongRows.filter(r=>r && r._total!==undefined) : [];
-    const sortedVip = vipRows.slice().sort((a,b)=> (b._total||0)-(a._total||0)).slice(0,15);
+    const rows = (dongRows || []).map(r=>{
+      const total = safeNum(r.total);
+      const sumVisits = safeNum(r.sumVisits);
+      const newTotal = safeNum(r.n) + safeNum(r.conv);
+      const convRate = newTotal ? (safeNum(r.conv) / newTotal) * 100 : 0;
+      const avgVisits = total ? (sumVisits / total) : 0;
+      return Object.assign({}, r, {
+        _total: total,
+        _sumVisits: sumVisits,
+        _newTotal: newTotal,
+        _convRate: convRate,
+        _avgVisits: avgVisits
+      });
+    });
 
-    // VIP table
-    const vipWrap = document.getElementById("valueVipWrap");
-    const vipTbl  = document.getElementById("valueVipTbl");
-    if(vipWrap && vipTbl){
-      vipWrap.style.display = sortedVip.length ? "block" : "none";
-      vipTbl.innerHTML = sortedVip.map(r=>{
-        const name = escapeHtml(r._name || "");
-        const total = Number(r._total||0).toLocaleString();
-        const avg = (Number(r._avg||0)).toFixed(1);
-        return `<tr><td>${name}</td><td style="text-align:right;">${total}</td><td style="text-align:right;">${avg}</td></tr>`;
-      }).join("") || "";
+    const ex = document.getElementById("valueExplain");
+    if(ex){
+      ex.textContent =
+        "전환율 = (신환▶재진 전환) ÷ (신환 + 전환) 입니다. " +
+        "평균 방문수 = 총 방문 ÷ 인원 입니다. " +
+        "표본이 매우 작은 동(신규표본 5명 미만)은 참고용으로만 해석하세요.";
     }
 
-    // mini stats
-    const vipCntEl = document.getElementById("valueVipCnt");
-    if(vipCntEl) vipCntEl.textContent = String(sortedVip.length);
+    const pct = (v,t)=> (t ? ((v/t)*100).toFixed(1) : "0.0");
+    const fmt = (n)=> Number(n||0).toLocaleString();
 
-    // scatter
-    renderValueScatter(dongRows);
+    // 1) 전환율 랭킹
+    const convRows = rows
+      .filter(r=>r._newTotal > 0)
+      .sort((a,b)=> (b._convRate - a._convRate) || (b._newTotal - a._newTotal));
+
+    const topConv = convRows.slice(0, 12);
+    const tblConv = document.getElementById("tblConvRank");
+    if(tblConv){
+      tblConv.innerHTML = topConv.length
+        ? topConv.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${pct(r.conv, r._newTotal)}%</td>
+            <td>${fmt(r.conv)} / ${fmt(r._newTotal)}</td>
+            <td>${r._newTotal < 5 ? "<span style='color:#fa5252'>소표본</span>" : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5">데이터 없음</td></tr>`;
+    }
+
+    const cConv = document.getElementById("chartConvRank");
+    if(cConv){
+      if(chartObjConvRank) chartObjConvRank.destroy();
+      chartObjConvRank = new Chart(cConv, {
+        type: "bar",
+        data: {
+          labels: topConv.map(r=>r.dong || "미상"),
+          datasets: [{
+            label: "전환율(%)",
+            data: topConv.map(r=>Number(pct(r.conv, r._newTotal)))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { callback: v => v + "%" } } },
+          plugins: { datalabels: { anchor: "end", align: "end", formatter: v => v + "%" } }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // 2) 평균 방문수 / 총 방문수 랭킹
+    const sel = document.getElementById("selAvgSortBy");
+    const sortBy = sel ? sel.value : "avg"; // avg | total
+    const avgRows = rows.filter(r=>r._total > 0);
+    avgRows.sort((a,b)=>{
+      if(sortBy === "total") return (b._sumVisits - a._sumVisits) || (b._total - a._total);
+      return (b._avgVisits - a._avgVisits) || (b._total - a._total);
+    });
+
+    const topAvg = avgRows.slice(0, 12);
+    const tblAvg = document.getElementById("tblAvgVisits");
+    if(tblAvg){
+      tblAvg.innerHTML = topAvg.length
+        ? topAvg.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${r._avgVisits.toFixed(2)}</td>
+            <td>${fmt(r._sumVisits)} / ${fmt(r._total)}</td>
+            <td>${r._total < 5 ? "<span style='color:#fa5252'>소표본</span>" : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5">데이터 없음</td></tr>`;
+    }
+
+    const cAvg = document.getElementById("chartAvgVisits");
+    if(cAvg){
+      if(chartObjAvgVisits) chartObjAvgVisits.destroy();
+      chartObjAvgVisits = new Chart(cAvg, {
+        type: "bar",
+        data: {
+          labels: topAvg.map(r=>r.dong || "미상"),
+          datasets: [{
+            label: (sortBy === "total" ? "총 방문수" : "평균 방문수"),
+            data: topAvg.map(r=> sortBy === "total" ? r._sumVisits : Number(r._avgVisits.toFixed(2)))
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks:{ precision: 0 } } },
+          plugins: { datalabels: { anchor: "end", align: "end", formatter: v => v } }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // 3) VIP 후보(소표본인데 평균 방문이 높은 동)
+    const vipSmall = rows
+      .filter(r=>r._total > 0 && r._total < 5)
+      .sort((a,b)=> (b._avgVisits - a._avgVisits) || (b._total - a._total))
+      .slice(0, 10);
+
+    const tblVip = document.getElementById("tblVipAvg");
+    if(tblVip){
+      tblVip.innerHTML = vipSmall.length
+        ? vipSmall.map((r,i)=>`<tr>
+            <td>${i+1}</td>
+            <td>${r.dong || "미상"}</td>
+            <td>${r._avgVisits.toFixed(2)}</td>
+            <td>${fmt(r._sumVisits)} / ${fmt(r._total)}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="4">해당 없음</td></tr>`;
+    }
+
+    // 4) 스캐터: 신규표본(x) vs 전환율(y)
+    const pts = convRows.slice(0, 120).map(r=>({ x: r._newTotal, y: Number(r._convRate.toFixed(1)), label: r.dong || "미상" }));
+    const cScatter = document.getElementById("chartValueScatter");
+    if(cScatter){
+      if(chartObjValueScatter) chartObjValueScatter.destroy();
+      chartObjValueScatter = new Chart(cScatter, {
+        type: "scatter",
+        data: { datasets: [{ label: "동별 전환율(%)", data: pts }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "신규표본(신환+전환)" }, beginAtZero: true, ticks:{ precision:0 } },
+            y: { title: { display: true, text: "전환율(%)" }, beginAtZero: true }
+          },
+          plugins: {
+            datalabels: { display: false },
+            tooltip: { callbacks: { label: (ctx)=> `${ctx.raw.label}: ${ctx.raw.y}% (표본 ${ctx.raw.x})` } }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
   }catch(e){
-    console.warn("renderValueCharts error", e);
+    console.error("renderValueCharts error:", e);
   }
 }
+
 
 
 
@@ -4081,12 +4212,12 @@ function buildSystemPrompt(){
     "리콜(미내원자 추적)과 문자/전화 흐름 점검도 포함한다.",
     "90일초는 '다시 찾아준 충성고객'으로 보고, 과도 집착보다 환영/재정착 전략 중심으로 다룬다.",
     "연령 특성: 10대는 학교 일정, 20대는 1~2회로 종료 가능성이 있다(억지 재방문 유도 금지).",
-    "추가 규칙:
-- 사용자가 명시하지 않은 다른 달/계절(예: 5~6월, 여름, 장마)은 언급하지 않는다.
-- 목표를 숫자로 과장하지 않는다. 현재 데이터(신규/재진/전환 규모)에 비례해 '증가율(%)' 또는 '주차별 개선' 중심으로 제안한다.
-- 인사말/자기소개(예: '안녕하세요 원장님', '컨설턴트입니다')는 쓰지 말고 바로 본론부터 시작한다.
-
-출력 형식:",
+    "추가 규칙:",
+    "- 사용자 질문에 없으면 '현재 월과 다음 4주'를 벗어난 달/계절은 언급하지 않는다(필요 시 '다음 분기'로만 표현).",
+    "- 목표는 절대 숫자(예: '신규 50명')로 말하지 말고, 현재 수치 대비 증감률(%)·주차별 변화·재진 유지율처럼 상대지표로만 제시한다.",
+    "- 인사말/자기소개(예: '안녕하세요 원장님', '컨설턴트입니다')는 쓰지 말고 바로 본론부터 시작한다.",
+    "",
+    "출력 형식:",
     "1) 핵심 인사이트 5개",
     "2) 이번 달 실행 전략(목표/실행/비용·리스크/측정 KPI)",
     "3) 4주 실행 플랜(주차별)",
@@ -4190,15 +4321,28 @@ function syncSettingsToUI(s){
   if(wrap) wrap.style.display = "none";
 }
 
+
+function cleanAIText(raw){
+  if(!raw) return raw;
+  let t = String(raw).replace(/^\uFEFF/, '').trim();
+  // 흔한 인사/자기소개 제거
+  t = t.replace(/^(안녕하세요[^\n]*\n?)+/g, '');
+  t = t.replace(/^(안녕하십니까[^\n]*\n?)+/g, '');
+  t = t.replace(/^(원장님[^\n]*\n?)+/g, '');
+  t = t.replace(/^(동네 병원의[^\n]*\n?)+/g, '');
+  t = t.replace(/^(지역 기반[^\n]*\n?)+/g, '');
+  return t.trim();
+}
+
 function showPrimary(text){
   const out = document.getElementById("aiOutput");
-  if(out) out.textContent = text;
+  if(out) out.textContent = cleanAIText(text);
 }
 function showAssist(text){
   const wrap = document.getElementById("aiAssistWrap");
   const out = document.getElementById("aiOutputAssist");
   if(wrap) wrap.style.display = "block";
-  if(out) out.textContent = text;
+  if(out) out.textContent = cleanAIText(text);
 }
 
 async function runAI(){
@@ -4246,7 +4390,7 @@ async function runAI(){
       const assistUserPrompt = [
         "아래는 GPT가 만든 병원 마케팅 전략이다.",
         "1) 빠진 리스크/운영 포인트를 5개 보완해줘.",
-        "2) 계절/월(현재 시점) 아이디어를 5개 추가해줘(예: 여름 폭염 대비, 겨울 핫팩 등).",
+        "2) 오늘 날짜/현재 월(업로드 월 태그 포함)에 맞는 시즌 아이디어를 5개 추가해줘. 다른 달/계절 언급 금지.",
         "3) 지역 제휴(MOU) 아이디어를 3개 더 추가해줘(대기업 제외).",
         "",
         "[GPT 결과]",
