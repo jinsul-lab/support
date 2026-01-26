@@ -313,7 +313,7 @@
  /* ⬇️⬇️⬇️ 여기부터 전부 붙여넣기 ⬇️⬇️⬇️ */
 
   /* =========================
-     👇 여기서부터 "디자이너 보정"
+     👇 여기서부터 "디자이너 스타일링"
      ========================= */
 
 
@@ -536,7 +536,7 @@
 <div class="app">
   <div class="sidebar">
     <div class="sidebarHeader">
-      <div class="brand">JINSUL MAP v3.0</div>
+      <div class="brand">JINSUL MAP v3.0.0</div>
       <div style="font-size:11px;color:#868e96;">v3.0.0</div>
     </div>
     
@@ -610,6 +610,10 @@
             <span>🏥</span>
             <span>경쟁병원</span>
           </div>
+          <div class="search-btn" data-target="banner">
+            <span>📌</span>
+            <span>현수막게시대</span>
+          </div>
         </div>
         <div style="font-size:11px;color:#868e96;text-align:center;margin:8px 0;" id="searchStatus">대기</div>
         <div class="btnRow">
@@ -622,7 +626,18 @@
       <div class="section">
         <div class="sectionTitle">홍보 방문 루트</div>
         <div style="font-size:11px;color:#666;margin-bottom:8px;">우리 병원 → 검색된 시설 최단 거리</div>
-        <button class="btn purple" id="btnRouteOpt">🚀 최적 방문 경로 생성</button>
+        
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;">
+          <div style="font-size:11px;color:#555;min-width:54px;">일일 방문</div>
+          <select id="routeMaxPerDay" class="input-box" style="height:34px;padding:6px 10px;">
+            <option value="10">10곳</option>
+            <option value="20" selected>20곳</option>
+            <option value="30">30곳</option>
+            <option value="40">40곳</option>
+            <option value="50">50곳</option>
+          </select>
+        </div>
+<button class="btn purple" id="btnRouteOpt">🚀 최적 방문 경로 생성</button>
       </div>
     </div>
     
@@ -788,7 +803,7 @@
         </div>
 
         <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
           <div id="dongExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
         </details>
       </div>
@@ -929,7 +944,7 @@
         </div>
 
         <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-          <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+          <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
           <div id="visitExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
         </details>
       </div>
@@ -1031,7 +1046,7 @@
             </div>
 
             <details style="margin-top:12px;padding:10px;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;">
-              <summary style="cursor:pointer;font-weight:700;color:#495057;">표 해석 보기</summary>
+              <summary style="cursor:pointer;font-weight:700;color:#495057;">해석 &amp; 제안 보기</summary>
               <div id="valueExplain" style="margin-top:10px;font-size:12px;color:#495057;line-height:1.55;"></div>
             </details>
           </div>
@@ -1138,13 +1153,16 @@ const REP_COLOR = { "신환 (1회만)": "#ff0000", "신환 ▶ 재진 전환": "
 const SVG_MARKERS = {
   senior: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23964b00%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E",
   welfare: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2214%22%20fill%3D%22white%22%20stroke%3D%22%23845ef7%22%20stroke-width%3D%223%22/%3E%3Ctext%20x%3D%2215%22%20y%3D%2221%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E",
-  ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%20viewBox%3D%220%200%2030%2030%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2213%22%20fill%3D%22%23ff5e57%22%20stroke%3D%22white%22%20stroke-width%3D%222%22/%3E%3Cpath%20d%3D%22M15%208v14M8%2015h14%22%20stroke%3D%22white%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E"
+  ortho: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2230%22%20height%3D%2230%22%20viewBox%3D%220%200%2030%2030%22%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2215%22%20r%3D%2213%22%20fill%3D%22%23ff5e57%22%20stroke%3D%22white%22%20stroke-width%3D%222%22/%3E%3Cpath%20d%3D%22M15%208v14M8%2015h14%22%20stroke%3D%22white%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E",
+  banner: `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'><circle cx='18' cy='18' r='16' fill='%239c36b5'/><text x='18' y='22' font-size='18' text-anchor='middle' fill='white'>B</text></svg>`,
 };
 
 let map, drawingManager, clusterer, geocoder, places, roadview, roadviewClient;
-let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
+let patients = [], targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+let targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+
 let chartObj1 = null, chartObjAge = null, chartObjDong = null, chartObjVisit = null, chartObjVisitPareto = null, chartObjVisitImpact = null, chartObjAgeRetentionStack = null, chartObjAgeRetentionRates = null, chartObjRegionStack = null, chartObjRegionPareto = null, chartObjConvRank = null, chartObjAvgVisits = null, chartObjValueScatter = null, chartObjDistHist = null, chartObjDistConv = null, chartObjDistCoverage = null, chartObjDistImpact = null;
-let searchedData = [], myHospitalMarker = null, routeLine = null, routeMarkers = [];
+let searchedData = [], myHospitalMarker = null, routeLines = [], routeMarkers = [], lastRoute = [];
 let pointMode = false, promoPoints = [];
 let roadviewMode = false;
 const toggleState = { all: true, new_only: true, new_conv: true, bit_90: true, old: true };
@@ -1158,36 +1176,64 @@ const $ = (id) => document.getElementById(id);
 const toast = (msg) => { const t=$('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); };
 
 
-function calcAgeFromRow(ageVal, rrnVal){
-  // ageVal: 숫자 나이(문자 포함 가능) 또는 빈값
-  // rrnVal: 주민번호(YYMMDD-XXXXXXX) 형태일 수 있음
-  const cleanNum = (v) => {
-    if(v === null || v === undefined) return null;
-    const s = String(v).replace(/[^0-9]/g, "");
-    if(!s) return null;
-    const num = Number(s);
-    return Number.isFinite(num) ? num : null;
-  };
-  const a = cleanNum(ageVal);
-  if(a !== null && a >= 0 && a <= 120) return a;
+// Age parser (BIT 등 '69세6개월', '6개월' 같은 값 처리: 개월은 버리고 '세' 기준으로만 계산)
+const parseAgeYearsOnly = (v) => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s0 = String(v).trim();
+  if (!s0) return null;
+  // '69세6개월' / '69세 6개월'
+  let m = s0.match(/(\d+)\s*세/);
+  if (m) return Number(m[1]);
+  // '6개월' 같은 경우: 개월→년(내림)
+  m = s0.match(/(\d+)\s*개월/);
+  if (m) {
+    const months = Number(m[1]);
+    if (!Number.isFinite(months)) return null;
+    return Math.floor(months / 12);
+  }
+  // 숫자만 있는 경우
+  const digits = s0.replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  const num = Number(digits);
+  if (!Number.isFinite(num)) return null;
 
-  if(rrnVal === null || rrnVal === undefined) return null;
-  const s = String(rrnVal).replace(/\s/g, "");
-  const digits = s.replace(/[^0-9]/g, "");
-  if(digits.length < 7) return null;
+  // '69세6개월'이 잘못 들어와 696처럼 되는 케이스 방어
+  if (num > 120 && digits.length >= 2) {
+    const first2 = Number(digits.slice(0, 2));
+    if (Number.isFinite(first2) && first2 <= 120) return first2;
+  }
+  return num;
+};
+// 콘솔 디버깅용 노출
+window.parseAgeYearsOnly = parseAgeYearsOnly;
 
-  const yy = Number(digits.slice(0,2));
-  const gender = digits.slice(6,7); // 7번째
-  if(!Number.isFinite(yy)) return null;
+function calcAgeFromRow(ageVal, rrnVal) {
+  // 1) 나이 컬럼(의사랑/비트 모두) 우선: 'xx세yy개월' → xx세, 'yy개월' → floor(yy/12)
+  const a = parseAgeYearsOnly(ageVal);
+  if (a !== null && Number.isFinite(a) && a >= 0 && a <= 120) return a;
 
-  // 세기 추정: 1/2=1900, 3/4=2000, 5/6=1900(외국인), 7/8=2000(외국인)
-  let century = 1900;
-  if(gender === '3' || gender === '4' || gender === '7' || gender === '8') century = 2000;
+  // 2) 주민번호로 추정(없으면 null)
+  if (!rrnVal) return null;
+  const s = String(rrnVal).replace(/[^0-9]/g, '');
+  if (s.length < 6) return null;
 
-  const birthYear = century + yy;
-  const nowYear = new Date().getFullYear();
-  const age = nowYear - birthYear; // 만 나이 근사(월/일 미사용)
-  if(age < 0 || age > 120) return null;
+  const yy = parseInt(s.slice(0, 2), 10);
+  const mm = parseInt(s.slice(2, 4), 10);
+  const dd = parseInt(s.slice(4, 6), 10);
+  const g = s.length >= 7 ? s[6] : '';
+  if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd) || mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+
+  const yearPrefix = (g === '1' || g === '2' || g === '5' || g === '6') ? 1900 : 2000;
+  const birthYear = yearPrefix + yy;
+
+  const now = new Date();
+  const birth = new Date(birthYear, mm - 1, dd);
+  let age = now.getFullYear() - birthYear;
+  const hadBirthday = (now.getMonth() > (mm - 1)) || (now.getMonth() === (mm - 1) && now.getDate() >= dd);
+  if (!hadBirthday) age -= 1;
+
+  if (!Number.isFinite(age) || age < 0 || age > 120) return null;
   return age;
 }
 
@@ -1221,7 +1267,7 @@ function initKakao(){
     if(!$('map')) return; 
     map = new kakao.maps.Map($('map'), { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 });
     const zoomControl = new kakao.maps.ZoomControl();
-    map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+    map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHTBOTTOM);
     geocoder = new kakao.maps.services.Geocoder();
     places = new kakao.maps.services.Places();
     clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 5 });
@@ -1302,7 +1348,7 @@ if (me && me.domEvent && me.domEvent.detail >= 2 && !drawingFlag) {
 
     if (pointMode) {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><polygon points="20,2 25,15 38,20 25,25 20,38 15,25 2,20 15,15" fill="#ff0000" stroke="white" stroke-width="2"/></svg>`;
-      const marker = new kakao.maps.Marker({ position: me.latLng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(40,40)), zIndex: 50 });
+      const marker = new kakao.maps.Marker({ position: me.latLng, image: new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg), new kakao.maps.Size(40,40)), zIndex: 2000000 });
       marker.setMap(map); promoPoints.push(marker);
       return;
     }
@@ -1378,8 +1424,10 @@ function setupToolbar(){
     circles.forEach(c => { c.circle.setMap(null); c.polyline.setMap(null); c.overlay.setMap(null); }); circles = [];
     window.__areaPolys.forEach(a => { a.poly.setMap(null); a.overlay.setMap(null); }); window.__areaPolys = [];
     distMeasurements.forEach(d => { d.line.setMap(null); d.overlay.setMap(null); }); distMeasurements = [];
-    if(routeLine) { routeLine.setMap(null); routeLine = null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] };
+    try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+    Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+
     promoPoints.forEach(p => p.setMap(null)); promoPoints = [];
     map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC); map.removeOverlayMapTypeId(kakao.maps.MapTypeId.BICYCLE);
     toast("도구 및 포인트 초기화");
@@ -1402,7 +1450,382 @@ function setMyHospital(place) { const latlng = new kakao.maps.LatLng(place.y, pl
 $('btnClearHospital').onclick = () => { if(myHospitalMarker) { myHospitalMarker.setMap(null); myHospitalMarker = null; } $('myHospitalInput').value = ""; toast("병원 해제"); };
 
 const searchBtns = document.querySelectorAll('.search-btn');
-searchBtns.forEach(b => b.onclick = function(){ this.classList.toggle('active'); });
+
+// ===== 현수막 게시대 (banner_YYYY-MM-DD.csv 자동 로딩) =====
+let bannerPointsCache = null; // [{name, addr, lat, lng}]
+async function getGitHubContextFromLocation(){
+  try{
+    const host = location.hostname || '';
+    if(!/\.github\.io$/.test(host)) return null;
+    const owner = host.replace(/\.github\.io$/, '');
+    const parts = (location.pathname || '/').split('/').filter(Boolean);
+    const repo = parts[0]; // https://owner.github.io/repo/...
+    const filePath = parts.slice(1).join('/'); // e.g. support/test.html -> filePath 'test.html' if repo is 'support'
+    const dir = filePath.includes('/') ? filePath.split('/').slice(0,-1).join('/') : '';
+    return { owner, repo, dir };
+  }catch(e){ return null; }
+}
+async function resolveLatestBannerCsvUrl(){
+  const ctx = await getGitHubContextFromLocation();
+  // 1) GitHub Pages 환경: 현재 디렉토리의 banner_*.csv 중 최신(날짜 기준)을 자동 선택
+  if(ctx){
+    try{
+      // repo 기본 브랜치 확인
+      let branch = 'main';
+      try{
+        const repoInfo = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}`, {cache:'no-store'});
+        if(repoInfo.ok){
+          const j = await repoInfo.json();
+          if(j && j.default_branch) branch = j.default_branch;
+        }
+      }catch(e){}
+      const contentsPath = (ctx.dir && ctx.dir.length) ? ctx.dir : '';
+      const apiUrl = contentsPath
+        ? `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents/${contentsPath}?ref=${branch}`
+        : `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents?ref=${branch}`;
+      let res = await fetch(apiUrl, {cache:'no-store'});
+      // fallback: some repos still use 'master'
+      if(!res.ok && branch === 'main'){
+        const altApiUrl = contentsPath
+          ? `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents/${contentsPath}?ref=master`
+          : `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/contents?ref=master`;
+        const alt = await fetch(altApiUrl, {cache:'no-store'});
+        if(alt.ok){ res = alt; branch = 'master'; }
+      }
+      if(res.ok){
+        const items = await res.json();
+        const csvs = (items||[]).filter(it => it && it.type==='file' && /^banner_\d{4}-\d{2}-\d{2}\.csv$/i.test(it.name));
+        if(csvs.length){
+          csvs.sort((a,b)=> (b.name.localeCompare(a.name)));
+          const latest = csvs[0].name;
+          const raw = `https://raw.githubusercontent.com/${ctx.owner}/${ctx.repo}/${branch}/${ctx.dir ? ctx.dir+'/' : ''}${latest}`;
+          return raw;
+        }
+      }
+    }catch(e){}
+  }
+  // 2) 로컬/기타: 같은 폴더에 banner.csv가 있으면 사용
+  try{
+    const head = await fetch('./banner.csv', {method:'HEAD', cache:'no-store'});
+    if(head.ok) return './banner.csv';
+  }catch(e){}
+  return null;
+}
+
+function parseCsvLineLoose(line){
+  const out=[]; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch === '"'){
+      if(inQ && line[i+1] === '"'){ cur+='"'; i++; }
+      else inQ=!inQ;
+    }else if(ch === ',' && !inQ){
+      out.push(cur); cur='';
+    }else{
+      cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(s=>String(s??'').trim());
+}
+
+function detectLatLngColumns(rows){
+  // rows: array of array strings; find best (latCol, lngCol) by value-range scoring
+  const n = Math.min(rows.length, 60);
+  let best = {score:0, lat:-1, lng:-1};
+  if(!rows.length) return best;
+  const cols = Math.max(...rows.map(r=>r.length));
+  for(let i=0;i<cols;i++){
+    for(let j=0;j<cols;j++){
+      if(i===j) continue;
+      let score=0, count=0;
+      for(let r=0;r<n;r++){
+        const row = rows[r];
+        const a = parseFloat((row[i]||'').replace(/[^0-9\.-]/g,''));
+        const b = parseFloat((row[j]||'').replace(/[^0-9\.-]/g,''));
+        if(Number.isFinite(a) && Number.isFinite(b)){
+          count++;
+          if(a>=33 && a<=39 && b>=124 && b<=132) score++;
+        }
+      }
+      if(count>=5){
+        const ratio = score / count;
+        if(ratio > best.score){
+          best = {score: ratio, lat: i, lng: j};
+        }
+      }
+    }
+  }
+  return best;
+}
+
+async function loadBannerPoints(){
+  // 캐시가 있으면 즉시 반환
+  if (bannerPointsCache) return bannerPointsCache;
+
+  try{
+    const url = await resolveLatestBannerCsvUrl();
+    if(!url){ bannerPointsCache = []; return bannerPointsCache; }
+
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // ⚠️ CSV 인코딩(UTF-8/CP949/EUC-KR) 섞일 수 있어 arrayBuffer로 받아서 TextDecoder로 해석
+    const buf = await res.arrayBuffer();
+    let textUtf8 = new TextDecoder('utf-8').decode(buf);
+    // UTF-8로 읽었을 때 '위도/경도' 같은 헤더가 없거나,  (U+FFFD)가 많이 보이면 CP949(EUC-KR)로 재시도
+    const hasKoreanHeader = (textUtf8.includes('위도') && textUtf8.includes('경도')) || (textUtf8.toLowerCase().includes('latitude') && textUtf8.toLowerCase().includes('longitude'));
+    const repCnt = (textUtf8.match(/\uFFFD/g)||[]).length;
+    let csvText = (hasKoreanHeader && repCnt < 50) ? textUtf8 : new TextDecoder('euc-kr').decode(buf);
+
+    // BOM 제거
+    csvText = csvText.replace(/^\uFEFF/, '');
+
+    // 줄 분리
+    const lines = csvText.split(/\r?\n/).filter(Boolean);
+    if(!lines.length){ bannerPointsCache = []; return bannerPointsCache; }
+
+    // CSV 한 줄 파서(따옴표 안의 쉼표 처리)
+    const splitCSV = (line)=>{
+      const out=[]; let cur=''; let inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='\"'){
+          if(inQ && line[i+1]==='\"'){ cur+='\"'; i++; }
+          else inQ=!inQ;
+        }else if(ch===',' && !inQ){
+          out.push(cur); cur='';
+        }else{
+          cur+=ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+
+    const header = splitCSV(lines[0]).map(h=>String(h||'').trim());
+    const findIdx = (keys)=> header.findIndex(h=>{
+      const hh = String(h||'').trim().toLowerCase();
+      return keys.some(k=>hh.includes(k));
+    });
+
+    const latIdx = findIdx(['위도','lat','latitude']);
+    const lngIdx = findIdx(['경도','lng','lon','longitude']);
+    const nameIdx = findIdx(['게시대명','게시대위치명','명칭','name','title']);
+    const addrIdx = findIdx(['소재지도로명주소','소재지지번주소','주소','addr','address']);
+
+    if(latIdx<0 || lngIdx<0){
+      console.warn('[BANNER] 위도/경도 컬럼을 찾지 못했습니다. header=', header);
+      bannerPointsCache = [];
+      return bannerPointsCache;
+    }
+
+    const pts = [];
+    let dropped = 0;
+
+    for(let i=1;i<lines.length;i++){
+      const cols = splitCSV(lines[i]);
+      const lat = parseFloat(String(cols[latIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      const lng = parseFloat(String(cols[lngIdx] ?? '').replace(/[^\d\.\-]/g,''));
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)){ dropped++; continue; }
+
+      const title = String(cols[nameIdx] ?? '현수막 게시대').trim() || '현수막 게시대';
+      const addr = String(cols[addrIdx] ?? '').trim();
+
+      pts.push({
+        type: 'banner',
+        lat, lng,
+        title,
+        addr,
+        raw: cols
+      });
+    }
+
+    if(dropped){
+      console.log('[BANNER] dropped rows (no valid lat/lng):', dropped);
+    }
+
+    bannerPointsCache = pts;
+    // 디버그용(콘솔 점검)
+    window.__bannerAllRows = pts;
+    return bannerPointsCache;
+  }catch(e){
+    console.error('[BANNER] loadBannerPoints failed:', e);
+    bannerPointsCache = [];
+    return bannerPointsCache;
+  }
+}
+// ===== /현수막 게시대 =====
+
+  // ===== 현수막 게시대: "레이어"처럼 동작 (버튼 ON 상태면 지도 이동/줌에 맞춰 자동 갱신) =====
+  const bannerBtn = document.querySelector('.search-btn[data-target="banner"]');
+  const isBannerActive = () => !!(bannerBtn && bannerBtn.classList.contains('active'));
+
+  // 너무 많은 게시대가 한 번에 뜨면 브라우저가 버벅일 수 있어, 줌 레벨에 따라 상한을 둠
+  const getBannerMax = () => {
+    const lv = (window.map && map.getLevel) ? map.getLevel() : 7;
+    // 레벨이 작을수록(확대) 더 많이 보여도 OK
+    if(lv <= 4) return 2000;
+    if(lv <= 6) return 1500;
+    if(lv <= 8) return 1000;
+    return 700;
+  };
+
+  const sampleGrid = (points, bounds, maxN) => {
+    if(points.length <= maxN) return points;
+
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const rows = 20, cols = 20;
+    const dLat = (ne.getLat() - sw.getLat()) / rows;
+    const dLng = (ne.getLng() - sw.getLng()) / cols;
+
+    const buckets = new Map();
+    for(const p of points){
+      const r = Math.min(rows-1, Math.max(0, Math.floor((p.lat - sw.getLat()) / (dLat || 1e-9))));
+      const c = Math.min(cols-1, Math.max(0, Math.floor((p.lng - sw.getLng()) / (dLng || 1e-9))));
+      const key = r + ':' + c;
+      if(!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(p);
+    }
+
+    // 라운드 로빈으로 각 셀에서 하나씩 뽑아 골고루 분포
+    const keys = Array.from(buckets.keys());
+    let idx = 0;
+    const out = [];
+    while(out.length < maxN && keys.length){
+      const k = keys[idx % keys.length];
+      const arr = buckets.get(k);
+      if(arr && arr.length){
+        out.push(arr.shift());
+      }else{
+        // 비어버린 셀 제거
+        buckets.delete(k);
+        keys.splice(idx % keys.length, 1);
+        if(!keys.length) break;
+        continue;
+      }
+      idx++;
+    }
+    return out;
+  };
+
+  const clearBannerLayerOnly = () => {
+    (targetMarkers.banner || []).forEach(m => m.setMap(null));
+    (targetOverlays.banner || []).forEach(o => o.setMap(null));
+    targetMarkers.banner = [];
+    targetOverlays.banner = [];
+    // searchedData에서 banner만 제거
+    searchedData = (searchedData || []).filter(x => x.type !== 'banner');
+  };
+
+  let __bannerIdleHandler = null;
+  let __bannerIdleAttached = false;
+  const startBannerAuto = () => {
+    if(__bannerIdleAttached || !window.map) return;
+    __bannerIdleHandler = () => {
+      if(!isBannerActive()) return;
+      // 너무 자주 그리면 버벅임 → 250ms 디바운스
+      clearTimeout(window.__bannerDebounceT);
+      window.__bannerDebounceT = setTimeout(() => {
+        drawBannerLayerForBounds(map.getBounds());
+      }, 250);
+    };
+    kakao.maps.event.addListener(map, 'idle', __bannerIdleHandler);
+    __bannerIdleAttached = true;
+  };
+  const stopBannerAuto = () => {
+    if(!__bannerIdleAttached) return;
+    try{ kakao.maps.event.removeListener(map, 'idle', __bannerIdleHandler); }catch(e){}
+    __bannerIdleHandler = null;
+    __bannerIdleAttached = false;
+  };
+
+  async function drawBannerLayerForBounds(bounds){
+    if(!bounds || !window.map) return;
+
+    const ptsAll = await loadBannerPoints();
+    if(!ptsAll || !ptsAll.length){
+      clearBannerLayerOnly();
+      toast('현수막 게시대 CSV를 불러오지 못했습니다.', 2500);
+      return;
+    }
+
+    const inBounds = ptsAll.filter(p => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)));
+
+    // 기존 배너 마커/라벨 제거
+    clearBannerLayerOnly();
+
+    const maxN = getBannerMax();
+    const picked = sampleGrid(inBounds, bounds, maxN);
+
+    // 표시 + searchedData 반영
+    for(const p of picked){
+      const pos = new kakao.maps.LatLng(p.lat, p.lng);
+
+      // 마커
+      const m = new kakao.maps.Marker({
+        position: pos,
+        map,
+        image: new kakao.maps.MarkerImage(
+          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34"><circle cx="17" cy="17" r="16" fill="#6f42c1"/><text x="17" y="22" text-anchor="middle" font-size="16" fill="#fff" font-family="Arial">B</text></svg>`),
+          new kakao.maps.Size(34,34),
+          { offset: new kakao.maps.Point(17,17) }
+        ),
+        title: p.title || '현수막 게시대',
+        zIndex: 30
+      });
+      targetMarkers.banner.push(m);
+
+      // 라벨(너무 빽빽하면 가독성 떨어져서, 레벨에 따라 숨김)
+      const lv = map.getLevel();
+      if(lv <= 7){
+        const label = document.createElement('div');
+        label.className = 'marker-label marker-label-banner';
+        label.textContent = p.title || '현수막';
+        const o = new kakao.maps.CustomOverlay({
+          position: pos,
+          content: label,
+          yAnchor: 1.8,
+          zIndex: 31,
+          map
+        });
+        targetOverlays.banner.push(o);
+      }
+
+      searchedData.push({
+        type: 'banner',
+        name: p.title || '현수막 게시대',
+        address: p.addr || '',
+        lat: p.lat,
+        lng: p.lng
+      });
+    }
+
+    // 디버그
+    window.__bannerShown = picked;
+    // 사용자 체감: 얼마나 걸러졌는지 알 수 있게
+    console.log('[BANNER] total:', ptsAll.length, 'inBounds:', inBounds.length, 'shown:', picked.length, 'level:', map.getLevel());
+  }
+
+  // 버튼 클릭 로직: banner는 레이어처럼 자동 갱신
+  searchBtns.forEach(btn => btn.onclick = async function(){
+    this.classList.toggle('active');
+
+    const target = this.getAttribute('data-target');
+
+    if(target === 'banner'){
+      if(isBannerActive()){
+        // 켜지면 바로 표시 + 자동 갱신 시작
+        await drawBannerLayerForBounds(map.getBounds());
+        startBannerAuto();
+      }else{
+        // 꺼지면 제거 + 자동 갱신 해제
+        stopBannerAuto();
+        clearBannerLayerOnly();
+      }
+    }
+  });
 
 async function keywordSearchAllEnhanced(keyword, bounds, depth=0){
   return new Promise((resolve)=>{
@@ -1449,12 +1872,43 @@ function pickSeniorRepresentative(list){
 
 $('btnSearch').onclick = async () => {
   const actives = document.querySelectorAll('.search-btn.active'); if(!actives.length) return toast("대상 선택");
-  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] }; searchedData = []; if(routeLine) { routeLine.setMap(null); routeLine=null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+  Object.values(targetMarkers).forEach(arr => arr.forEach(m => m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+ searchedData = []; try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+  // (중요) pan/zoom 직후엔 bounds가 이전 값일 수 있어 'idle' 한번 대기
+const __waitMapIdle = (timeout=700) => new Promise((resolve) => {
+  let done = false;
+  const handler = () => {
+    if (done) return;
+    done = true;
+    kakao.maps.event.removeListener(map, 'idle', handler);
+    resolve();
+  };
+  kakao.maps.event.addListener(map, 'idle', handler);
+  setTimeout(() => {
+    if (done) return;
+    done = true;
+    kakao.maps.event.removeListener(map, 'idle', handler);
+    resolve();
+  }, timeout);
+});
+await __waitMapIdle();
   const bounds = map.getBounds(); $('searchStatus').innerText = "스캔 중..."; 
   for(const btn of actives){
     const t = btn.dataset.target;
-    let k = [], imageSrc; if(t === 'senior') { k = ['경로당','마을회관','무더위쉼터','관리사무소','관리실','경비실']; imageSrc = SVG_MARKERS.senior; } else if (t === 'welfare') { k = ['노인복지','주간보호']; imageSrc = SVG_MARKERS.welfare; } else if (t === 'ortho') { k = ['정형외과','통증의학과']; imageSrc = SVG_MARKERS.ortho; }
+    let k = [], imageSrc;
+    if(t === 'banner') { imageSrc = SVG_MARKERS.banner; }
+    else if(t === 'senior') { k = ['경로당','마을회관','무더위쉼터','관리사무소','관리실','경비실']; imageSrc = SVG_MARKERS.senior; }
+    else if (t === 'welfare') { k = ['노인복지','주간보호']; imageSrc = SVG_MARKERS.welfare; }
+    else if (t === 'ortho') { k = ['정형외과','통증의학과']; imageSrc = SVG_MARKERS.ortho; }
     const imageSize = new kakao.maps.Size(30, 30); const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+    // banner는 CSV 데이터 로드로 처리
+    if(t === 'banner'){
+      await drawBannerLayerForBounds(bounds);
+      startBannerAuto();
+      continue;
+    }
+
     let rawResults = []; for(const kw of k){ const data = await keywordSearchAllEnhanced(kw, bounds); rawResults.push(...data); }
     let unique = rawResults.filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i);
 
@@ -1472,24 +1926,184 @@ if(t === 'senior') {
 
 
     unique.forEach(p => {
-       const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 5 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 6 }); targetMarkers[t].push(marker); targetMarkers[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
+       const latlng = new kakao.maps.LatLng(p.y, p.x); const marker = new kakao.maps.Marker({ position: latlng, image: markerImage, map: map, zIndex: 200000 }); const label = new kakao.maps.CustomOverlay({ position: latlng, content: `<div style="background:white;border:1px solid #aaa;font-size:11px;padding:2px;transform:translateY(-30px);">${p.place_name}</div>`, map: map, zIndex: 200001 }); targetMarkers[t].push(marker); targetOverlays[t].push(label); searchedData.push({ name: p.place_name, addr: p.address_name, phone: p.phone, type: t, lat: p.y, lng: p.x, latlng: latlng, id: p.id });
     });
   }
   $('searchStatus').innerText = "완료"; toast("스캔 완료");
 };
 
-$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], recommend:[] }; if(routeLine) { routeLine.setMap(null); routeLine=null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
+$('btnResetSearch').onclick = () => { searchBtns.forEach(b=>b.classList.remove('active')); Object.values(targetMarkers).forEach(a=>a.forEach(m=>m.setMap(null))); targetMarkers = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+targetOverlays = { senior:[], welfare:[], ortho:[], banner:[], recommend:[] };
+ try{ routeLines.forEach(l=>l&&l.setMap&&l.setMap(null)); }catch(e){} routeLines=[]; routeMarkers.forEach(m => m.setMap(null)); routeMarkers = []; searchedData = []; $('searchStatus').innerText="대기"; };
 
 $('btnRouteOpt').onclick = () => {
-  if(!myHospitalMarker) return toast("병원 설정 필요"); if(!searchedData.length) return toast("시설 검색 필요");
-  if(routeLine) { routeLine.setMap(null); routeLine = null; } routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
-  let currentPos = myHospitalMarker.getPosition(); let unvisited = [...searchedData]; let route = []; let order = 1; const pathPoints = [currentPos]; const bounds = new kakao.maps.LatLngBounds(); bounds.extend(currentPos);
+  if(!myHospitalMarker) return toast("병원 설정 필요");
+  if(!searchedData.length) return toast("시설 검색 필요");
+
+  // clear old routes
+  try{ routeLines.forEach(l => l && l.setMap && l.setMap(null)); }catch(e){}
+  routeLines = [];
+  routeMarkers.forEach(m => m.setMap(null)); routeMarkers = [];
+
+  const maxPerDay = Math.max(10, Math.min(50, parseInt(($('routeMaxPerDay') && $('routeMaxPerDay').value) || '20', 10) || 20));
+  const startPos = myHospitalMarker.getPosition();
+
+  let unvisited = [...searchedData];
+  let route = [];
+  let globalOrder = 1;
+  const bounds = new kakao.maps.LatLngBounds();
+  bounds.extend(startPos);
+
+  let day = 1;
   while(unvisited.length > 0){
-    let nearestIdx = -1; let minDist = Infinity; unvisited.forEach((node, i) => { const line = new kakao.maps.Polyline({ path:[currentPos, node.latlng] }); const d = line.getLength(); if(d < minDist) { minDist = d; nearestIdx = i; } });
-    if(nearestIdx !== -1){ const nextNode = unvisited.splice(nearestIdx, 1)[0]; route.push({ order: order++, ...nextNode, distFromPrev: Math.round(minDist) }); currentPos = nextNode.latlng; pathPoints.push(nextNode.latlng); bounds.extend(nextNode.latlng); const numOv = new kakao.maps.CustomOverlay({ position: nextNode.latlng, content: `<div class="route-marker">${route.length}</div>`, yAnchor: 1.5, zIndex: 20 }); numOv.setMap(map); routeMarkers.push(numOv); }
+    let currentPos = startPos;
+    let pathPoints = [currentPos];
+    let dayCount = 0;
+
+    while(unvisited.length > 0 && dayCount < maxPerDay){
+      let nearestIdx = -1;
+      let minDist = Infinity;
+      unvisited.forEach((node, i) => {
+        const d = new kakao.maps.Polyline({ path:[currentPos, node.latlng] }).getLength();
+        if(d < minDist){ minDist = d; nearestIdx = i; }
+      });
+
+      if(nearestIdx === -1) break;
+      const nextNode = unvisited.splice(nearestIdx, 1)[0];
+      dayCount += 1;
+
+      const entry = {
+        day,
+        orderInDay: dayCount,
+        order: globalOrder++,
+        ...nextNode,
+        distFromPrev: Math.round(minDist),
+      };
+      route.push(entry);
+
+      currentPos = nextNode.latlng;
+      pathPoints.push(nextNode.latlng);
+      bounds.extend(nextNode.latlng);
+
+      const labelTxt = `D${day}-${dayCount}`;
+      const numOv = new kakao.maps.CustomOverlay({
+        position: nextNode.latlng,
+        content: `<div class="route-marker" style="min-width:34px;padding:0 6px;">${labelTxt}</div>`,
+        yAnchor: 1.5,
+        zIndex: 20
+      });
+      numOv.setMap(map);
+      routeMarkers.push(numOv);
+    }
+
+    // draw a polyline for this day if there are visits
+    if(pathPoints.length > 1){
+      const line = new kakao.maps.Polyline({
+        path: pathPoints,
+        strokeWeight: 5,
+        strokeColor: '#7048e8',
+        strokeOpacity: 0.8,
+        strokeStyle: 'solid'
+      });
+      line.setMap(map);
+      routeLines.push(line);
+    }
+
+    day += 1;
+    // safety break
+    if(day > 30) break;
   }
-  routeLine = new kakao.maps.Polyline({ path: pathPoints, strokeWeight: 5, strokeColor: '#7048e8', strokeOpacity: 0.8, strokeStyle: 'solid' }); routeLine.setMap(map); map.setBounds(bounds);
-  $('tblRoute').innerHTML = route.map(r => `<tr><td>${r.order}</td><td>${r.name}</td><td>${r.addr}</td><td>${r.distFromPrev}m</td></tr>`).join(""); $('routeModal').style.display = 'flex';
+
+  map.setBounds(bounds);
+  lastRoute = route;
+
+  $('tblRoute').innerHTML = route.map(r => {
+    const ord = `D${r.day}-${r.orderInDay}`;
+    return `<tr><td>${ord}</td><td>${r.name}</td><td>${r.addr}</td><td>${r.distFromPrev}m</td></tr>`;
+  }).join("");
+  $('routeModal').style.display = 'flex';
+};
+
+// ✅ 엑셀 저장: 시설목록
+$('btnExportExcel').onclick = () => {
+  try{
+    if(!searchedData || !searchedData.length) return toast("저장할 시설이 없습니다. 먼저 '시설 스캔'을 실행하세요.");
+    const hasHospital = !!myHospitalMarker;
+    const hospPos = hasHospital ? myHospitalMarker.getPosition() : null;
+    const hospName = ($('myHospitalInput') && $('myHospitalInput').value || '').trim() || "우리 병원";
+
+    const rows = searchedData.map((p, i) => {
+      let distM = "";
+      if(hasHospital && hospPos && p.latlng){
+        try{
+          const line = new kakao.maps.Polyline({ path:[hospPos, p.latlng] });
+          distM = Math.round(line.getLength());
+        }catch(e){}
+      }
+      const typeLabel = (p.type === 'senior') ? '경로당' : (p.type === 'welfare') ? '복지관' : (p.type === 'ortho') ? '경쟁병원' : (p.type === 'banner') ? '현수막게시대' : (p.type || '');
+      return {
+        '번호': i + 1,
+        '구분': typeLabel,
+        '시설명': p.name || '',
+        '주소': p.addr || '',
+        '전화': p.phone || '',
+        [`${hospName}거리(m)`]: distM,
+        '위도': p.lat || '',
+        '경도': p.lng || ''
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, '시설목록');
+    const fname = `시설목록_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fname);
+    toast("시설목록 엑셀 저장 완료");
+  }catch(e){
+    console.error(e);
+    toast("엑셀 저장 실패");
+  }
+};
+
+// ✅ 엑셀 저장: 최적 방문 경로
+$('btnExportRoute').onclick = () => {
+  try{
+    if(!lastRoute || !lastRoute.length) return toast("먼저 '최적 방문 경로 생성'을 실행하세요.");
+    const hospName = ($('myHospitalInput') && $('myHospitalInput').value || '').trim() || "우리 병원";
+    let cum = 0;
+
+    const rows = [];
+    let currentDay = null;
+    lastRoute.forEach(r => {
+      if(currentDay !== r.day){
+        currentDay = r.day;
+        rows.push({ 'DAY': `DAY ${currentDay}`, '순서': 0, '구분': '출발', '시설명': hospName, '주소': '', '이동거리(m)': 0, '누적거리(m)': cum, '위도': '', '경도': '' });
+      }
+      cum += (r.distFromPrev || 0);
+      const typeLabel = (r.type === 'senior') ? '경로당' : (r.type === 'welfare') ? '복지관' : (r.type === 'ortho') ? '경쟁병원' : (r.type === 'banner') ? '현수막게시대' : (r.type || '');
+      rows.push({
+        'DAY': `DAY ${r.day}`,
+        '순서': r.orderInDay,
+        '구분': typeLabel,
+        '시설명': r.name || '',
+        '주소': r.addr || '',
+        '이동거리(m)': r.distFromPrev || 0,
+        '누적거리(m)': cum,
+        '위도': r.lat || '',
+        '경도': r.lng || ''
+      });
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, '방문경로');
+    const fname = `방문경로_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fname);
+    toast("방문 경로 엑셀 저장 완료");
+  }catch(e){
+    console.error(e);
+    toast("엑셀 저장 실패");
+  }
 };
 
 const uploadBox = $('uploadBox');
@@ -1817,7 +2431,7 @@ function renderDongTab(dongRows){
     plugins:[ChartDataLabels]
   });
 
-  // 표 해석 (Top/기타 포함)
+  // 해석 & 제안 (Top/기타 포함)
   if(expl){
     const topOnly = showRows.filter(r=>r.dong !== '기타').slice(0, Math.min(10, showRows.length));
     const metricName = (topBy==='visits') ? '총 내원수' : '환자수(신환+전환)';
@@ -1826,13 +2440,58 @@ function renderDongTab(dongRows){
       const avg = r.total ? (safeNum(r.sumVisits)/r.total) : 0;
       return `${i+1}) <b>${r.dong}</b> · ${metricName} <b>${fmt(metric)}</b> · 합계 ${fmt(r.total)}명 · 총 내원수 ${fmt(r.sumVisits)}회 · 1인 평균 ${avg.toFixed(2)}회`;
     });
+
     const other = showRows.find(r=>r.dong==='기타');
     const otherTxt = other ? `<br><span style="color:#868e96;">* 기타: 상위 TopN 외 나머지 동 합산</span>` : '';
     const unkTxt = excludeUnknown ? ` (미상 제외)` : '';
-    expl.innerHTML = `현재 기준: <b>${metricName}</b>${unkTxt}<br>` + lines.join('<br>') + otherTxt;
-  }
 
-  setTimeout(()=>{ try{ chartObjDong && chartObjDong.resize(); }catch(e){} }, 60);
+    // --- 추천(액션) ---
+    const rec = [];
+    const focusTop = topOnly.slice(0,3).map(r=>r.dong).join(', ');
+    if(focusTop) rec.push(`• <b>우선 집중</b>: ${focusTop} (현재 기준으로 상위 지역)`);
+
+    // 전환률 상위(표본≥5, 기타 제외)
+    const denom = (r)=> safeNum(r.n) + safeNum(r.conv);
+    const convRate = (r)=> denom(r) ? (safeNum(r.conv)/denom(r)*100) : 0;
+    const topConv = showRows
+      .filter(r=>r.dong!=='기타' && denom(r) >= 5)
+      .slice()
+      .sort((a,b)=>convRate(b)-convRate(a))
+      .slice(0,2);
+
+    if(topConv.length){
+      rec.push(`• <b>전환 효율 상위</b>(표본≥5): ` + topConv.map(r=>`${r.dong} ${convRate(r).toFixed(1)}%`).join(', '));
+    }
+
+    if(!excludeUnknown && base.some(r=>r.dong==='미상')){
+      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 순위/비중이 더 명확해집니다`);
+    }
+
+    if(other){
+      const totalMetric = base.reduce((s,r)=>s+keyFn(r),0) || 1;
+      const otherShare = (keyFn(other)/totalMetric*100);
+      rec.push(`• <b>기타 비중</b>: ${otherShare.toFixed(1)}% (상위 밖이 크면 TopN을 10/전체로 늘려 분산 여부를 확인해보세요)`);
+    }
+
+    // 내원수 기준이면 소수 VIP의 영향 가능
+    if(topBy === 'visits'){
+      const smallHigh = showRows
+        .filter(r=>r.dong!=='기타' && safeNum(r.total) > 0)
+        .map(r=>({dong:r.dong, total:safeNum(r.total), avg:(safeNum(r.sumVisits)/safeNum(r.total))}))
+        .filter(x=>x.total < 5 && x.avg >= 6)
+        .slice(0,3);
+      if(smallHigh.length){
+        rec.push(`• <b>주의</b>: 내원수 기준에서는 표본이 작은 동(예: 1~4명)의 영향이 커질 수 있습니다. (예: ${smallHigh.map(x=>`${x.dong} ${x.total}명·평균 ${x.avg.toFixed(1)}회`).join(', ')})`);
+      }
+    }
+
+    const recHtml = rec.length
+      ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`
+      : '';
+
+    expl.innerHTML = `현재 기준: <b>${metricName}</b>${unkTxt}<br>` + lines.join('<br>') + otherTxt + recHtml;
+  }
+setTimeout(()=>{ try{ chartObjDong && chartObjDong.resize(); }catch(e){} }, 60);
 }
 
 // ===== 연령 분포(도넛) =====
@@ -2064,13 +2723,36 @@ function renderVisitTab(visible){
   if(expl){
     const topLiftIdx = liftArr.reduce((best,i,idx)=> (i>liftArr[best] ? idx : best), 0);
     const topLiftBucket = labels[topLiftIdx];
+
+    const t2 = byBucket['1회'].people + byBucket['2회'].people;
+    const t2pct = totalPatients ? (t2/totalPatients*100) : 0;
+    const p3pct = totalPatients ? (p3/totalPatients*100) : 0;
+    const p5pct = totalPatients ? (p5/totalPatients*100) : 0;
+    const idx5 = labels.indexOf('5회+');
+    const lift5 = (idx5>=0) ? liftArr[idx5] : 0;
+
+    const rec = [];
+    if(t2pct >= 60){
+      rec.push(`• <b>2회 이하 비중</b>이 ${t2pct.toFixed(1)}%로 큽니다 → 1~2회 구간 리마인드/재예약 안내를 우선 강화해보세요`);
+    } else {
+      rec.push(`• <b>2회 이하 비중</b>이 ${t2pct.toFixed(1)}%입니다 → 3회+ 고객층을 늘릴 여지가 있습니다`);
+    }
+    rec.push(`• <b>Lift 최고 구간</b>: ${topLiftBucket} → 이 구간의 고객 경험/재예약 동선을 점검하면 효율이 큽니다`);
+    if(p3pct){
+      rec.push(`• <b>3회+ 비중</b>: ${p3pct.toFixed(1)}% · <b>5회+ 비중</b>: ${p5pct.toFixed(1)}%`);
+    }
+    if(lift5 && lift5 >= 1.2){
+      rec.push(`• <b>5회+</b> 구간은 인원은 적어도 내원 기여가 큰 편(Lift ${lift5.toFixed(2)}x) → VIP/단골 케어(리콜·정기검진) 후보로 관리해보세요`);
+    }
+
+    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
+
     expl.innerHTML =
       `• 이 탭은 <b>인원 분포</b>(왼쪽)와, 그 인원들이 만들어내는 <b>내원수 기여</b>(오른쪽)를 함께 봅니다.<br>` +
-      `• Lift는 “인원 비중 대비 내원 비중”입니다. 1보다 크면, 그 방문수 구간이 평균보다 더 많은 내원수를 만들어낸다는 뜻입니다.<br>` +
-      `• 현재(연령: ${af==='all'?'전체':af})에서 가장 Lift가 큰 구간은 <b>${topLiftBucket}</b> 입니다.`;
+      `• Lift는 “인원 비중 대비 내원 비중”입니다. 1보다 크면, 그 방문수 구간이 평균보다 더 많은 내원수를 만들어낸다는 뜻입니다.` +
+      recHtml;
   }
-
-  setTimeout(()=>{ try{ chartObjVisit && chartObjVisit.resize(); }catch(e){}; try{ chartObjVisitPareto && chartObjVisitPareto.resize(); }catch(e){}; try{ chartObjVisitImpact && chartObjVisitImpact.resize(); }catch(e){}; }, 60);
+setTimeout(()=>{ try{ chartObjVisit && chartObjVisit.resize(); }catch(e){}; try{ chartObjVisitPareto && chartObjVisitPareto.resize(); }catch(e){}; try{ chartObjVisitImpact && chartObjVisitImpact.resize(); }catch(e){}; }, 60);
 }
 
 
@@ -2349,7 +3031,7 @@ function renderValueCharts(dongRows){
   // --- (4) 평균 방문수 랭킹 (표본 필터 + VIP 후보 분리) ---
   const sortBy = (document.getElementById('selAvgSortBy')?.value) || 'avg';
 
-  const K = 10; // 내부 보정 강도(고정)
+  const K = 10; // 내부 완화 강도(고정, UI 미노출)
   const totalP = baseRows.reduce((a,r)=>a+safeNum(r.total),0);
   const totalV = baseRows.reduce((a,r)=>a+safeNum(r.sumVisits),0);
   const overallAvg = totalP ? (totalV/totalP) : 0;
@@ -2442,14 +3124,42 @@ function renderValueCharts(dongRows){
     const filterTxt = minSampleOn ? ' (표본 5명 미만은 아래 VIP 후보로 분리)' : ' (표본 필터 OFF: 모든 동 포함)';
     const show = topAvg.slice(0,5).map((r,i)=>{
       const convTxt = r.denom ? `${(r.convRate*100).toFixed(1)}%` : '-';
-      return `${i+1}) <b>${r.dong}</b> · 평균 방문수 <b>${r.avgAdj.toFixed(2)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
+      return `${i+1}) <b>${r.dong}</b> · ${metricLabel} <b>${valueFn(r)}</b> · 총 방문수 ${r.sumVisits} · 인원 ${r.total} · 전환률 ${convTxt}`;
     }).join('<br>');
+
+    // --- 추천(액션) ---
+    const rec = [];
+    if(sortBy === 'avg'){
+      rec.push(`• <b>평균 방문수 상위</b>는 ‘단골화/리콜’ 후보입니다 → 재예약/정기검진 메시지를 우선 적용해보세요`);
+    } else if(sortBy === 'sum'){
+      rec.push(`• <b>총 방문수 상위</b>는 ‘업무량/기여’가 큰 지역입니다 → 운영/스케줄/CRM 우선순위를 높게 두는 게 유리합니다`);
+    } else if(sortBy === 'conv'){
+      rec.push(`• <b>전환률 상위</b>는 ‘효율’이 좋은 지역입니다 → 신환 유입 캠페인/안내를 집중해보세요`);
+    }
+    rec.push(`• 정렬 기준을 바꾸면 관점이 달라집니다 (평균 방문수=단골화, 총 방문수=기여, 전환률=효율)`);
+
+    if(!excludeUnknown && baseRows.some(r=>r.dong==='미상')){
+      rec.push(`• <b>권장</b>: '미상 제외'를 켜면 지역 비교가 더 명확해집니다`);
+    }
+    if(minSampleOn){
+      const vipCnt = sortedVip.length || 0;
+      if(vipCnt){
+        const topVip = sortedVip.slice(0,3).map(r=>`${r.dong}(${r.total}명)`).join(', ');
+        rec.push(`• <b>VIP 후보</b>(표본<5): ${vipCnt}개 동 · 상위 후보: ${topVip}`);
+      } else {
+        rec.push(`• 현재 조건에서 VIP 후보(표본<5)가 없습니다`);
+      }
+    } else {
+      rec.push(`• 표본 필터 OFF 상태에서는 표본이 작은 동의 값이 튈 수 있으니 해석에 주의하세요`);
+    }
+
+    const recHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;"><b>추천</b><br>${rec.join('<br>')}</div>`;
+
     expl.innerHTML =
       `현재 정렬: <b>${metricLabel}</b>${unkTxt}${filterTxt}<br>` +
-      show;
+      show + recHtml;
   }
-
-  // --- Scatter (선택) ---
+// --- Scatter (선택) ---
   renderValueScatter(dongRows);
 }
 
