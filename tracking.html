@@ -1,0 +1,1476 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>의사랑 분석 (총내원/주사 + 신환 최대 3개)</title>
+
+  <!-- Local-only: reads files in your browser, nothing is uploaded -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script>
+    let cohortRange = { start: null, end: null }; // cohort filter
+let finalDays = 14; // dynamic final window
+const DEFAULT_FINAL_DAYS = 12;
+
+function detectReservation(rows){
+  // rows: 2D array of values from xls/xlsx/csv reading
+  const flat = rows.slice(0, 50).flat().map(v=>String(v??"").trim());
+  const joined = flat.join(" ");
+  const hasRes = /예약|예약일|예약관리|예약내용|예약구분|일정/.test(joined);
+  const hasVisit = /내원일|수진자명|주민등록번호|투여일수|총투여량|[처방]/.test(joined);
+  return hasRes && !hasVisit;
+}
+window.addEventListener('DOMContentLoaded', () => {
+      if (typeof XLSX === 'undefined') {
+        const el = document.getElementById('fileStatus');
+        if (el) el.textContent = '파일 상태: XLSX 로딩 실패 (스크립트 경로/로딩 순서 확인)';
+        console.error('XLSX is undefined: the xlsx library did not load.');
+      }
+      if (typeof Chart === 'undefined') {
+        console.warn('Chart.js is undefined: chart will be skipped.');
+      }
+    });
+  </script>
+
+  <style>
+    :root { --bg:#f6f6f7; --card:#ffffff; --muted:#6b7280; --text:#111827; --line:#e5e7eb; --warn:#b45309; --good:#047857; --bad:#be123c; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial; background:var(--bg); color:var(--text); }
+    header { padding:18px 18px 10px; }
+    h1 { margin:0; font-size:18px; }
+    .sub { color:var(--muted); font-size:13px; margin-top:6px; line-height:1.5; }
+    .wrap { padding: 12px 18px 22px; display:grid; gap:12px; }
+    .grid { display:grid; grid-template-columns: 1.15fr 0.85fr; gap:12px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .pill { border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted); }
+    .drop {
+      border: 1px dashed #334155; border-radius:14px; padding:14px;
+      background: rgba(96,165,250,0.06);
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .drop strong { font-size:14px; }
+    .drop small { color:var(--muted); }
+    button {
+      background:#ffffff; color:var(--text); border:1px solid var(--line);
+      border-radius:12px; padding:10px 12px; cursor:pointer; font-size:13px;
+    }
+    button:hover { border-color:#334155; }
+
+    /* Light theme overrides */
+    button { background:#ffffff; color:var(--text); }
+    button:hover { background:#f3f4f6; }
+    select, input[type=text] { background:#ffffff; color:var(--text); }
+    .kpi .box { background:#ffffff; }
+
+    select, input[type=text] {
+      background:#ffffff; color:var(--text); border:1px solid var(--line);
+      border-radius:10px; padding:8px 10px; font-size:13px;
+    }
+    label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px; }
+    input[type=file] { display:none; }
+    .kpi { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; align-items:stretch; }
+    .kpi .box { background:#ffffff; border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .kpi .v { font-size:20px; margin-top:6px; }
+    .kpi .t { font-size:12px; color:var(--muted); }
+    .notes { color:var(--muted); font-size:13px; line-height:1.6; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:var(--muted); }
+    .warn { color:var(--warn); }
+    .good { color:var(--good); }
+    .bad { color:var(--bad); }
+    canvas { width:100% !important; height:320px !important; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-weight:600; }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .kpi { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      canvas { height:300px !important; }
+    }
+  
+    /* Chart clarity */
+    #trendChart { width:100%; height:360px; }
+
+    /* v22 UI split */
+    .topGrid{ display:grid; grid-template-columns: minmax(520px, 1.15fr) minmax(420px, 0.85fr); gap:12px; align-items:start; }
+    .bottomGrid{ display:grid; grid-template-columns: 1.2fr 0.8fr; gap:12px; align-items:start; }
+    .sectionTitle{ font-size:14px; font-weight:700; margin-bottom:8px; }
+    .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+    .tabBtn{ padding:8px 10px; border-radius:12px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12px; }
+    .tabBtn.active{ border-color:#2563eb; outline:2px solid rgba(37,99,235,.15); }
+    .tabPanel{ margin-top:10px; display:none; }
+    .tabPanel.active{ display:block; }
+    .formGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .formGrid .lab{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); }
+    input[type="date"]{ padding:8px 10px; border-radius:12px; border:1px solid var(--line); font-size:12px; }
+
+</style>
+</head>
+
+<body>
+<header>
+  <h1>의사랑 분석 (총내원/주사 + 신환 최대 3개)</h1>
+  <div class="sub">
+    ① 1진료실/2진료실/3진료실 (선택, 최대 3개) ② 총내원 ③ 주사.xls 를 업로드하면,<br/>
+    <b>주차별 추이</b>, <b>신환→7/30일 재내원율</b>, <b>신환→7/30일 내 주사율</b>을 자동 계산합니다.<br/>
+    <span class="mono">※ 브라우저 안에서만 처리되며, 외부로 전송되지 않습니다.</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="topGrid">
+    <div class="card">
+      <div class="drop" id="drop">
+        <strong>파일 3개 업로드</strong>
+        <small>xls/xlsx/csv 모두 가능. (신환/총내원/주사) 순서 무관</small>
+
+        
+        <div class="row">
+          <button id="pickNew1">1진료실 파일 선택</button>
+          <span class="pill" id="infoNew1">미선택</span>
+          <input id="fileNew1" type="file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </div>
+
+        <div class="row">
+          <button id="pickNew2">2진료실 파일 선택</button>
+          <span class="pill" id="infoNew2">미선택</span>
+          <input id="fileNew2" type="file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </div>
+
+        <div class="row">
+          <button id="pickNew3">3진료실 파일 선택</button>
+          <span class="pill" id="infoNew3">미선택</span>
+          <input id="fileNew3" type="file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </div>
+
+        <div class="row">
+          <span class="pill">※ 신환 파일 개수 = 진료실/의사 수로 간주</span>
+        </div>
+
+        <div class="row">
+          <button id="pickAll">총내원 파일 선택</button>
+총내원 파일 선택</button>
+          <span class="pill" id="infoAll">미선택</span>
+          <input id="fileAll" type="file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </div>
+
+        <div class="row">
+          <button id="pickInj">주사 파일 선택</button>
+          <span class="pill" id="infoInj">미선택</span>
+          <input id="fileInj" type="file" accept=".xls,.xlsx,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </div>
+
+        <div class="row">
+          <button id="pickRes">예약관리 파일 선택(월별, 다중 선택)</button>
+          <span class="pill" id="infoRes">미선택</span>
+          <input id="fileRes" type="file" multiple accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" />
+        </div>
+
+        <div class="row">
+          <span class="pill">예약 파일은 선택(없어도 분석 가능). 선택하면 “재예약률/주사 F/U 예약률”이 추가됩니다.</span>
+        </div>
+
+
+        <div class="row" style="margin-top:6px">
+          <label>기간 단위
+            <select id="grain">
+              <option value="week" selected>주차(ISO week)</option>
+              <option value="day">일자</option>
+              <option value="month">월</option>
+            </select>
+          </label>
+          
+          <label class="lab">계산 모드
+            <select id="modeSel">
+              <option value="legacy" selected>기존(항상 계산)</option>
+              <option value="censored">추적가능 분모(정확)</option>
+            </select>
+          </label>
+          <span class="pill">전환 지표는 D+3 / D+7 자동 계산</span>
+          <button id="runBtn">분석 실행</button>
+          <span class="pill" id="periodInfo">기간: -</span>
+        </div>
+
+        <div class="mono" id="qualityInfo" style="margin-top:6px"></div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="card" style="padding:12px; background:#ffffff">
+        <div style="font-size:13px; color:var(--muted)">행 판별 규칙</div>
+        <div class="sub" style="margin-top:6px">
+          • <span class="mono">[처방]</span>, <span class="mono">[외/입 구분]</span>, <span class="mono">[조회일]</span> 포함 행은 스킵<br/>
+          • <span class="mono">차트번호/수진자명/주민등록번호/내원일/투여량/투여일수/총투여량</span> 같은 헤더 단어가 함께 있으면 헤더행으로 스킵<br/>
+          • 데이터행은 <b>내원일(날짜)</b>이 파싱되는 행만 인정<br/>
+          • 방문 1회 단위는 <b>(차트번호 + 내원일)</b>로 중복 제거 (야간가산 중복 1회 처리)
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      
+<div class="kpi">
+  <div class="box"><div class="t">총내원</div><div class="v" id="kAll">-</div></div>
+  <div class="box"><div class="t">신환</div><div class="v" id="kNew">-</div></div>
+  <div class="box"><div class="t">재진(=총-신환)</div><div class="v" id="kRet">-</div></div>
+  <div class="box"><div class="t">주사</div><div class="v" id="kInj">-</div></div>
+
+  <div class="box"><div class="t">코호트 신환 환자(첫 신환)</div><div class="v" id="kNewPatients">-</div></div>
+  <div class="box"><div class="t">전체 주사율</div><div class="v" id="kInjRate">-</div></div>
+  <div class="box"><div class="t">신환 평균 방문횟수(30일)</div><div class="v" id="kAvg30">-</div></div>
+  <div class="box"><div class="t">신환(전체)</div><div class="v" id="kNewAll">-</div></div>
+
+  <div class="box"><div class="t">신환→D+3 재내원율</div><div class="v" id="kConv3">-</div></div>
+  <div class="box"><div class="t">신환→D+7 재내원율</div><div class="v" id="kConv7">-</div></div>
+  <div class="box"><div class="t">신환→D+3 주사율</div><div class="v" id="kNewToInj3">-</div></div>
+  <div class="box"><div class="t">신환→D+7 주사율</div><div class="v" id="kNewToInj7">-</div></div>
+
+  <div class="box"><div class="t">신환→<span data-finaldays>D+최종</span> 재내원율</div><div class="v" id="kConv14">-</div></div>
+  <div class="box"><div class="t">신환→<span data-finaldays>D+최종</span> 주사율</div><div class="v" id="kNewToInj14">-</div></div>
+
+  <div class="box"><div class="t">신환→D+3 예약률</div><div class="v" id="kBookNew3">-</div></div>
+  <div class="box"><div class="t">신환→D+7 예약률</div><div class="v" id="kBookNew7">-</div></div>
+  <div class="box"><div class="t">신환→<span data-finaldays>D+최종</span> 예약률</div><div class="v" id="kBookNew14">-</div></div>
+  <div class="box"><div class="t">주사→F/U 예약률(D+<span data-finaldays>최종</span>)</div><div class="v" id="kBookInj14">-
+  <div class="box"><div class="t">신환(주사)→D+3 예약률</div><div class="v" id="kBookNewInj3">-</div></div>
+  <div class="box"><div class="t">신환(주사)→D+7 예약률</div><div class="v" id="kBookNewInj7">-</div></div>
+  <div class="box"><div class="t">신환(주사)→<span data-finaldays>D+최종</span> 예약률</div><div class="v" id="kBookNewInjFinal">-</div></div>
+</div></div>
+</div>
+
+      </div>
+
+
+      <div style="height:12px"></div>
+
+      <div class="notes" id="autoNotes">파일 3개를 선택하고 “분석 실행”을 누르면 원인 힌트가 표시됩니다.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div style="font-size:14px">주요 추이</div>
+        <div class="sub">주차/일자/월 단위로 총내원·신환·재진·주사를 표시합니다.</div>
+      </div>
+      <span class="pill" id="fileStatus">파일 상태: -</span>
+    </div>
+    <div style="height:10px"></div>
+    <canvas id="trendChart">
+</canvas>
+  </div>
+
+  <div class="card">
+    <div class="sectionTitle">필터 / 코호트 / 예약</div>
+    <div class="sub">신환 코호트(첫 신환일 기준) 범위를 지정하면, 전환/리텐션 계산의 분모가 해당 코호트로 제한됩니다.</div>
+
+    <div class="tabs" id="filterTabs" style="margin-top:10px">
+      <button class="tabBtn active" data-tab="tabCohort">코호트</button>
+      <button class="tabBtn" data-tab="tabBooking">예약률</button>
+      <button class="tabBtn" data-tab="tabMode">계산 모드</button>
+    </div>
+
+    <div class="tabPanel active" id="tabCohort">
+      <div class="formGrid">
+        <label class="lab">시작일
+          <input type="date" id="cohortStartInp"/>
+        </label>
+        <label class="lab">종료일
+          <input type="date" id="cohortEndInp"/>
+        </label>
+      </div>
+      <div class="row" style="margin-top:10px; gap:8px; flex-wrap:wrap">
+        <button id="btnCohortApply">적용</button>
+        <button id="btnCohortAll">전체</button>
+        <button id="btnCohortClear">해제</button>
+        <span class="pill">현재 코호트: <b id="cohortLabel">전체</b></span>
+      </div>
+      <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap">
+        <span class="pill">코호트 신환 환자: <b id="kCohortNewPatients">-</b></span>
+        <span class="pill">코호트 시작(첫 신환): <b id="kCohortMin">-</b></span>
+        <span class="pill">코호트 종료(첫 신환): <b id="kCohortMax">-</b></span>
+      </div>
+    </div>
+
+    <div class="tabPanel" id="tabBooking">
+      <div class="sub">예약률은 예약 파일이 업로드된 경우에만 계산됩니다.</div>
+      <div class="kpi" style="margin-top:10px; grid-template-columns: repeat(4, minmax(0,1fr));">
+        <div class="box"><div class="t">신환→D+3 예약률</div><div class="v" id="kBookNew3">-</div></div>
+        <div class="box"><div class="t">신환→D+7 예약률</div><div class="v" id="kBookNew7">-</div></div>
+        <div class="box"><div class="t">신환→<span data-finaldays>D+최종</span> 예약률</div><div class="v" id="kBookNew14">-</div></div>
+        <div class="box"><div class="t">주사→F/U 예약률(<span data-finaldays>D+최종</span>)</div><div class="v" id="kBookInj14">-</div></div>
+      </div>
+    </div>
+
+    <div class="tabPanel" id="tabMode">
+      <div class="sub">정확 모드(추적가능 분모)는 다음 단계에서 연결합니다. 지금은 v16 계산을 유지합니다.</div>
+    </div>
+  </div>
+
+  <div class="bottomGrid">
+
+    <div class="card">
+      <div style="font-size:14px">전환/리텐션 요약 <span class="pill" style="margin-left:8px">최종 관측: <b id="finalDaysLabel">-</b></span></div>
+      <div class="sub">신환을 기준으로 7/30일 내 재내원/주사 전환을 계산합니다.</div>
+      <div style="height:10px"></div>
+      <div class="notes" id="funnel">-</div>
+      <div style="height:14px"></div>
+      <div style="font-size:14px">신환 파일별(=의사/진료실) 비교</div>
+      <div class="sub">1진료실/2/3 파일을 각각 의사1/2/3으로 간주하여 전환을 비교합니다.</div>
+      <div style="height:10px"></div>
+      <div style="overflow:auto; max-height:320px">
+        <table id="docTable">
+          <thead>
+            <tr>
+              <th>구분</th>
+              <th>신환</th>
+              <th>신환 환자(첫 신환)</th>
+              <th>D+3 재내원율</th>
+              <th>D+7 재내원율</th><th>D+14 재내원율</th>
+              <th>D+3 주사율</th>
+              <th>D+7 주사율</th><th>D+14 주사율</th><th>신환 예약률(D+7)</th><th>주사 F/U 예약률(D+14)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px">최근 구간 변화(간단 진단)</div>
+      <div class="sub">최근 3구간 vs 그 전 3구간(동일 단위) 비교로 원인 방향을 추정합니다.</div>
+      <div style="height:10px"></div>
+      <div class="notes" id="deltaNotes">-</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*** DOM helper ***/
+const $ = (id) => document.getElementById(id);
+
+/*** Date parsing ***/
+function toDate(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+
+  // Excel date number
+  if (/^\d+(\.\d+)?$/.test(s) && Number(s) > 20000 && Number(s) < 90000) {
+    const n = Number(s);
+    const utc_days = Math.floor(n - 25569);
+    const utc_value = utc_days * 86400;
+    return new Date(utc_value * 1000);
+  }
+
+  // YYYY-MM-DD / YYYY.MM.DD / YYYY/MM/DD with optional time
+  const m = s.match(/^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const y = +m[1], mo = +m[2]-1, d = +m[3];
+    const hh = m[4] ? +m[4] : 0, mm = m[5] ? +m[5] : 0, ss = m[6] ? +m[6] : 0;
+    const dt = new Date(Date.UTC(y, mo, d, hh, mm, ss));
+    return isNaN(dt) ? null : dt;
+  }
+
+  const dt2 = new Date(s);
+  return isNaN(dt2) ? null : dt2;
+}
+
+function dayKey(dt) {
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth()+1).padStart(2,"0");
+  const d = String(dt.getUTCDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+function isoWeekKey(dt) {
+  const d = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const y = d.getUTCFullYear();
+  const w = String(weekNo).padStart(2,"0");
+  return `${y}-W${w}`;
+}
+function monthKey(dt) {
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth()+1).padStart(2,"0");
+  return `${y}-${m}`;
+}
+function keyByGrain(dt, grain) {
+  if (grain === "day") return dayKey(dt);
+  if (grain === "month") return monthKey(dt);
+  return isoWeekKey(dt);
+}
+
+function fmtDateYMD(dt){ if(!dt) return '-'; const y=dt.getUTCFullYear(); const m=String(dt.getUTCMonth()+1).padStart(2,'0'); const d=String(dt.getUTCDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
+function fmtNum(x) {
+  if (x == null || isNaN(x)) return "-";
+  return Number(x).toLocaleString("ko-KR");
+}
+
+function diffDays(a,b){
+  return Math.round((a.getTime()-b.getTime())/(24*3600*1000));
+}
+
+
+
+function dayDiff(start,end){
+  // inclusive difference in days: end-start
+  return diffDays(end,start);
+}
+function parseDateInput(val){
+  if(!val) return null;
+  const [y,m,d]=val.split("-").map(x=>parseInt(x,10));
+  if(!y||!m||!d) return null;
+  return new Date(Date.UTC(y, m-1, d));
+}
+function normRange(){
+  if(cohortRange.start && cohortRange.end && cohortRange.start.getTime()>cohortRange.end.getTime()){
+    const t=cohortRange.start; cohortRange.start=cohortRange.end; cohortRange.end=t;
+  }
+}
+function fmtRangeLabel(){
+  if(!cohortRange.start && !cohortRange.end) return "전체";
+  const a=cohortRange.start ? fmtDateYMD(cohortRange.start) : "-";
+  const b=cohortRange.end ? fmtDateYMD(cohortRange.end) : a;
+  return `${a} ~ ${b}`;
+}
+function buildFirstNewMap(newVisitMap){
+  const first=new Map();
+  for(const v of newVisitMap.values()){
+    if(!first.has(v.pid) || v.dt < first.get(v.pid)) first.set(v.pid, v.dt);
+  }
+  return first;
+}
+function inCohort(dt0){
+  if(!cohortRange.start && !cohortRange.end) return true;
+  const t=dt0.getTime();
+  if(cohortRange.start && !cohortRange.end) return t===cohortRange.start.getTime();
+  return t>=cohortRange.start.getTime() && t<=cohortRange.end.getTime();
+}
+function filterNewByCohort(newVisitMap){
+  const first=buildFirstNewMap(newVisitMap);
+  const allowed=new Set();
+  for(const [pid, dt0] of first){
+    if(inCohort(dt0)) allowed.add(pid);
+  }
+  const out=new Map();
+  for(const [k,v] of newVisitMap.entries()){
+    if(allowed.has(v.pid)) out.set(k,v);
+  }
+  return { filtered: out, first };
+}
+function updateCohortWidgets(firstMap){
+  const lbl=$("cohortLabel"); if(lbl) lbl.textContent=fmtRangeLabel();
+  let n=0, mn=null, mx=null;
+  for(const dt0 of firstMap.values()){
+    if(inCohort(dt0)){
+      n++;
+      if(!mn||dt0<mn) mn=dt0;
+      if(!mx||dt0>mx) mx=dt0;
+    }
+  }
+  const a=$("kCohortNewPatients"); if(a) a.textContent=fmtNum(n);
+  const b=$("kCohortMin"); if(b) b.textContent = mn ? fmtDateYMD(mn) : "-";
+  const c=$("kCohortMax"); if(c) c.textContent = mx ? fmtDateYMD(mx) : "-";
+}
+function fmtPct(x) {
+  if (x == null || isNaN(x)) return "-";
+  return (x*100).toFixed(1) + "%";
+}
+
+
+function fmtPctNN(obj){
+  if(!obj) return "-";
+  const r = obj.rate;
+  const n = (obj.numer ?? 0);
+  const d = (obj.denom ?? 0);
+  if (r===null || r===undefined || isNaN(r)){
+    return d ? `- (${n}/${d})` : "-";
+  }
+  return `${(r*100).toFixed(1)}% (${n}/${d})`;
+}
+
+function setFinalDaysLabel(n){
+  finalDays = (typeof n==="number" && isFinite(n) && n>=0) ? Math.floor(n) : 14;
+  document.querySelectorAll("[data-finaldays]").forEach(el=>{
+    el.textContent = `D+최종(${finalDays})`;
+  });
+  document.querySelectorAll("[data-finaldays-short]").forEach(el=>{
+    el.textContent = `최종(${finalDays})`;
+  });
+}
+
+/*** Row classification ***/
+const META_TOKENS = ["[처방]", "[외/입 구분]", "[조회일]", "[조 회 일]"];
+const HEADER_TOKENS = ["차트번호","수진자명","주민등록번호","내원일","투여량","투여일수","총투여량","진료일","방문일"];
+
+function rowText(row) {
+  return row.map(x => String(x ?? "").trim()).filter(Boolean).join(" ");
+}
+function hasAnyToken(text, tokens) {
+  return tokens.some(t => text.includes(t));
+}
+function countHeaderTokens(text) {
+  let c = 0;
+  for (const t of HEADER_TOKENS) if (text.includes(t)) c++;
+  return c;
+}
+function findFirstDateInRow(row) {
+  for (let i=0;i<row.length;i++){
+    const dt = toDate(row[i]);
+    if (dt) return { idx:i, dt };
+  }
+  return null;
+}
+function isMetaRow(row) {
+  const t = rowText(row);
+  return hasAnyToken(t, META_TOKENS);
+}
+function isHeaderRow(row) {
+  const t = rowText(row);
+  if (!t.includes("차트번호")) return false;
+  // If it looks like the repeated header (contains multiple header tokens), skip
+  return countHeaderTokens(t) >= 2;
+}
+function extractChartNo(row, dateIdxGuess) {
+  // Prefer left of the date cell (common layout). Fall back to first non-empty cell.
+  const scan = (start, end, step) => {
+    for (let i=start; i!==end; i+=step) {
+      const v = String(row[i] ?? "").trim();
+      if (!v) continue;
+      // Avoid header token
+      if (v === "차트번호") continue;
+      // Avoid obvious meta
+      if (v.startsWith("[") && v.endsWith("]")) continue;
+      // Accept numeric or alnum like j1049
+      if (/^[A-Za-z]?\d{1,10}$/.test(v) || /^[A-Za-z]{1,3}\d{1,10}$/.test(v) || /^\d{1,12}$/.test(v)) return v;
+      // Sometimes chart no could be longer; accept any non-header short-ish token
+      if (v.length <= 18 && !HEADER_TOKENS.includes(v)) return v;
+    }
+    return null;
+  };
+
+  if (dateIdxGuess != null) {
+    const left = scan(Math.max(0, dateIdxGuess-6), dateIdxGuess, 1);
+    if (left) return left;
+  }
+  return scan(0, row.length, 1);
+}
+
+
+function normalizeVisitsFromSheet(rows) {
+  // Header-aware parser for "의사랑" exports with repeated headers.
+  // - Skip meta rows: [처방], [외/입 구분], [조회일]
+  // - Detect header rows anywhere, update indices for chart/date columns
+  // - Data row must have valid chartNo + date (using detected indices)
+  // - Dedupe by (chartNo|day)
+  const visits = new Map();
+
+  let kept = 0, skippedMeta = 0, skippedHeader = 0, skippedNoDate = 0, skippedNoPid = 0, skippedNoHeaderYet = 0;
+  let idIdx = null, dateIdx = null;
+
+  const isEmptyRow = (row) => !row || !row.length || row.every(x => String(x ?? "").trim() === "");
+
+  for (const row of rows) {
+    if (isEmptyRow(row)) continue;
+
+    const text = rowText(row);
+    if (!text) continue;
+
+    if (isMetaRow(row)) { skippedMeta++; continue; }
+
+    // Header row can appear multiple times. When detected, refresh indices and skip row.
+    if (isHeaderRow(row)) {
+      // Find indices by exact header labels (tolerant to extra blanks)
+      idIdx = null; dateIdx = null;
+      for (let i=0;i<row.length;i++){
+        const v = String(row[i] ?? "").trim();
+        if (!idIdx && (v === "차트번호" || v === "챠트번호")) idIdx = i;
+        if (!dateIdx && (v === "내원일" || v === "진료일" || v === "방문일")) dateIdx = i;
+      }
+      skippedHeader++;
+      continue;
+    }
+
+    if (idIdx == null || dateIdx == null) { skippedNoHeaderYet++; continue; }
+
+    const pidRaw = String(row[idIdx] ?? "").trim();
+    if (!pidRaw || pidRaw === "차트번호" || pidRaw === "챠트번호") { skippedNoPid++; continue; }
+
+    const dt = toDate(row[dateIdx]);
+    if (!dt) { skippedNoDate++; continue; }
+
+    const pid = pidRaw;
+    const day = dayKey(dt);
+    const key = pid + "|" + day;
+
+    if (!visits.has(key)) {
+      visits.set(key, { pid, day, dt: new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())) });
+      kept++;
+    }
+  }
+
+  return { visits, stats: { kept, skippedMeta, skippedHeader, skippedNoDate, skippedNoPid, skippedNoHeaderYet, totalRows: rows.length } };
+}
+
+
+/*** Read file -> rows (2D array) ***/
+async function readAnyFile(file) {
+  const name = file.name.toLowerCase();
+  const buf = await file.arrayBuffer();
+
+  // XLS/XLSX
+  if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+    const wb = XLSX.read(buf, { type:"array" });
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, blankrows:false });
+    return rows;
+  }
+
+  // CSV
+  const text = new TextDecoder("utf-8").decode(buf);
+  const rows = [];
+  let i=0, field="", row=[], inQuotes=false;
+  while (i<text.length){
+    const c=text[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (text[i+1] === '"'){ field+='"'; i+=2; continue; }
+        inQuotes=false; i++; continue;
+      }
+      field+=c; i++; continue;
+    } else {
+      if (c === '"'){ inQuotes=true; i++; continue; }
+      if (c === ','){ row.push(field); field=""; i++; continue; }
+      if (c === '\r'){ i++; continue; }
+      if (c === '\n'){ row.push(field); rows.push(row); field=""; row=[]; i++; continue; }
+      field+=c; i++; continue;
+    }
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  // Trim BOM
+  if (rows.length && rows[0].length && rows[0][0].charCodeAt(0) === 0xFEFF) rows[0][0] = rows[0][0].slice(1);
+  return rows;
+}
+
+
+/*** Reservation parsing (예약관리) ***/
+function parseReservationWorkbooks(resPayload) {
+  const out = [];
+  if (!resPayload || !resPayload.length || typeof XLSX === "undefined") return out;
+
+  for (const item of resPayload) {
+    try {
+      const wb = XLSX.read(item.buf, { type:"array" });
+      for (const sname of wb.SheetNames) {
+        if (String(sname).includes("필독") || String(sname).includes("복사")) continue;
+        const ws = wb.Sheets[sname];
+        if (!ws) continue;
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, blankrows:false });
+        if (!rows || !rows.length) continue;
+
+        let headerIdx = -1;
+        let idxDate=-1, idxPid=-1, idxText=-1, idxMemo=-1, idxRoom=-1, idxStatus=-1;
+        for (let r=0;r<Math.min(rows.length, 80);r++){
+          const row = rows[r] || [];
+          const txt = row.map(x=>String(x??"").trim()).join(" ");
+          if (txt.includes("예약일") && (txt.includes("차트번호") || txt.includes("챠트번호")) && txt.includes("예약구분")) {
+            headerIdx = r;
+            for (let c=0;c<row.length;c++){
+              const v = String(row[c]??"").trim();
+              if (idxDate<0 && v==="예약일") idxDate=c;
+              if (idxPid<0 && (v==="차트번호" || v==="챠트번호")) idxPid=c;
+              if (v==="예약구분") idxText=c; // keep last occurrence
+              if (idxMemo<0 && v==="메모") idxMemo=c;
+              if (idxRoom<0 && v==="진료실") idxRoom=c;
+              if (idxStatus<0 && v==="상태") idxStatus=c;
+            }
+            break;
+          }
+        }
+        if (headerIdx<0 || idxDate<0 || idxPid<0 || idxText<0) continue;
+
+        for (let r=headerIdx+1; r<rows.length; r++){
+          const row = rows[r] || [];
+          const pidRaw = String(row[idxPid] ?? "").trim();
+          const dt = toDate(row[idxDate]);
+          if (!pidRaw || !dt) continue;
+
+          const status = idxStatus>=0 ? String(row[idxStatus]??"").trim() : "";
+          const room = idxRoom>=0 ? String(row[idxRoom]??"").trim() : "";
+          const txt = String(row[idxText] ?? "").trim();
+          const memo = idxMemo>=0 ? String(row[idxMemo]??"").trim() : "";
+          const text = (txt || memo || "").trim();
+          if (!text) continue;
+
+          out.push({
+            pid: pidRaw,
+            day: dayKey(dt),
+            dt: new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())),
+            text,
+            room,
+            status
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("예약 파일 파싱 실패:", item?.name, e);
+    }
+  }
+  return out;
+}
+
+function buildReservationIndex(resRows) {
+  const byPid = new Map();
+  for (const r of resRows) {
+    if (!byPid.has(r.pid)) byPid.set(r.pid, []);
+    byPid.get(r.pid).push(r);
+  }
+  for (const [pid, arr] of byPid) arr.sort((a,b)=>a.dt-b.dt);
+  return byPid;
+}
+
+function isExcludedInjectionReservation(textLower) {
+  return textLower.includes("드레싱") || textLower.includes("소독") || textLower.includes("봉합") || textLower.includes("실밥") || textLower.includes("거즈");
+}
+function isPrimaryInjectionKeyword(textLower) {
+  return textLower.includes("주사") || textLower.includes("연골") || textLower.includes("주사경과");
+}
+function isTherapyKeyword(textLower) {
+  return textLower.includes("충격파") || textLower.includes("도수");
+}
+function isClinicKeyword(textLower) {
+  return textLower.includes("진료");
+}
+
+function classifyInjectionFollowUpReservation(text, hasRecentInjection) {
+  const t = String(text||"").toLowerCase();
+  if (isExcludedInjectionReservation(t)) return false;
+  if (isPrimaryInjectionKeyword(t)) return true;
+  if (hasRecentInjection && (isClinicKeyword(t) || isTherapyKeyword(t))) return true;
+  return false;
+}
+
+function hasInjectionInLookback(pid, targetDt, injByPid, lookbackDays=30) {
+  const arr = injByPid.get(pid) || [];
+  const start = targetDt.getTime() - lookbackDays*86400000;
+  const end = targetDt.getTime();
+  // injections are visit days; consider injections up to the reservation date
+  return arr.some(d => d.getTime() >= start && d.getTime() <= end);
+}
+
+function computeBookingRateForCohort(firstVisitByPid, resByPid, injByPid, windowDays, mode) {
+  const msWin = windowDays*86400000;
+  let denom=0, numer=0;
+  for (const [pid, dt0] of firstVisitByPid) {
+    denom++;
+    const arr = resByPid.get(pid) || [];
+    const ok = arr.some(r => {
+      const t = r.dt.getTime();
+      if (t < dt0.getTime() || t > dt0.getTime()+msWin) return false;
+      if (mode === "any") return true;
+      const recentInj = hasInjectionInLookback(pid, r.dt, injByPid, 30);
+      return classifyInjectionFollowUpReservation(r.text, recentInj);
+    });
+    if (ok) numer++;
+  }
+  return { rate: (denom ? numer/denom : null), numer, denom };
+}
+
+/*** Analytics ***/
+function groupTrendFromVisitMap(visitMap, grain) {
+  const g = new Map();
+  let minDt=null, maxDt=null;
+  for (const v of visitMap.values()){
+    const k = keyByGrain(v.dt, grain);
+    if (!g.has(k)) g.set(k, { key:k, n:0 });
+    g.get(k).n += 1;
+    if (!minDt || v.dt < minDt) minDt = v.dt;
+    if (!maxDt || v.dt > maxDt) maxDt = v.dt;
+  }
+  const arr = Array.from(g.values()).sort((a,b)=>a.key.localeCompare(b.key));
+  return { arr, minDt, maxDt };
+}
+
+function computeNewConversion(newVisits, allVisits, injVisits, windowDays) {
+  // newVisits: Map key->visit, allVisits: Map key->visit, injVisits: Map key->visit
+  // per patient, find earliest new date, then check subsequent allVisits within window, and inj within window.
+  const byPidAll = new Map();
+  for (const v of allVisits.values()){
+    if (!byPidAll.has(v.pid)) byPidAll.set(v.pid, []);
+    byPidAll.get(v.pid).push(v.dt);
+  }
+  for (const [pid, arr] of byPidAll) arr.sort((a,b)=>a-b);
+
+  const byPidInj = new Map();
+  for (const v of injVisits.values()){
+    if (!byPidInj.has(v.pid)) byPidInj.set(v.pid, []);
+    byPidInj.get(v.pid).push(v.dt);
+  }
+  for (const [pid, arr] of byPidInj) arr.sort((a,b)=>a-b);
+
+  // earliest new per pid
+  const earliestNew = new Map();
+  for (const v of newVisits.values()){
+    if (!earliestNew.has(v.pid) || v.dt < earliestNew.get(v.pid)) earliestNew.set(v.pid, v.dt);
+  }
+
+  const msWin = windowDays * 86400000;
+  let newPatients = 0, convPatients = 0, newToInjPatients = 0;
+  let sumVisits30 = 0;
+
+  for (const [pid, dt0] of earliestNew){
+    newPatients++;
+    const allArr = byPidAll.get(pid) || [];
+    // visits within window excluding dt0 itself
+    const within = allArr.some(d => d.getTime() > dt0.getTime() && d.getTime() <= dt0.getTime() + msWin);
+    if (within) convPatients++;
+
+    const injArr = byPidInj.get(pid) || [];
+    const injWithin = injArr.some(d => d.getTime() >= dt0.getTime() && d.getTime() <= dt0.getTime() + msWin);
+    if (injWithin) newToInjPatients++;
+
+    // For "신환 평균 방문횟수(30일)": fixed 30d window regardless of selected win (to match KPI label)
+    const ms30 = 30 * 86400000;
+    const v30 = allArr.filter(d => d.getTime() >= dt0.getTime() && d.getTime() <= dt0.getTime() + ms30).length;
+    sumVisits30 += v30;
+  }
+
+  return {
+    newPatients,
+    convPatients,
+    convRate: newPatients ? convPatients / newPatients : null,
+    newToInjPatients,
+    newToInjRate: newPatients ? newToInjPatients / newPatients : null,
+    avgVisits30: newPatients ? sumVisits30 / newPatients : null
+  };
+}
+
+
+function computeNewConversionCensored(newVisitMap, allVisitMap, injVisitMap, windowDays, trackEnd){
+  const firstNew = new Map();
+  for (const v of newVisitMap.values()){
+    if (!firstNew.has(v.pid) || v.dt < firstNew.get(v.pid)) firstNew.set(v.pid, v.dt);
+  }
+  const cutoff = new Date(trackEnd.getTime() - windowDays*86400000);
+
+  const allByPid = new Map();
+  for (const v of allVisitMap.values()){
+    const arr = allByPid.get(v.pid) || [];
+    arr.push(v.dt);
+    allByPid.set(v.pid, arr);
+  }
+  const injByPid = new Map();
+  for (const v of injVisitMap.values()){
+    const arr = injByPid.get(v.pid) || [];
+    arr.push(v.dt);
+    injByPid.set(v.pid, arr);
+  }
+  for (const arr of allByPid.values()) arr.sort((a,b)=>a-b);
+  for (const arr of injByPid.values()) arr.sort((a,b)=>a-b);
+
+  let newPatients=0, convPatients=0, injPatients=0;
+  let sum30=0;
+
+  for (const [pid, dt0] of firstNew){
+    if (dt0.getTime() > cutoff.getTime()) continue;
+
+    newPatients++;
+    const end = new Date(dt0.getTime() + windowDays*86400000);
+
+    const visits = allByPid.get(pid) || [];
+    let hasRevisit=false;
+    for (const dt of visits){
+      if (dt.getTime() > dt0.getTime() && dt.getTime() <= end.getTime()){ hasRevisit=true; break; }
+    }
+    if (hasRevisit) convPatients++;
+
+    const inj = injByPid.get(pid) || [];
+    let hasInj=false;
+    for (const dt of inj){
+      if (dt.getTime() >= dt0.getTime() && dt.getTime() <= end.getTime()){ hasInj=true; break; }
+    }
+    if (hasInj) injPatients++;
+
+    const end30 = new Date(dt0.getTime() + 30*86400000);
+    let cnt=0;
+    for (const dt of visits){
+      if (dt.getTime() >= dt0.getTime() && dt.getTime() <= end30.getTime()) cnt++;
+      if (dt.getTime() > end30.getTime()) break;
+    }
+    sum30 += cnt;
+  }
+  const convRate = newPatients ? (convPatients/newPatients) : null;
+  const newToInjRate = newPatients ? (injPatients/newPatients) : null;
+  const avgVisits30 = newPatients ? (sum30/newPatients) : null;
+  return { windowDays, newPatients, convPatients, injPatients, convRate, newToInjRate, avgVisits30, trackEnd, cutoff };
+}
+
+
+function recentDeltaNotes(seriesMap) {
+  // seriesMap: {label -> [{key, n}]}
+  // Use last 3 points vs previous 3 points (if >=6)
+  const keys = seriesMap["총내원"].map(x=>x.key);
+  const n = keys.length;
+  if (n < 6) return "데이터 포인트가 6개 미만이라 비교 진단을 생략합니다.";
+
+  function sumLast(arr, start, end) {
+    let s = 0;
+    for (let i=start;i<end;i++) s += arr[i].n;
+    return s;
+  }
+
+  const last = [n-3, n];
+  const prev = [n-6, n-3];
+
+  const allLast = sumLast(seriesMap["총내원"], last[0], last[1]);
+  const allPrev = sumLast(seriesMap["총내원"], prev[0], prev[1]);
+
+  const newLast = sumLast(seriesMap["신환"], last[0], last[1]);
+  const newPrev = sumLast(seriesMap["신환"], prev[0], prev[1]);
+
+  const retLast = sumLast(seriesMap["재진"], last[0], last[1]);
+  const retPrev = sumLast(seriesMap["재진"], prev[0], prev[1]);
+
+  const injLast = sumLast(seriesMap["주사"], last[0], last[1]);
+  const injPrev = sumLast(seriesMap["주사"], prev[0], prev[1]);
+
+  const pct = (a,b)=> b? (a-b)/b : null;
+
+  const dn = pct(newLast, newPrev);
+  const dr = pct(retLast, retPrev);
+  const di = pct(injLast, injPrev);
+
+  const lines = [];
+  const fmt = (p) => p==null? "-" : (p*100).toFixed(1) + "%";
+
+  lines.push(`최근 3구간 vs 이전 3구간 변화:`);
+  lines.push(`• 신환: <b>${fmt(dn)}</b>`);
+  lines.push(`• 재진: <b>${fmt(dr)}</b>`);
+  lines.push(`• 주사: <b>${fmt(di)}</b>`);
+
+  // Simple interpretation
+  const hints = [];
+  if (dn!=null && dn < -0.05 && (dr==null || dr < dn)) {
+    hints.push(`신환도 줄었지만, 재진/주사가 더 크게 빠지면 <span class="warn">전환(신환→재내원/주사) 저하</span> 가능성이 큽니다.`);
+  }
+  if (dn!=null && Math.abs(dn) <= 0.05 && (dr!=null && dr < -0.10)) {
+    hints.push(`신환 변화는 크지 않은데 재진이 감소하면 <span class="warn">리텐션/재예약/대기·동선 이탈</span> 이슈를 먼저 의심하세요.`);
+  }
+  if (di!=null && di < -0.10 && (dn!=null && dn > -0.10)) {
+    hints.push(`주사만 유독 감소하면 <span class="warn">케이스 믹스 변화(주사 적응증↓) 또는 권유→시행 전환↓</span> 쪽을 먼저 보세요.`);
+  }
+  if (!hints.length) hints.push(`변화 폭이 크지 않거나 패턴이 혼재합니다. 전환율(신환→7/30일 재내원율/주사율)을 함께 확인하세요.`);
+
+  return lines.join("<br>") + "<br><br>해석 힌트:<br>• " + hints.join("<br>• ");
+}
+
+let chart = null;
+
+
+function renderDocTable(rows) {
+  const tb = document.querySelector("#docTable tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.label}</td>
+      <td>${fmtNum(r.newVisits)}</td>
+      <td>${fmtNum(r.newPatients)}</td>
+      <td>${fmtPct(r.conv3)}</td>
+      <td>${fmtPct(r.conv7)}</td>
+      <td>${fmtPct(r.conv14)}</td>
+      <td>${fmtPct(r.inj3)}</td>
+      <td>${fmtPct(r.inj7)}</td>
+      <td>${fmtPct(r.inj14)}</td>
+      <td>${fmtPct(r.bookNew7)}</td>
+      <td>${fmtPct(r.bookInj14)}</td>
+    `;
+    tb.appendChild(tr);
+  }
+}
+
+function renderChart(seriesMap) {
+  const labels = seriesMap["총내원"].map(x=>x.key);
+  const datasets = [
+    { label:"총내원", data: seriesMap["총내원"].map(x=>x.n), borderWidth:2, tension:0.25 },
+    { label:"신환", data: seriesMap["신환"].map(x=>x.n), borderWidth:2, tension:0.25 },
+    { label:"재진", data: seriesMap["재진"].map(x=>x.n), borderWidth:2, tension:0.25 },
+    { label:"주사", data: seriesMap["주사"].map(x=>x.n), borderWidth:2, tension:0.25 },
+  ];
+  const ctx = $("trendChart");
+  if (chart) chart.destroy();
+  if (typeof Chart === "undefined") { return; }
+  chart = new Chart(ctx, {
+    type:"line",
+    data:{ labels, datasets },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      devicePixelRatio: Math.min(2.5, (window.devicePixelRatio || 1)),
+      plugins:{ legend:{ labels:{ color:"#111827" } } },
+      scales:{
+        x:{ ticks:{ color:"#111827", maxRotation:0, autoSkip:true }, grid:{ color:"rgba(17,24,39,0.08)" } },
+        y:{ ticks:{ color:"#111827" }, grid:{ color:"rgba(17,24,39,0.08)" } },
+      }
+    }
+  });
+}
+
+
+
+function buildAutoNotesD3714(totals, conv3, conv7, conv14) {
+  const notes = [];
+  if (conv3.convRate != null && conv3.convRate < 0.35) notes.push(`신환→D+3 재내원율이 <span class="warn">${fmtPct(conv3.convRate)}</span>로 낮습니다. D+3 재예약/안내(월→목 등) 흐름을 먼저 보세요.`);
+  if (conv7.convRate != null && conv7.convRate < 0.55) notes.push(`신환→D+7 재내원율이 <span class="warn">${fmtPct(conv7.convRate)}</span>로 낮습니다. 치료계획 확정(재예약/물리치료 동선)과 대기 이탈을 점검하세요.`);
+  if (conv14.convRate != null && conv14.convRate < 0.70) notes.push(`신환→<span data-finaldays>D+최종</span> 재내원율이 <span class="warn">${fmtPct(conv14.convRate)}</span>로 낮습니다. 2주차 관리(재예약 리마인드/치료 연속성)를 점검하세요.`);
+  if (conv3.newToInjRate != null && conv3.newToInjRate < 0.10) notes.push(`신환→D+3 주사율이 <span class="warn">${fmtPct(conv3.newToInjRate)}</span>로 낮습니다. 권유→시행(당일/3일내) 전환 저하 가능.`);
+  if (conv7.newToInjRate != null && conv7.newToInjRate < 0.15) notes.push(`신환→D+7 주사율이 <span class="warn">${fmtPct(conv7.newToInjRate)}</span>로 낮습니다. 케이스 믹스 변화 또는 전환 저하 가능.`);
+  if (conv14.newToInjRate != null && conv14.newToInjRate < 0.20) notes.push(`신환→<span data-finaldays>D+최종</span> 주사율이 <span class="warn">${fmtPct(conv14.newToInjRate)}</span>로 낮습니다. 치료 경로(물리/약/주사) 안내와 일정 설계를 점검하세요.`);
+  if (totals.injRate != null && totals.injRate < 0.08) notes.push(`전체 방문 대비 주사율이 <span class="warn">${fmtPct(totals.injRate)}</span>로 낮습니다. 주사 파일 범위/누락 여부도 함께 확인하세요.`);
+  if (!notes.length) return "원인 힌트(참고): 전환 지표(D+3/D+7/D+14)가 정상 범위로 보입니다. 다음으로는 신환 수 변화와 재진(총-신환) 추이를 함께 보세요.";
+  return "원인 힌트(참고):<br>• " + notes.join("<br>• ");
+}
+
+
+
+/*** Main analyze ***/
+let fileNew1=null, fileNew2=null, fileNew3=null, fileAll=null, fileInj=null;
+let fileResFiles=[];
+
+async function analyze() {
+  if ((!fileNew1 && !fileNew2 && !fileNew3) || !fileAll || !fileInj) {
+    $("fileStatus").textContent = "파일 상태: 총내원/주사 + 신환(1개 이상) 필요";
+    return;
+  }
+
+  $("fileStatus").textContent = "파일 상태: 읽는 중…";
+
+  const grain = $("grain").value;
+const winDays3 = 3;
+  const winDays7 = 7;
+  const winDays14 = finalDays; // alias for "최종" window
+
+
+  
+  const tasks = [];
+  tasks.push(fileNew1 ? readAnyFile(fileNew1) : Promise.resolve(null));
+  tasks.push(fileNew2 ? readAnyFile(fileNew2) : Promise.resolve(null));
+  tasks.push(fileNew3 ? readAnyFile(fileNew3) : Promise.resolve(null));
+  tasks.push(readAnyFile(fileAll));
+  tasks.push(readAnyFile(fileInj));
+
+  const resFiles = fileResFiles || [];
+  const resTasks = resFiles.map(f => f.arrayBuffer().then(buf => ({ name:f.name, buf })));
+
+  let [rowsNew1, rowsNew2, rowsNew3, rowsAll, rowsInj, resPayload] = await Promise.all([
+    ...tasks,
+    Promise.all(resTasks)
+  ]);
+
+  // 예약 파일이 진료실 슬롯에 들어간 경우: 신환에서 제외(자동 분류 안내)
+  if(rowsNew1 && detectReservation(rowsNew1)){
+    $("infoNew1").textContent = "예약파일(자동분류:예약)";
+    fileResFiles = (fileResFiles||[]);
+    if(fileNew1) fileResFiles.push(fileNew1);
+    rowsNew1=null; fileNew1=null;
+  }
+  if(rowsNew2 && detectReservation(rowsNew2)){
+    $("infoNew2").textContent = "예약파일(자동분류:예약)";
+    fileResFiles = (fileResFiles||[]);
+    if(fileNew2) fileResFiles.push(fileNew2);
+    rowsNew2=null; fileNew2=null;
+  }
+  if(rowsNew3 && detectReservation(rowsNew3)){
+    $("infoNew3").textContent = "예약파일(자동분류:예약)";
+    fileResFiles = (fileResFiles||[]);
+    if(fileNew3) fileResFiles.push(fileNew3);
+    rowsNew3=null; fileNew3=null;
+  }
+  // 자동 분류된 예약 파일이 있으면 예약 선택 UI도 갱신
+  try{
+    if(fileResFiles && $("resInfo")){
+      $("resInfo").textContent = `${fileResFiles.length}개 선택(자동 포함)`;
+    }
+  }catch(e){}
+
+
+
+
+  
+  const normNew1 = rowsNew1 ? normalizeVisitsFromSheet(rowsNew1) : { visits:new Map(), stats:{kept:0,skippedMeta:0,skippedHeader:0,skippedNoDate:0,skippedNoPid:0,skippedNoHeaderYet:0,totalRows:0} };
+  const normNew2 = rowsNew2 ? normalizeVisitsFromSheet(rowsNew2) : { visits:new Map(), stats:{kept:0,skippedMeta:0,skippedHeader:0,skippedNoDate:0,skippedNoPid:0,skippedNoHeaderYet:0,totalRows:0} };
+  const normNew3 = rowsNew3 ? normalizeVisitsFromSheet(rowsNew3) : { visits:new Map(), stats:{kept:0,skippedMeta:0,skippedHeader:0,skippedNoDate:0,skippedNoPid:0,skippedNoHeaderYet:0,totalRows:0} };
+  const normAll = normalizeVisitsFromSheet(rowsAll);
+  const normInj = normalizeVisitsFromSheet(rowsInj);
+  // 관측 종료일(추적 종료일): 총내원/주사/예약 데이터 중 마지막 날짜
+  const maxDateFrom = (map) => {
+    let mx=null;
+    for (const v of map.values()){
+      if (!mx || v.dt > mx) mx = v.dt;
+    }
+    return mx;
+  };
+  let trackEnd = maxDateFrom(normAll.visits);
+  const mxInj = maxDateFrom(normInj.visits);
+  if (mxInj && (!trackEnd || mxInj > trackEnd)) trackEnd = mxInj;
+  if (resPayload && resPayload.maxDate){
+    const rd = parseDate(resPayload.maxDate);
+    if (rd && (!trackEnd || rd > trackEnd)) trackEnd = rd;
+  }
+  if (!trackEnd){
+    trackEnd = maxDateFrom(normNewAll.visits) || new Date(Date.UTC(1970,0,1));
+  }
+
+
+  const normNewAll = { visits: new Map(), stats: { totalRows: (normNew1.stats.totalRows||0)+(normNew2.stats.totalRows||0)+(normNew3.stats.totalRows||0) } };
+  for (const src of [normNew1, normNew2, normNew3]) {
+    for (const [k,v] of src.visits) if (!normNewAll.visits.has(k)) normNewAll.visits.set(k,v);
+  }
+
+
+  
+  // 코호트 기본값(비어있으면): 시작=첫 신환 최소일, 종료=시작+5일
+  if(!cohortRange.start && !cohortRange.end){
+    let minFirst=null;
+    const tmpFirst=buildFirstNewMap(normNewAll.visits);
+    for(const dt0 of tmpFirst.values()){ if(!minFirst || dt0<minFirst) minFirst=dt0; }
+    if(minFirst){
+      cohortRange.start = new Date(minFirst.getTime());
+      cohortRange.end   = new Date(minFirst.getTime() + 5*24*3600*1000);
+      if($("cohortStartInp")) $("cohortStartInp").value = fmtDateYMD(cohortRange.start);
+      if($("cohortEndInp")) $("cohortEndInp").value = fmtDateYMD(cohortRange.end);
+    }
+  }
+  normRange();
+
+  // D+최종(가변) 계산: 기본은 코호트 시작일 기준 D+12까지 관측
+  let maxAllDt=null;
+  for(const v of normAll.visits.values()){ if(!maxAllDt || v.dt>maxAllDt) maxAllDt=v.dt; }
+  if(cohortRange.start && maxAllDt){
+    const cap = new Date(cohortRange.start.getTime() + DEFAULT_FINAL_DAYS*24*3600*1000);
+    const obsEnd = (cap.getTime() < maxAllDt.getTime()) ? cap : maxAllDt;
+    
+  // 최종 관측일수(finalDays): 코호트 시작일(앵커) 기준으로 obsEnd까지의 최대 D+n
+  const anchorStart = (cohortRange && cohortRange.start) ? cohortRange.start : minDateNew;
+  const _fd = (anchorStart && obsEnd) ? dayDiff(anchorStart, obsEnd) : 14;
+  setFinalDaysLabel(_fd);
+const n = diffDays(obsEnd, cohortRange.start);
+    finalDays = Math.max(3, n);
+  } else {
+    finalDays = 14;
+  }
+  document.querySelectorAll("[data-finaldays]").forEach(el=>{
+    el.textContent = `D+최종(${finalDays})`;
+  });
+const { filtered: cohortNewVisits, first: firstNewMap } = filterNewByCohort(normNewAll.visits);
+  updateCohortWidgets(firstNewMap);
+  if($('finalDaysLabel')) $('finalDaysLabel').textContent = `D+최종(${finalDays})`;
+
+  // Totals
+  const allN = normAll.visits.size;
+  const newN = normNewAll.visits.size;
+  const injN = normInj.visits.size;
+
+  // Ret visits computed at visit-key level: (All minus New). Do by keys:
+  const retKeys = new Set(normAll.visits.keys());
+  for (const k of normNewAll.visits.keys()) retKeys.delete(k);
+  const retN = retKeys.size;
+
+  const totals = {
+    allN, newN, retN, injN,
+    injRate: allN ? injN / allN : null
+  };
+
+  // Trend series aligned to ALL keys range: create counts per period using keys in each map
+  const trendAll = groupTrendFromVisitMap(normAll.visits, grain);
+  const trendNew = groupTrendFromVisitMap(normNewAll.visits, grain);
+  const trendInj = groupTrendFromVisitMap(normInj.visits, grain);
+
+  // Build ret trend by creating a temporary map from retKeys -> visit object from all map
+  const retMap = new Map();
+  for (const k of retKeys) retMap.set(k, normAll.visits.get(k));
+  const trendRet = groupTrendFromVisitMap(retMap, grain);
+
+  // Align series by period keys from ALL (ensure missing periods -> 0)
+  const allKeys = trendAll.arr.map(x=>x.key);
+  function align(arr) {
+    const m = new Map(arr.map(x=>[x.key, x.n]));
+    return allKeys.map(k=>({ key:k, n: m.get(k) ?? 0 }));
+  }
+  const seriesMap = {
+    "총내원": align(trendAll.arr),
+    "신환": align(trendNew.arr),
+    "재진": align(trendRet.arr),
+    "주사": align(trendInj.arr),
+  };
+
+  // Conversion
+  const mode = $("modeSel") ? $("modeSel").value : "legacy";
+  const conv3 = (mode==="censored") ? computeNewConversionCensored(normNewAll.visits, normAll.visits, normInj.visits, winDays3, trackEnd)
+                                   : computeNewConversion(normNewAll.visits, normAll.visits, normInj.visits, winDays3);
+  const conv7 = (mode==="censored") ? computeNewConversionCensored(normNewAll.visits, normAll.visits, normInj.visits, winDays7, trackEnd)
+                                   : computeNewConversion(normNewAll.visits, normAll.visits, normInj.visits, winDays7);
+  const conv14 = (mode==="censored") ? computeNewConversionCensored(normNewAll.visits, normAll.visits, normInj.visits, winDays14, trackEnd)
+                                    : computeNewConversion(normNewAll.visits, normAll.visits, normInj.visits, winDays14);
+  const resRows = parseReservationWorkbooks(resPayload);
+  const resByPid = buildReservationIndex(resRows);
+
+  const injByPid = new Map();
+  for (const v of normInj.visits.values()){
+    if (!injByPid.has(v.pid)) injByPid.set(v.pid, []);
+    injByPid.get(v.pid).push(v.dt);
+  }
+  for (const [pid, arr] of injByPid) arr.sort((a,b)=>a-b);
+
+  const firstNew = new Map();
+  for (const v of normNewAll.visits.values()){
+    if (!firstNew.has(v.pid) || v.dt < firstNew.get(v.pid)) firstNew.set(v.pid, v.dt);
+  }
+  const firstInj = new Map();
+  for (const v of normInj.visits.values()){
+    if (!firstInj.has(v.pid) || v.dt < firstInj.get(v.pid)) firstInj.set(v.pid, v.dt);
+  }
+
+
+  // subset: 신환(첫 신환) 중 주사 경험이 있는 환자
+  const firstNewInj = new Map();
+  for (const [pid, dt0] of firstNew){
+    if (injByPid.has(pid)) firstNewInj.set(pid, dt0);
+  }
+  const bookNew3  = computeBookingRateForCohort(firstNew, resByPid, injByPid, 3, "any");
+  const bookNew7  = computeBookingRateForCohort(firstNew, resByPid, injByPid, 7, "any");
+
+  const bookNewInj3 = computeBookingRateForCohort(firstNewInj, resByPid, injByPid, 3, "any");
+  const bookNewInj7 = computeBookingRateForCohort(firstNewInj, resByPid, injByPid, 7, "any");
+  const bookNewInjFinal = computeBookingRateForCohort(firstNewInj, resByPid, injByPid, finalDays, "any");
+  const bookNewFinal = computeBookingRateForCohort(firstNew, resByPid, injByPid, finalDays, "any");
+
+  const bookNew14 = bookNewFinal; // legacy alias
+const bookInjFinal = computeBookingRateForCohort(firstInj, resByPid, injByPid, finalDays, "inj_fu");
+
+
+  
+  const bookInj14 = bookInjFinal; // legacy alias
+// KPIs
+  $("kAll").textContent = fmtNum(allN);
+  $("kNew").textContent = fmtNum(newN);
+  $("kRet").textContent = fmtNum(retN);
+  $("kInj").textContent = fmtNum(injN);
+
+  
+  
+  $("kNew").textContent = fmtNum(newN);
+  $("kNewPatients").textContent = fmtNum(conv7.newPatients);
+  $("kInjRate").textContent = fmtPct(totals.injRate);
+  $("kAvg30").textContent = conv7.avgVisits30 != null ? conv7.avgVisits30.toFixed(2) : "-";
+  $("kConv3").textContent = fmtPct(conv3.convRate);
+  $("kConv7").textContent = fmtPct(conv7.convRate);
+  $("kNewToInj3").textContent = fmtPct(conv3.newToInjRate);
+  $("kNewToInj7").textContent = fmtPct(conv7.newToInjRate);
+  $("kConv14").textContent = fmtPct(conv14.convRate);
+  $("kNewToInj14").textContent = fmtPct(conv14.newToInjRate);
+  $("kBookNew3").textContent = fmtPctNN(bookNew3);
+  $("kBookNew7").textContent = fmtPctNN(bookNew7);
+
+  if ($("kBookNewInj3")) $("kBookNewInj3").textContent = fmtPctNN(bookNewInj3);
+  if ($("kBookNewInj7")) $("kBookNewInj7").textContent = fmtPctNN(bookNewInj7);
+  if ($("kBookNewInjFinal")) $("kBookNewInjFinal").textContent = fmtPctNN(bookNewInjFinal);
+  if ($("kBookNewFinal")) $("kBookNewFinal").textContent = fmtPctNN(bookNewFinal);
+  if ($("kBookNew14")) $("kBookNew14").textContent = fmtPctNN(bookNewFinal);
+  if ($("kBookInjFinal")) $("kBookInjFinal").textContent = fmtPctNN(bookInjFinal);
+  if ($("kBookInj14")) $("kBookInj14").textContent = fmtPctNN(bookInjFinal);
+
+  // Period info from ALL
+  if (trendAll.minDt && trendAll.maxDt) {
+    $("periodInfo").textContent = `기간: ${dayKey(trendAll.minDt)} ~ ${dayKey(trendAll.maxDt)} / 단위: ${grain}`;
+  } else {
+    $("periodInfo").textContent = "기간: -";
+  }
+
+  // Quality info
+    const qLines = [];
+  const addNewLine = (label, n) => {
+    qLines.push(`${label}: 총 ${fmtNum(n.stats.totalRows)}행 → 유효 방문 ${fmtNum(n.stats.kept)} (메타 ${fmtNum(n.stats.skippedMeta)}, 헤더 ${fmtNum(n.stats.skippedHeader)}, 무날짜 ${fmtNum(n.stats.skippedNoDate)}, 무차트 ${fmtNum(n.stats.skippedNoPid)}, 헤더미탐색 ${fmtNum(n.stats.skippedNoHeaderYet)})`);
+  };
+  if (fileNew1) addNewLine("1진료실", normNew1);
+  if (fileNew2) addNewLine("2진료실", normNew2);
+  if (fileNew3) addNewLine("3진료실", normNew3);
+  qLines.push(`신환(합산): 유효 방문 ${fmtNum(normNewAll.visits.size)}`);
+  qLines.push(`총내원: 총 ${fmtNum(normAll.stats.totalRows)}행 → 유효 방문 ${fmtNum(normAll.stats.kept)} (메타 ${fmtNum(normAll.stats.skippedMeta)}, 헤더 ${fmtNum(normAll.stats.skippedHeader)}, 무날짜 ${fmtNum(normAll.stats.skippedNoDate)}, 무차트 ${fmtNum(normAll.stats.skippedNoPid)}, 헤더미탐색 ${fmtNum(normAll.stats.skippedNoHeaderYet)})`);
+  qLines.push(`주사: 총 ${fmtNum(normInj.stats.totalRows)}행 → 유효 방문 ${fmtNum(normInj.stats.kept)} (메타 ${fmtNum(normInj.stats.skippedMeta)}, 헤더 ${fmtNum(normInj.stats.skippedHeader)}, 무날짜 ${fmtNum(normInj.stats.skippedNoDate)}, 무차트 ${fmtNum(normInj.stats.skippedNoPid)}, 헤더미탐색 ${fmtNum(normInj.stats.skippedNoHeaderYet)})`);
+  $("qualityInfo").innerHTML = qLines.map(x=>`• ${x}`).join("<br>");
+  if (resRows && resRows.length) { $("qualityInfo").innerHTML += `<br>• 예약: ${fmtNum(resRows.length)}건 (시트 여러개 합산)`; }
+
+
+  // Funnel
+      $("funnel").innerHTML =
+    `• 신환 환자(첫 신환): <b>${fmtNum(conv14.newPatients)}</b><br>` +
+    `• 신환→D+3 재내원: <b>${fmtNum(conv3.convPatients)}</b> (${fmtPct(conv3.convRate)})<br>` +
+    `• 신환→D+7 재내원: <b>${fmtNum(conv7.convPatients)}</b> (${fmtPct(conv7.convRate)})<br>` +
+    `• 신환→D+14 재내원: <b>${fmtNum(conv14.convPatients)}</b> (${fmtPct(conv14.convRate)})<br>` +
+    `• 신환→D+3 주사: <b>${fmtNum(conv3.newToInjPatients)}</b> (${fmtPct(conv3.newToInjRate)})<br>` +
+    `• 신환→D+7 주사: <b>${fmtNum(conv7.newToInjPatients)}</b> (${fmtPct(conv7.newToInjRate)})<br>` +
+    `• 신환→D+14 주사: <b>${fmtNum(conv14.newToInjPatients)}</b> (${fmtPct(conv14.newToInjRate)})<br>` +
+    `• 전체 방문 주사율: <b>${fmtPct(totals.injRate)}</b>`;
+  if (mode==="censored") { $("funnel").innerHTML += `• 관측 종료일: <b>${fmtDateYMD(trackEnd)}</b> (D+7 컷오프 ${fmtDateYMD(conv7.cutoff)}, D+14 컷오프 ${fmtDateYMD(conv14.cutoff)})<br>`; }
+
+
+  // Notes
+  $("autoNotes").innerHTML = buildAutoNotesD3714(totals, conv3, conv7, conv14);
+  $("deltaNotes").innerHTML = recentDeltaNotes(seriesMap);
+
+  // Doctor/room comparison
+  const docRows = [];
+  const doctors = [
+    { label:"1진료실", norm:normNew1, enabled: !!fileNew1 },
+    { label:"2진료실", norm:normNew2, enabled: !!fileNew2 },
+    { label:"3진료실", norm:normNew3, enabled: !!fileNew3 },
+  ];
+  for (const d of doctors) {
+    if (!d.enabled) continue;
+    const c3 = computeNewConversion(d.norm.visits, normAll.visits, normInj.visits, 3);
+    const c7 = computeNewConversion(d.norm.visits, normAll.visits, normInj.visits, 7);
+    const c14 = computeNewConversion(d.norm.visits, normAll.visits, normInj.visits, finalDays);
+    // booking rates for this doctor's new cohort
+    const firstNewD = new Map();
+    for (const v of d.norm.visits.values()){
+      if (!firstNewD.has(v.pid) || v.dt < firstNewD.get(v.pid)) firstNewD.set(v.pid, v.dt);
+    }
+    const bookNew7D = computeBookingRateForCohort(firstNewD, resByPid, injByPid, 7, "any");
+
+    const firstInjD = new Map();
+    for (const [pid, dt0] of firstNewD){
+      const injArr = injByPid.get(pid) || [];
+      if (injArr.length) firstInjD.set(pid, injArr[0]);
+    }
+    const bookInj14D = computeBookingRateForCohort(firstInjD, resByPid, injByPid, 14, "inj_fu");
+
+    docRows.push({ label:d.label, newVisits:d.norm.visits.size, newPatients:c14.newPatients, conv3:c3.convRate, conv7:c7.convRate, conv14:c14.convRate, inj3:c3.newToInjRate, inj7:c7.newToInjRate, inj14:c14.newToInjRate, bookNew7:bookNew7D, bookInj14:bookInj14D });
+  // 남아있는 D+14 표기(요약/표)를 D+최종(N)으로 치환
+  const finalLabel = `D+최종(${finalDays})`;
+  function replaceD14Text(root){
+    if(!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes=[];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    for(const n of nodes){
+      if(n.nodeValue && n.nodeValue.includes("D+14")){
+        n.nodeValue = n.nodeValue.replaceAll("D+14", finalLabel);
+      }
+    }
+  }
+  replaceD14Text($("retentionBox") || document.body);
+  replaceD14Text($("compareBox") || document.body);
+
+  }
+  docRows.push({ label:"합산", newVisits:normNewAll.visits.size, newPatients:conv14.newPatients, conv3:conv3.convRate, conv7:conv7.convRate, conv14:conv14.convRate, inj3:conv3.newToInjRate, inj7:conv7.newToInjRate, inj14:conv14.newToInjRate, bookNew7:bookNew7, bookInj14:bookInj14 });
+  renderDocTable(docRows);
+
+  // Chart
+  renderChart(seriesMap);
+
+  $("fileStatus").textContent = "파일 상태: 준비됨";
+}
+
+/*** Wiring ***/
+$("pickNew1").addEventListener("click", ()=> $("fileNew1").click());
+$("pickNew2").addEventListener("click", ()=> $("fileNew2").click());
+$("pickNew3").addEventListener("click", ()=> $("fileNew3").click());
+$("pickAll").addEventListener("click", ()=> $("fileAll").click());
+$("pickInj").addEventListener("click", ()=> $("fileInj").click());
+$("pickRes").addEventListener("click", ()=> $("fileRes").click());
+
+$("fileNew1").addEventListener("change", (e)=>{ fileNew1 = e.target.files?.[0] || null; $("infoNew1").textContent = fileNew1 ? `${fileNew1.name}` : "미선택"; });
+$("fileNew2").addEventListener("change", (e)=>{ fileNew2 = e.target.files?.[0] || null; $("infoNew2").textContent = fileNew2 ? `${fileNew2.name}` : "미선택"; });
+$("fileNew3").addEventListener("change", (e)=>{ fileNew3 = e.target.files?.[0] || null; $("infoNew3").textContent = fileNew3 ? `${fileNew3.name}` : "미선택"; });
+$("fileAll").addEventListener("change", (e)=>{
+  fileAll = e.target.files?.[0] || null;
+  $("infoAll").textContent = fileAll ? `${fileAll.name}` : "미선택";
+});
+$("fileInj").addEventListener("change", (e)=>{
+  fileInj = e.target.files?.[0] || null;
+  $("infoInj").textContent = fileInj ? `${fileInj.name}` : "미선택";
+});
+$("fileRes").addEventListener("change", (e)=>{
+  fileResFiles = Array.from(e.target.files || []);
+  $("infoRes").textContent = fileResFiles.length ? `${fileResFiles.length}개 선택` : "미선택";
+});
+
+$("runBtn").addEventListener("click", analyze);
+
+// 탭 동작
+(function(){
+  const tabs=document.querySelectorAll("#filterTabs .tabBtn");
+  const panels=document.querySelectorAll(".tabPanel");
+  tabs.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      tabs.forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      const id=btn.getAttribute("data-tab");
+      panels.forEach(p=>p.classList.toggle("active", p.id===id));
+    });
+  });
+})();
+
+// 코호트 버튼
+$("btnCohortApply")?.addEventListener("click", ()=>{
+  cohortRange.start = parseDateInput($("cohortStartInp")?.value);
+  cohortRange.end   = parseDateInput($("cohortEndInp")?.value);
+  normRange();
+  if ((fileNew1||fileNew2||fileNew3) && fileAll && fileInj) analyze();
+});
+$("btnCohortAll")?.addEventListener("click", ()=>{
+  cohortRange.start=null; cohortRange.end=null;
+  if($("cohortStartInp")) $("cohortStartInp").value="";
+  if($("cohortEndInp")) $("cohortEndInp").value="";
+  if ((fileNew1||fileNew2||fileNew3) && fileAll && fileInj) analyze();
+});
+$("btnCohortClear")?.addEventListener("click", ()=>{
+  cohortRange.start=null; cohortRange.end=null;
+  if($("cohortStartInp")) $("cohortStartInp").value="";
+  if($("cohortEndInp")) $("cohortEndInp").value="";
+  if ((fileNew1||fileNew2||fileNew3) && fileAll && fileInj) analyze();
+});
+
+$("grain").addEventListener("change", ()=>{ if((fileNew1||fileNew2||fileNew3)&&fileAll&&fileInj) analyze(); });
+
+// Optional drag-drop: if user drops 3 files, auto assign by filename heuristics
+$("drop").addEventListener("dragover", (e)=>{ e.preventDefault(); $("drop").style.borderColor="#60a5fa"; });
+$("drop").addEventListener("dragleave", ()=>{ $("drop").style.borderColor="#334155"; });
+$("drop").addEventListener("drop", (e)=>{
+  e.preventDefault();
+  $("drop").style.borderColor="#334155";
+  const files = Array.from(e.dataTransfer.files || []);
+  if (!files.length) return;
+
+  for (const f of files) {
+    const n = f.name;
+    if (!fileAll && (n.includes("총내원") || (n.includes("내원") && !n.includes("신환")))) { fileAll = f; $("infoAll").textContent = n; continue; }
+    if (!fileInj && (n.includes("주사") || n.includes("처방"))) { fileInj = f; $("infoInj").textContent = n; continue; }
+    if (n.includes("예약") || n.includes("예약관리")) { fileResFiles = (fileResFiles||[]).concat([f]); $("infoRes").textContent = `${fileResFiles.length}개 선택`; continue; }
+    if (n.includes("신환")) {
+      if (!fileNew1) { fileNew1 = f; $("infoNew1").textContent = n; continue; }
+      if (!fileNew2) { fileNew2 = f; $("infoNew2").textContent = n; continue; }
+      if (!fileNew3) { fileNew3 = f; $("infoNew3").textContent = n; continue; }
+    }
+  }
+
+  const remaining = files.filter(f => f !== fileAll && f !== fileInj && f !== fileNew1 && f !== fileNew2 && f !== fileNew3);
+  for (const f of remaining) {
+    if (!fileNew1) { fileNew1 = f; $("infoNew1").textContent = f.name; continue; }
+    if (!fileNew2) { fileNew2 = f; $("infoNew2").textContent = f.name; continue; }
+    if (!fileNew3) { fileNew3 = f; $("infoNew3").textContent = f.name; continue; }
+  }
+
+  if ((fileNew1||fileNew2||fileNew3) && fileAll && fileInj) analyze();
+});
+</script>
+</body>
+</html>
