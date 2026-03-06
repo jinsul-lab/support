@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내원 통계 생성기</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --line: #dde3ea;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --good: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .hero, .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .hero { padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .uploader {
+      margin-top: 18px;
+      border: 2px dashed #93c5fd;
+      background: #f8fbff;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    .uploader.dragover { background: #eff6ff; border-color: var(--accent); }
+    input[type="file"] { display: block; margin: 12px auto; }
+    .grid {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .stat {
+      padding: 18px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .stat .value { margin-top: 8px; font-size: 28px; font-weight: 700; }
+    .section { margin-top: 20px; }
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 19px;
+      font-weight: 700;
+    }
+    .cards-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+    }
+    .cards-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card { padding: 18px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #334155;
+    }
+    .bar-row { margin: 10px 0 14px; }
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .bar-track {
+      height: 12px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #60a5fa, #2563eb);
+      border-radius: 999px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 4px 6px 0 0;
+    }
+    .hidden { display: none; }
+    .note {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .ok { color: var(--good); font-weight: 700; }
+    @media (max-width: 900px) {
+      .grid, .cards-2, .cards-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>내원 통계 생성기</h1>
+      <p>엑셀 파일(.xls, .xlsx)을 업로드하면 <strong>초재진구분</strong>을 우선으로 간단 통계를 자동 생성합니다. 사용 컬럼: 내원경로, 보험유형, 초재진구분, 주소</p>
+      <div id="uploader" class="uploader">
+        <div><strong>파일을 드래그하거나 선택하세요</strong></div>
+        <input id="fileInput" type="file" accept=".xls,.xlsx,.xlsm,.csv" />
+        <div class="note">현재 화면은 사용자가 올린 병원 내원 데이터 형식에 맞춰 제작되었습니다.</div>
+      </div>
+      <div id="status" class="note"></div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+      <div class="grid">
+        <div class="stat"><div class="label">전체 건수</div><div id="totalCount" class="value">-</div></div>
+        <div class="stat"><div class="label">초재진구분 종류 수</div><div id="visitTypeKinds" class="value">-</div></div>
+        <div class="stat"><div class="label">가장 많은 초재진구분</div><div id="topVisitType" class="value" style="font-size:20px;">-</div></div>
+        <div class="stat"><div class="label">가장 많은 내원경로</div><div id="topPath" class="value" style="font-size:20px;">-</div></div>
+      </div>
+
+      <div class="section cards-2">
+        <div class="card">
+          <h2 class="section-title">초재진구분 분포</h2>
+          <div id="visitTypeBars"></div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">한눈에 보는 요약</h2>
+          <div id="summaryPills"></div>
+          <div id="summaryText" class="note" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <div class="section cards-3">
+        <div class="card">
+          <h2 class="section-title">내원경로 TOP 10</h2>
+          <div id="pathTable"></div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">보험유형 TOP 10</h2>
+          <div id="insuranceTable"></div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">주소 권역 TOP 10</h2>
+          <div id="regionTable"></div>
+        </div>
+      </div>
+
+      <div class="section card">
+        <h2 class="section-title">초재진구분 × 내원경로</h2>
+        <div id="visitByPathTable"></div>
+      </div>
+
+      <div class="section card">
+        <h2 class="section-title">초재진구분 × 보험유형</h2>
+        <div id="visitByInsuranceTable"></div>
+      </div>
+
+      <div class="section card">
+        <h2 class="section-title">초재진구분 × 주소 권역</h2>
+        <div id="visitByRegionTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const REQUIRED_COLUMNS = ["내원경로", "보험유형", "초재진구분", "주소"];
+
+    const fileInput = document.getElementById("fileInput");
+    const uploader = document.getElementById("uploader");
+    const statusEl = document.getElementById("status");
+    const dashboard = document.getElementById("dashboard");
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    ["dragenter", "dragover"].forEach(evt => uploader.addEventListener(evt, (e) => {
+      e.preventDefault();
+      uploader.classList.add("dragover");
+    }));
+    ["dragleave", "drop"].forEach(evt => uploader.addEventListener(evt, (e) => {
+      e.preventDefault();
+      uploader.classList.remove("dragover");
+    }));
+    uploader.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    function clean(value) {
+      if (value === undefined || value === null) return "미상";
+      const text = String(value).replace(/\s+/g, " ").trim();
+      if (!text || text.toLowerCase() === "none" || text.toLowerCase() === "nan") return "미상";
+      return text;
+    }
+
+    function regionFromAddress(address) {
+      const addr = clean(address);
+      if (addr === "미상") return "미상";
+      const first = addr.split(" ")[0] || "미상";
+
+      if (["서울시", "서울특별시", "서울"].includes(first)) return "서울";
+      if (["경기도", "경기"].includes(first)) return "경기";
+      if (["인천광역시", "인천시", "인천"].includes(first)) return "인천";
+      if (["부산광역시", "부산시", "부산"].includes(first)) return "부산";
+      if (["대구광역시", "대구시", "대구"].includes(first)) return "대구";
+      if (["대전광역시", "대전시", "대전"].includes(first)) return "대전";
+      if (["광주광역시", "광주시", "광주"].includes(first)) return "광주";
+      if (["울산광역시", "울산시", "울산"].includes(first)) return "울산";
+      if (["세종특별자치시", "세종시", "세종"].includes(first)) return "세종";
+      if (["강원특별자치도", "강원도", "강원"].includes(first)) return "강원";
+      if (["충청북도", "충북"].includes(first)) return "충북";
+      if (["충청남도", "충남"].includes(first)) return "충남";
+      if (["전북특별자치도", "전라북도", "전북"].includes(first)) return "전북";
+      if (["전라남도", "전남"].includes(first)) return "전남";
+      if (["경상북도", "경북"].includes(first)) return "경북";
+      if (["경상남도", "경남"].includes(first)) return "경남";
+      if (["제주특별자치도", "제주도", "제주"].includes(first)) return "제주";
+
+      const guMatch = first.match(/.+(구|군|시)$/);
+      if (guMatch) return first;
+      return first;
+    }
+
+    function countBy(rows, key) {
+      const map = new Map();
+      rows.forEach(row => {
+        const value = clean(row[key]);
+        map.set(value, (map.get(value) || 0) + 1);
+      });
+      return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    }
+
+    function crossTab(rows, primaryKey, secondaryKey, secondaryTransform = null, topN = 10) {
+      const primaryValues = countBy(rows, primaryKey).map(([name]) => name);
+      const secondaryMap = new Map();
+
+      rows.forEach(row => {
+        const p = clean(row[primaryKey]);
+        const raw = secondaryTransform ? secondaryTransform(row[secondaryKey]) : clean(row[secondaryKey]);
+        const s = clean(raw);
+        if (!secondaryMap.has(s)) secondaryMap.set(s, {});
+        secondaryMap.get(s)[p] = (secondaryMap.get(s)[p] || 0) + 1;
+      });
+
+      const rankedSecondary = [...secondaryMap.entries()]
+        .map(([name, values]) => ({
+          name,
+          total: Object.values(values).reduce((a, b) => a + b, 0),
+          values
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, topN);
+
+      return { primaryValues, rankedSecondary };
+    }
+
+    function percent(n, total) {
+      if (!total) return "0.0%";
+      return ((n / total) * 100).toFixed(1) + "%";
+    }
+
+    function renderSimpleTable(targetId, entries, total) {
+      const html = `
+        <table>
+          <thead><tr><th>항목</th><th>건수</th><th>비율</th></tr></thead>
+          <tbody>
+            ${entries.map(([name, cnt]) => `<tr><td>${escapeHtml(name)}</td><td>${cnt.toLocaleString()}</td><td>${percent(cnt, total)}</td></tr>`).join("")}
+          </tbody>
+        </table>`;
+      document.getElementById(targetId).innerHTML = html;
+    }
+
+    function renderCrossTable(targetId, cross, primaryLabel) {
+      const headers = cross.primaryValues;
+      const html = `
+        <table>
+          <thead>
+            <tr>
+              <th>${primaryLabel}</th>
+              ${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}
+              <th>합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cross.rankedSecondary.map(row => `
+              <tr>
+                <td>${escapeHtml(row.name)}</td>
+                ${headers.map(h => `<td>${(row.values[h] || 0).toLocaleString()}</td>`).join("")}
+                <td><strong>${row.total.toLocaleString()}</strong></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+      document.getElementById(targetId).innerHTML = html;
+    }
+
+    function renderVisitBars(entries, total) {
+      document.getElementById("visitTypeBars").innerHTML = entries.map(([name, cnt]) => `
+        <div class="bar-row">
+          <div class="bar-head">
+            <strong>${escapeHtml(name)}</strong>
+            <span>${cnt.toLocaleString()}건 · ${percent(cnt, total)}</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(cnt / total) * 100}%"></div></div>
+        </div>`).join("");
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", "&#039;");
+    }
+
+    async function handleFile(file) {
+      try {
+        statusEl.innerHTML = `파일 읽는 중: <span class="ok">${escapeHtml(file.name)}</span>`;
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+        if (!json.length) throw new Error("시트에 데이터가 없습니다.");
+
+        const columns = Object.keys(json[0]);
+        const missing = REQUIRED_COLUMNS.filter(col => !columns.includes(col));
+        if (missing.length) {
+          throw new Error(`필수 컬럼이 없습니다: ${missing.join(", ")}`);
+        }
+
+        const filtered = json
+          .map(row => ({
+            내원경로: clean(row["내원경로"]),
+            보험유형: clean(row["보험유형"]),
+            초재진구분: clean(row["초재진구분"]),
+            주소: clean(row["주소"]),
+            주소권역: regionFromAddress(row["주소"])
+          }))
+          .filter(row => !/[【\[]\s*(소\s*계|총\s*계)\s*[】\]]/.test(row.내원경로))
+          .filter(row => row.내원경로 !== "미상" || row.보험유형 !== "미상" || row.초재진구분 !== "미상" || row.주소 !== "미상");
+
+        if (!filtered.length) throw new Error("집계 가능한 행이 없습니다.");
+
+        const total = filtered.length;
+        const visitTypes = countBy(filtered, "초재진구분");
+        const paths = countBy(filtered, "내원경로");
+        const insurances = countBy(filtered, "보험유형");
+        const regions = countBy(filtered, "주소권역");
+
+        document.getElementById("totalCount").textContent = total.toLocaleString();
+        document.getElementById("visitTypeKinds").textContent = visitTypes.length.toLocaleString();
+        document.getElementById("topVisitType").textContent = `${visitTypes[0][0]} (${visitTypes[0][1].toLocaleString()}건)`;
+        document.getElementById("topPath").textContent = `${paths[0][0]} (${paths[0][1].toLocaleString()}건)`;
+
+        renderVisitBars(visitTypes, total);
+        renderSimpleTable("pathTable", paths.slice(0, 10), total);
+        renderSimpleTable("insuranceTable", insurances.slice(0, 10), total);
+        renderSimpleTable("regionTable", regions.slice(0, 10), total);
+
+        renderCrossTable("visitByPathTable", crossTab(filtered, "초재진구분", "내원경로"), "내원경로");
+        renderCrossTable("visitByInsuranceTable", crossTab(filtered, "초재진구분", "보험유형"), "보험유형");
+        renderCrossTable("visitByRegionTable", crossTab(filtered, "초재진구분", "주소권역"), "주소 권역");
+
+        document.getElementById("summaryPills").innerHTML = [
+          `전체 ${total.toLocaleString()}건`,
+          `최다 초재진구분: ${visitTypes[0][0]}`,
+          `최다 내원경로: ${paths[0][0]}`,
+          `최다 보험유형: ${insurances[0][0]}`,
+          `최다 주소권역: ${regions[0][0]}`
+        ].map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("");
+
+        document.getElementById("summaryText").innerHTML = `
+          초재진구분 기준으로 보면 <strong>${escapeHtml(visitTypes[0][0])}</strong>이(가) ${visitTypes[0][1].toLocaleString()}건(${percent(visitTypes[0][1], total)})으로 가장 많습니다.<br>
+          내원경로는 <strong>${escapeHtml(paths[0][0])}</strong> ${paths[0][1].toLocaleString()}건, 보험유형은 <strong>${escapeHtml(insurances[0][0])}</strong> ${insurances[0][1].toLocaleString()}건이 가장 많습니다.<br>
+          주소는 첫 권역 기준으로 묶어 집계했습니다.`;
+
+        dashboard.classList.remove("hidden");
+        statusEl.innerHTML = `분석 완료: <span class="ok">${escapeHtml(file.name)}</span> · ${total.toLocaleString()}건 집계`;
+      } catch (error) {
+        dashboard.classList.add("hidden");
+        statusEl.textContent = `오류: ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
