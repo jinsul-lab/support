@@ -372,9 +372,12 @@
       allIds.add(id);
       if(!aggB.has(id)) aggB.set(id, { name: row[confB.map.name], cash: 0, card: 0, total: 0 });
       const ent = aggB.get(id), m = confB.map;
-      ent.cash += (toN(row[m.cash]) + toN(row[m.acc]));
-      ent.card += toN(row[m.card]);
-      ent.total += (toN(row[m.total]) || (ent.cash + ent.card));
+      const rowCash = toN(row[m.cash]);
+      const rowAcc = toN(row[m.acc]);
+      const rowCard = toN(row[m.card]);
+      ent.cash += (rowCash + rowAcc);
+      ent.card += rowCard;
+      ent.total += (rowCash + rowAcc + rowCard);
     });
 
     Array.from(allIds).sort((a,b)=>a-b).forEach(id => {
