@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>병원 개원 수익 계산기</title>
+  <style>
+    :root{
+      --bg:#f6f8fc; --card:#ffffff; --line:#d9e0ea; --text:#1f2937; --muted:#6b7280;
+      --blue:#2563eb; --blue-soft:#dbeafe; --green:#047857; --green-soft:#d1fae5;
+      --orange:#c2410c; --orange-soft:#ffedd5; --red:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    .wrap{max-width:1400px;margin:0 auto;padding:20px}
+    .topbar{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:18px}
+    h1{margin:0 0 6px;font-size:30px}
+    .subtitle{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    button{border:0;border-radius:12px;padding:11px 15px;font-size:14px;font-weight:700;cursor:pointer}
+    .primary{background:var(--blue);color:#fff}
+    .secondary{background:#eef2ff;color:#3730a3}
+    .danger{background:#fef2f2;color:var(--red)}
+    .grid{display:grid;grid-template-columns:1.42fr .78fr;gap:18px;align-items:start}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+    .section-title{margin:0 0 10px;font-size:20px}
+    .section-note{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.6}
+    .top-settings{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field.full{grid-column:1/-1}
+    label{font-size:13px;font-weight:700}
+    input, select, textarea{
+      width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;background:#fff;font-family:inherit
+    }
+    textarea{min-height:86px;resize:vertical}
+    .hint{font-size:12px;color:var(--muted);line-height:1.6}
+    .hidden{display:none !important}
+    details.advanced{
+      border:1px solid #c7d2fe;border-radius:14px;background:#f8fbff;margin-bottom:16px
+    }
+    details.advanced summary{
+      list-style:none;cursor:pointer;padding:13px 14px;font-weight:800;color:#1e3a8a
+    }
+    details.advanced summary::-webkit-details-marker{display:none}
+    .advanced-inner{padding:0 14px 14px}
+    .advanced-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .revenue-box{
+      display:grid;grid-template-columns:180px 1fr 170px;gap:10px;align-items:center;
+      padding:14px;border:1px solid #bfdbfe;border-radius:14px;background:var(--blue-soft);margin-bottom:16px
+    }
+    .revenue-box .label{font-weight:800}
+    .revenue-box .total{text-align:right;font-size:22px;font-weight:800}
+    .category-card{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:14px;background:#fff}
+    .category-head{
+      display:flex;justify-content:space-between;gap:12px;align-items:center;
+      padding:12px 14px;background:#f8fafc;border-bottom:1px solid var(--line)
+    }
+    .category-left{display:flex;flex-direction:column;gap:4px}
+    .category-name{font-size:16px;font-weight:800}
+    .category-note{font-size:12px;color:var(--muted)}
+    .category-right{text-align:right}
+    .category-sum{font-size:22px;font-weight:800}
+    .category-ratio{font-size:12px;color:var(--muted)}
+    .item-table{width:100%;border-collapse:collapse;table-layout:fixed}
+    .item-table th,.item-table td{border-bottom:1px solid #edf2f7;padding:9px 10px;font-size:13px;vertical-align:middle}
+    .item-table th{background:#fcfcfd;color:var(--muted);text-align:left}
+    .item-table .num{text-align:right}
+    .row-btn{padding:7px 10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer}
+    .category-actions{padding:10px 14px;display:flex;justify-content:flex-end;background:#fff}
+    .summary{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:14px}
+    .metric{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+    .metric.blue{background:var(--blue-soft);border-color:#bfdbfe}
+    .metric.green{background:var(--green-soft);border-color:#a7f3d0}
+    .metric.orange{background:var(--orange-soft);border-color:#fed7aa}
+    .metric .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .metric .value{font-size:27px;font-weight:800;word-break:break-all}
+    .result-table{width:100%;border-collapse:collapse;margin-top:14px}
+    .result-table th,.result-table td{border-bottom:1px solid #e5e7eb;padding:10px 6px;font-size:14px;text-align:left;vertical-align:top}
+    .result-table th{width:42%;color:var(--muted)}
+    .note{
+      margin-top:14px;padding:14px;border-radius:14px;background:#fff7ed;border:1px solid #fed7aa;
+      color:#9a3412;font-size:12px;line-height:1.7
+    }
+    @media (max-width:1100px){
+      .grid,.summary,.top-settings,.advanced-grid{grid-template-columns:1fr}
+      .revenue-box{grid-template-columns:1fr}
+      .revenue-box .total{text-align:left}
+    }
+    @media print{
+      body{background:#fff}.wrap{max-width:none;padding:0}.actions,.category-actions,.row-btn,.note{display:none !important}
+      .grid{grid-template-columns:1fr}.card{box-shadow:none}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>병원 개원 수익 계산기</h1>
+      <p class="subtitle">종합소득공제는 선택형으로, 세액공제/감면은 기본 0원 또는 직접반영 선택형으로 바꾼 버전입니다.</p>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="recalculate()">계산하기</button>
+      <button class="secondary" onclick="window.print()">인쇄 / PDF 저장</button>
+      <button class="danger" onclick="resetAll()">전체 초기화</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2 class="section-title">기본 입력</h2>
+      <p class="section-note">월/연, 총수익, 귀속연도만 먼저 입력하고, 필요하면 아래 고급설정을 펼쳐 공제와 감면 방식을 조정합니다.</p>
+
+      <div class="top-settings">
+        <div class="field">
+          <label for="basisType">입력 기준</label>
+          <select id="basisType" onchange="recalculate()">
+            <option value="monthly">월 기준</option>
+            <option value="yearly">연 기준</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="grossRevenue">총수익</label>
+          <input id="grossRevenue" type="number" step="10000" placeholder="예: 300000000" oninput="recalculate()">
+          <div class="hint">월 기준 선택 시 월수익, 연 기준 선택 시 연수익을 입력합니다.</div>
+        </div>
+        <div class="field">
+          <label for="yearSelect">귀속연도</label>
+          <select id="yearSelect" onchange="applyYearPreset()">
+            <option value="2025">2025</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>고급설정 펼치기</summary>
+        <div class="advanced-inner">
+          <div class="advanced-grid">
+            <div class="field">
+              <label for="deductionMode">종합소득공제 방식</label>
+              <select id="deductionMode" onchange="handleDeductionModeChange()">
+                <option value="basic">기본형(본인만)</option>
+                <option value="spouse">배우자 포함</option>
+                <option value="family">배우자 + 자녀 포함</option>
+                <option value="custom">직접입력</option>
+              </select>
+              <div class="hint">상담용 추정치로 자동 반영합니다.</div>
+            </div>
+
+            <div class="field" id="incomeDeductionField">
+              <label for="incomeDeduction">종합소득공제 금액</label>
+              <input id="incomeDeduction" type="number" step="10000" oninput="recalculate()" readonly>
+              <div class="hint">선택형 모드에서는 자동 입력됩니다.</div>
+            </div>
+
+            <div class="field">
+              <label for="taxReliefMode">세액공제 / 감면 방식</label>
+              <select id="taxReliefMode" onchange="handleTaxReliefModeChange()">
+                <option value="none">반영 안 함(기본)</option>
+                <option value="custom">직접 반영</option>
+              </select>
+              <div class="hint">청년채용·고용증대 등은 실제 요건 충족 시에만 직접 반영합니다.</div>
+            </div>
+
+            <div class="field hidden" id="taxCreditField">
+              <label for="taxCredit">세액공제 / 감면 금액</label>
+              <input id="taxCredit" type="number" step="10000" oninput="recalculate()">
+              <div class="hint">실제 세무 검토 후 확정된 경우에만 넣는 것을 권장합니다.</div>
+            </div>
+
+            <div class="field">
+              <label for="localTaxRate">지방소득세율(종합소득세의 %)</label>
+              <input id="localTaxRate" type="number" step="0.1" oninput="recalculate()" readonly>
+              <div class="hint">기본값 10%로 자동 적용됩니다.</div>
+            </div>
+
+            <div class="field full">
+              <label for="memo">메모</label>
+              <textarea id="memo" oninput="recalculate()" placeholder="예: 월매출 4억 가정, 직원 6명, 부원장 1명 포함"></textarea>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="revenue-box">
+        <div class="label">연 환산 총수익</div>
+        <div class="hint" id="basisHint">월 기준 입력값을 12배하여 연간 기준으로 세금을 계산합니다.</div>
+        <div class="total" id="revenueDisplay">0원</div>
+      </div>
+
+      <h2 class="section-title">지출 계정</h2>
+      <p class="section-note">수익은 하나로 보고, 지출은 계정별로 나누되 각 계정 안에 세부항목을 자유롭게 추가합니다.</p>
+
+      <div id="categories"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">계산 결과</h2>
+
+      <div class="summary">
+        <div class="metric blue">
+          <div class="label">연 환산 총지출</div>
+          <div class="value" id="expenseCard">0원</div>
+        </div>
+        <div class="metric blue">
+          <div class="label">영업이익</div>
+          <div class="value" id="operatingCard">0원</div>
+        </div>
+        <div class="metric orange">
+          <div class="label">예상 총 세부담</div>
+          <div class="value" id="taxCard">0원</div>
+        </div>
+        <div class="metric green">
+          <div class="label">세후 순수익</div>
+          <div class="value" id="netCard">0원</div>
+        </div>
+      </div>
+
+      <table class="result-table">
+        <tr><th>입력 기준</th><td id="resBasis">월 기준</td></tr>
+        <tr><th>연 환산 총수익</th><td id="resRevenue">0원</td></tr>
+        <tr><th>연 환산 총지출</th><td id="resExpense">0원</td></tr>
+        <tr><th>영업이익</th><td id="resOperating">0원</td></tr>
+        <tr><th>종합소득공제 방식</th><td id="resDeductionMode">기본형(본인만)</td></tr>
+        <tr><th>종합소득공제 금액</th><td id="resDeduction">0원</td></tr>
+        <tr><th>과세표준</th><td id="resTaxBase">0원</td></tr>
+        <tr><th>예상 종합소득세</th><td id="resIncomeTax">0원</td></tr>
+        <tr><th>세액공제/감면 방식</th><td id="resTaxReliefMode">반영 안 함(기본)</td></tr>
+        <tr><th>세액공제 반영 후 종합소득세</th><td id="resTaxAfterCredit">0원</td></tr>
+        <tr><th>예상 지방소득세</th><td id="resLocalTax">0원</td></tr>
+        <tr><th>예상 총 세부담</th><td id="resTotalTax">0원</td></tr>
+        <tr><th>세후 순수익</th><td id="resNet"><strong>0원</strong></td></tr>
+        <tr><th>메모</th><td id="resMemo">-</td></tr>
+      </table>
+
+      <div class="note">
+        종합소득공제는 선택형 자동 반영으로 두었고, 세액공제/감면은 기본적으로 0원으로 계산합니다. 특별한 감면이 실제로 적용되는 경우에만 직접 반영하는 방식이 더 안전합니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const yearPresets = {
+  2025: { localTaxRate: 10 }
+};
+
+const deductionPresets = {
+  basic: { label: "기본형(본인만)", amount: 1500000 },
+  spouse: { label: "배우자 포함", amount: 3000000 },
+  family: { label: "배우자 + 자녀 포함", amount: 4500000 },
+  custom: { label: "직접입력", amount: 0 }
+};
+
+const taxReliefPresets = {
+  none: "반영 안 함(기본)",
+  custom: "직접 반영"
+};
+
+const taxBrackets2025 = [
+  { limit: 14000000, rate: 0.06, deduction: 0 },
+  { limit: 50000000, rate: 0.15, deduction: 1260000 },
+  { limit: 88000000, rate: 0.24, deduction: 5760000 },
+  { limit: 150000000, rate: 0.35, deduction: 15440000 },
+  { limit: 300000000, rate: 0.38, deduction: 19940000 },
+  { limit: 500000000, rate: 0.40, deduction: 25940000 },
+  { limit: 1000000000, rate: 0.42, deduction: 35940000 },
+  { limit: Infinity, rate: 0.45, deduction: 65940000 }
+];
+
+const categoryTemplates = [
+  { key:'payroll', name:'인건비', note:'예: 정규직, 알바, 부원장, 퇴직금, 사업주부담 4대보험' },
+  { key:'welfare', name:'복리후생비', note:'예: 식대, 간식, 회식, 복지비' },
+  { key:'rent', name:'임차료/관리비', note:'예: 임대료, 관리비, 전기/수도, 통신비' },
+  { key:'materials', name:'재료비/의약품비', note:'예: 의료소모품, 의약품, 진료재료' },
+  { key:'ad', name:'광고선전비', note:'예: 키워드광고, 플랫폼광고, 오프라인광고' },
+  { key:'fees', name:'지급수수료', note:'예: 카드수수료, 세무기장료, 노무기장료, 프로그램 사용료' },
+  { key:'tax', name:'공과금/세금', note:'예: 세금과공과, 협회비, 각종 공과금' },
+  { key:'supplies', name:'비품/소모품', note:'예: 사무용품, 생활비품, 잡소모품' },
+  { key:'repair', name:'수선/유지비', note:'예: 장비수리, 인테리어보수, 시설유지' },
+  { key:'depreciation', name:'감가상각비', note:'예: 장비, 인테리어, 집기 감가상각 반영액' },
+  { key:'other', name:'기타비용', note:'예: 기타 예외 비용' }
+];
+
+function num(v){ return Number(v || 0); }
+function won(v){ return Math.round(v).toLocaleString('ko-KR') + '원'; }
+function pct(v){ return (v || 0).toFixed(1) + '%'; }
+
+function createCategoryBlock(cat){
+  const div = document.createElement('div');
+  div.className = 'category-card';
+  div.dataset.key = cat.key;
+  div.innerHTML = `
+    <div class="category-head">
+      <div class="category-left">
+        <div class="category-name">${cat.name}</div>
+        <div class="category-note">${cat.note}</div>
+      </div>
+      <div class="category-right">
+        <div class="category-sum" id="${cat.key}-sum">0원</div>
+        <div class="category-ratio" id="${cat.key}-ratio">총수익 대비 0.0%</div>
+      </div>
+    </div>
+    <table class="item-table">
+      <colgroup>
+        <col>
+        <col style="width:180px">
+        <col style="width:86px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>세부항목</th>
+          <th>금액</th>
+          <th>삭제</th>
+        </tr>
+      </thead>
+      <tbody id="${cat.key}-tbody"></tbody>
+    </table>
+    <div class="category-actions">
+      <button class="secondary row-btn" onclick="addItemRow('${cat.key}')">${cat.name} 항목 추가</button>
+    </div>
+  `;
+  return div;
+}
+
+function addItemRow(categoryKey, itemName='', amount=''){
+  const tbody = document.getElementById(`${categoryKey}-tbody`);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" placeholder="예: 세부항목명 입력" value="${itemName}"></td>
+    <td><input class="num" type="number" step="1000" value="${amount}" oninput="recalculate()"></td>
+    <td><button class="danger row-btn" onclick="removeItemRow(this)">삭제</button></td>
+  `;
+  tbody.appendChild(tr);
+  recalculate();
+}
+
+function removeItemRow(btn){
+  const tbody = btn.closest('tbody');
+  const rows = tbody.querySelectorAll('tr');
+  if (rows.length > 1){
+    btn.closest('tr').remove();
+  } else {
+    const inputs = tbody.querySelectorAll('input');
+    inputs.forEach(i => i.value = '');
+  }
+  recalculate();
+}
+
+function getAnnualRevenue(){
+  const val = num(document.getElementById('grossRevenue').value);
+  const basis = document.getElementById('basisType').value;
+  return basis === 'monthly' ? val * 12 : val;
+}
+
+function getCategorySum(key){
+  let sum = 0;
+  document.querySelectorAll(`#${key}-tbody input[type="number"]`).forEach(el => sum += num(el.value));
+  return sum;
+}
+
+function getAnnualExpense(){
+  let total = 0;
+  categoryTemplates.forEach(cat => total += getCategorySum(cat.key));
+  const basis = document.getElementById('basisType').value;
+  return basis === 'monthly' ? total * 12 : total;
+}
+
+function calcIncomeTax(base){
+  if (base <= 0) return 0;
+  for (const b of taxBrackets2025){
+    if (base <= b.limit){
+      return Math.max(0, base * b.rate - b.deduction);
+    }
+  }
+  return 0;
+}
+
+function applyYearPreset(){
+  const year = document.getElementById('yearSelect').value;
+  const preset = yearPresets[year];
+  if (preset){
+    document.getElementById('localTaxRate').value = preset.localTaxRate;
+  }
+  handleDeductionModeChange();
+  handleTaxReliefModeChange();
+  recalculate();
+}
+
+function handleDeductionModeChange(){
+  const mode = document.getElementById('deductionMode').value;
+  const input = document.getElementById('incomeDeduction');
+  if (mode === 'custom'){
+    input.readOnly = false;
+    if (!input.value) input.value = '';
+  } else {
+    input.readOnly = true;
+    input.value = deductionPresets[mode].amount;
+  }
+  recalculate();
+}
+
+function handleTaxReliefModeChange(){
+  const mode = document.getElementById('taxReliefMode').value;
+  const field = document.getElementById('taxCreditField');
+  const input = document.getElementById('taxCredit');
+  if (mode === 'custom'){
+    field.classList.remove('hidden');
+  } else {
+    field.classList.add('hidden');
+    input.value = 0;
+  }
+  recalculate();
+}
+
+function recalculate(){
+  const annualRevenue = getAnnualRevenue();
+  const annualExpense = getAnnualExpense();
+  const basis = document.getElementById('basisType').value;
+  const deductionMode = document.getElementById('deductionMode').value;
+  const taxReliefMode = document.getElementById('taxReliefMode').value;
+
+  document.getElementById('basisHint').textContent =
+    basis === 'monthly'
+      ? '월 기준 입력값을 12배하여 연간 기준으로 세금을 계산합니다.'
+      : '연 기준 입력값으로 바로 세금을 계산합니다.';
+
+  document.getElementById('revenueDisplay').textContent = won(annualRevenue);
+
+  categoryTemplates.forEach(cat => {
+    const rawSum = getCategorySum(cat.key);
+    const sum = basis === 'monthly' ? rawSum * 12 : rawSum;
+    const ratio = annualRevenue !== 0 ? (sum / annualRevenue) * 100 : 0;
+    document.getElementById(`${cat.key}-sum`).textContent = won(sum);
+    document.getElementById(`${cat.key}-ratio`).textContent = `총수익 대비 ${pct(ratio)}`;
+  });
+
+  const operatingProfit = annualRevenue - annualExpense;
+  const deduction = num(document.getElementById('incomeDeduction').value);
+  const taxCredit = num(document.getElementById('taxCredit').value);
+  const localTaxRate = num(document.getElementById('localTaxRate').value);
+
+  const taxBase = Math.max(0, operatingProfit - deduction);
+  const incomeTax = calcIncomeTax(taxBase);
+  const taxAfterCredit = Math.max(0, incomeTax - taxCredit);
+  const localTax = taxAfterCredit * (localTaxRate / 100);
+  const totalTax = taxAfterCredit + localTax;
+  const net = operatingProfit - totalTax;
+
+  document.getElementById('expenseCard').textContent = won(annualExpense);
+  document.getElementById('operatingCard').textContent = won(operatingProfit);
+  document.getElementById('taxCard').textContent = won(totalTax);
+  document.getElementById('netCard').textContent = won(net);
+
+  document.getElementById('resBasis').textContent = basis === 'monthly' ? '월 기준' : '연 기준';
+  document.getElementById('resRevenue').textContent = won(annualRevenue);
+  document.getElementById('resExpense').textContent = won(annualExpense);
+  document.getElementById('resOperating').textContent = won(operatingProfit);
+  document.getElementById('resDeductionMode').textContent = deductionPresets[deductionMode].label;
+  document.getElementById('resDeduction').textContent = won(deduction);
+  document.getElementById('resTaxBase').textContent = won(taxBase);
+  document.getElementById('resIncomeTax').textContent = won(incomeTax);
+  document.getElementById('resTaxReliefMode').textContent = taxReliefPresets[taxReliefMode];
+  document.getElementById('resTaxAfterCredit').textContent = won(taxAfterCredit);
+  document.getElementById('resLocalTax').textContent = won(localTax);
+  document.getElementById('resTotalTax').textContent = won(totalTax);
+  document.getElementById('resNet').innerHTML = `<strong>${won(net)}</strong>`;
+  document.getElementById('resMemo').textContent = document.getElementById('memo').value.trim() || '-';
+}
+
+function resetAll(){
+  document.getElementById('basisType').value = 'monthly';
+  document.getElementById('grossRevenue').value = '';
+  document.getElementById('yearSelect').value = '2025';
+  document.getElementById('deductionMode').value = 'basic';
+  document.getElementById('taxReliefMode').value = 'none';
+  document.getElementById('memo').value = '';
+
+  categoryTemplates.forEach(cat => {
+    const tbody = document.getElementById(`${cat.key}-tbody`);
+    tbody.innerHTML = '';
+    addItemRow(cat.key, '', '');
+  });
+
+  applyYearPreset();
+}
+
+(function init(){
+  const container = document.getElementById('categories');
+  categoryTemplates.forEach(cat => container.appendChild(createCategoryBlock(cat)));
+  resetAll();
+})();
+</script>
+</body>
+</html>
