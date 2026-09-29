@@ -5,7 +5,7 @@
 - Entry point: `patient-position.html` on `main`.
 - Hosting: existing GitHub Pages, publish from `main` at repository root.
 - Assets: `position-assets/` (24 generated illustrations; reused across 88 regional variants).
-- Current release: `1.2.0` (2026-09-29).
+- Current release: `1.3.0` (2026-09-29).
 
 ## Future updates
 
@@ -22,3 +22,5 @@ The illustrations are preparation aids and broad surface-region examples, not ve
 Release 1.1.0: Patient injection positioning title, editable hospital collaboration with JINSUL, self-hosted Paperlogy fonts with OFL license, configurable A4 education printing, fixed copyright year 2020.
 
 Release 1.2.0: 12 region-specific clothing edits expose shoulders, back, lumbar and rib areas with intact naturally folded clothing. Shoulder IA example is on the arm crossing the chest; only the unchanged old default marker moves, custom markers are preserved. Original 24 assets remain for other regions.
+
+Release 1.3.0: Back-buttoning patient shirts across active illustrations. A dedicated rear-view cervical side-lying image places the dependent arm in front of the abdomen (naturally occluded in rear view), upper hand at hip. Previous custom markers for this changed view are archived for review; all other region poses are preserved.
